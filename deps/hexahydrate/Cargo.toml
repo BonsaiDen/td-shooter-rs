@@ -1,0 +1,15 @@
+[package]
+name = "hexahydrate"
+version = "0.1.0"
+authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
+
+[dependencies]
+lazy_static = "0.2.2"
+clippy = { version = "*", optional = true }
+
+[dev-dependencies]
+cobalt = "0.11.0"
+
+[features]
+lint = ["clippy"]
+

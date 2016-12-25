@@ -1,0 +1,12 @@
+[package]
+name = "server"
+version = "0.1.0"
+authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
+
+[dependencies]
+shared = { path = "../shared", version = "0.1.0" }
+netsync = { path = "../deps/netsync", version = "0.1.0" }
+hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
+cobalt = "0.13.0"
+clap = "*"
+
