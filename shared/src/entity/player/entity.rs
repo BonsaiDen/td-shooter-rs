@@ -68,7 +68,7 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerPositi
             Some(self.state.send(None))
 
         } else {
-            Some(self.state.send(Some(2)))
+            Some(self.state.send(Some(4))) // TODO make configurable
         }
     }
 
