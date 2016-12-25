@@ -17,7 +17,7 @@ fn main() {
             .value_name("LISTENING_ADDR")
             .help("Specifies the host:port on which to listen for network traffic.")
             .takes_value(true)
-            .default_value("127.0.0.1:7156")
+            .default_value("0.0.0.0:7156")
         )
         .get_matches();
 
