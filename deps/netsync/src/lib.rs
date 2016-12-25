@@ -159,7 +159,9 @@ pub struct ServerState<P: NetworkProperty, I: NetworkInput> {
     confirmed_tick: u8,
     buffered_inputs: VecDeque<I>,
     buffered_states: VecDeque<P>,
-    state_buffer_size: usize
+    state_buffer_size: usize,
+    first_input: bool,
+    last_input_tick: u8
 }
 
 impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
@@ -199,18 +201,11 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
     }
 
     fn receive_input(&mut self, input: I) {
-
-        let more_recent = if let Some(last_input) = self.buffered_inputs.back() {
-            tick_is_more_recent(input.tick(), last_input.tick())
-
-        } else {
-            true
-        };
-
-        if more_recent {
+        if self.first_input || tick_is_more_recent(input.tick(), self.last_input_tick) {
+            self.first_input = false;
+            self.last_input_tick = input.tick();
             self.buffered_inputs.push_back(input);
         }
-
     }
 
 }
@@ -223,7 +218,9 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ServerState<P, 
             confirmed_tick: 0,
             buffered_inputs: VecDeque::new(),
             buffered_states: VecDeque::new(),
-            state_buffer_size: buffer_size
+            state_buffer_size: buffer_size,
+            first_input: true,
+            last_input_tick: 0
         }
     }
 
