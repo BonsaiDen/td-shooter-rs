@@ -58,6 +58,7 @@ mod client;
 
 
 // Re-Exports -----------------------------------------------------------------
+pub const NETWORK_BYTE_OFFSET: u8 = 6;
 pub use self::shared::{Entity, EntityRegistry};
 pub use server::{Server, ConnectionSlot, EntitySlot as ServerEntitySlot, Error as ServerError};
 pub use client::{Client, EntitySlot as ClientEntitySlot, Error as ClientError};

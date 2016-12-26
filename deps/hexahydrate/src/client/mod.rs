@@ -35,9 +35,10 @@ impl EntitySlot {
 
 
 // Client Errors --------------------------------------------------------------
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Error {
-    InvalidPacketData
+    InvalidPacketData(Vec<u8>),
+    RemainingPacketData(Vec<u8>)
 }
 
 
@@ -51,6 +52,7 @@ pub enum NetworkState {
 }
 
 impl NetworkState {
+
     pub fn from_u8(state: u8) -> Option<NetworkState> {
         match state {
             1 => Some(NetworkState::ConfirmCreateToServer),
@@ -60,6 +62,11 @@ impl NetworkState {
             _ => None
         }
     }
+
+    pub fn is_potential_packet(first_byte: u8) -> bool {
+        first_byte >= 1 && first_byte <= 4
+    }
+
 }
 
 
@@ -187,6 +194,13 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
     pub fn receive(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
 
         let (mut i, len) = (0, bytes.len());
+        if len == 0 {
+            return Ok(());
+
+        } else if !ServerNetworkState::is_potential_packet(bytes[0]) {
+            return Err(Error::InvalidPacketData(bytes));
+        }
+
         while i + 1 < len {
 
             let (state, index) = (bytes[i], bytes[i + 1] as usize);
@@ -292,7 +306,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
                     self.handles[index].as_mut().unwrap().forget();
                 },
 
-                None => return Err(Error::InvalidPacketData)
+                None => return Err(Error::RemainingPacketData((&bytes[i..]).to_vec()))
             }
 
         }

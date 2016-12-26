@@ -42,15 +42,17 @@ impl EntitySlot {
     }
 }
 
+
 // Server Errors --------------------------------------------------------------
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Error {
     AllEntitySlotsInUse,
     EntityAlreadyDestroy,
     EntityDoesNotExist,
     AllConnectionSlotsInUse,
     ConnectionDoesNotExist,
-    InvalidPacketData
+    InvalidPacketData(Vec<u8>),
+    RemainingPacketData(Vec<u8>)
 }
 
 
@@ -75,6 +77,11 @@ impl NetworkState {
             _ => None
         }
     }
+
+    pub fn is_potential_packet(first_byte: u8) -> bool {
+        first_byte <= 5
+    }
+
 }
 
 
@@ -350,6 +357,13 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
         if let Some(remote_states) = self.connections[connection_slot.index].as_mut() {
 
             let (mut i, len) = (0, bytes.len());
+            if len == 0 {
+                return Ok(());
+
+            } else if !ClientNetworkState::is_potential_packet(bytes[0]) {
+                return Err(Error::InvalidPacketData(bytes));
+            }
+
             while i + 1 < len {
 
                 let (state, index) = (bytes[i], bytes[i + 1] as usize);
@@ -383,7 +397,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
                             remote_state.forgotten();
                         }
                     },
-                    None => return Err(Error::InvalidPacketData)
+                    None => return Err(Error::RemainingPacketData((&bytes[i..]).to_vec()))
                 }
 
             }

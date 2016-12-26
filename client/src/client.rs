@@ -11,6 +11,7 @@ use cobalt::ConnectionID;
 
 // Internal Dependencies ------------------------------------------------------
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
+use shared::action::Action;
 use ::entity::{Entity, Registry};
 use ::camera::Camera;
 use ::level::Level;
@@ -32,6 +33,7 @@ pub struct Client {
 
     // Network
     client: hexahydrate::Client<Entity, ConnectionID, Registry>,
+    actions: Vec<Action>,
     tick: u8
 }
 
@@ -54,6 +56,7 @@ impl Client {
 
             // Network
             client: hexahydrate::Client::<Entity, ConnectionID, Registry>::new(Registry, (updates_per_second * 2) as usize),
+            actions: Vec::new(),
             tick: 0
 
         }
@@ -62,11 +65,16 @@ impl Client {
     pub fn input(&mut self, e: &Input) {
 
         if let Some(Button::Mouse(button)) = e.press_args() {
-            println!("Pressed mouse button '{:?}'", button);
+            if button == MouseButton::Left {
+                self.actions.push(Action::FireLaser(self.tick));
+                self.buttons |= 16;
+            }
         }
 
         if let Some(Button::Mouse(button)) = e.release_args() {
-            println!("Released mouse button '{:?}'", button);
+            if button == MouseButton::Left {
+                self.buttons &= !16;
+            }
         }
 
         if let Some(value) = e.mouse_scroll_args() {
@@ -109,7 +117,13 @@ impl Client {
                     println!("Now connected to server.");
                 },
                 cobalt::ClientEvent::Message(packet) => {
-                    self.client.receive(packet).expect("Invalid packet received.");
+                    match self.client.receive(packet) {
+                        Err(hexahydrate::ClientError::InvalidPacketData(bytes)) => {
+                            println!("[Client] Unknown packet data: {:?}", bytes);
+                            println!("{:?}", Action::from_bytes(&bytes));
+                        },
+                        _ => {}
+                    }
                 },
                 cobalt::ClientEvent::ConnectionLost => {
                     println!("Lost connection to server!");
@@ -143,6 +157,11 @@ impl Client {
         // Send client inputs to server
         for packet in self.client.send(512) {
             client.send(cobalt::MessageKind::Instant, packet).ok();
+        }
+
+        // Send actions to server
+        for action in self.actions.drain(0..) {
+            client.send(cobalt::MessageKind::Reliable, action.to_bytes()).ok();
         }
 
         client.flush().ok();

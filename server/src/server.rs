@@ -11,6 +11,7 @@ use netsync::ServerState;
 
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
+use shared::action::Action;
 use shared::level::Level;
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
@@ -59,8 +60,13 @@ impl cobalt::Handler<cobalt::Server> for Server {
         for (id, conn) in connections.iter_mut() {
             for packet in conn.received() {
                 if let Some(&(ref slot, _, _)) = self.connections.get(id) {
-                    // TODO handle non-hexahydrate messages
-                    self.server.connection_receive(slot, packet).expect("Invalid packet received.");
+                    match self.server.connection_receive(slot, packet) {
+                        Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
+                            println!("[Server] Unknown packet data: {:?}", bytes);
+                            println!("{:?}", Action::from_bytes(&bytes));
+                        },
+                        _ => {}
+                    }
                 }
             }
         }
@@ -70,6 +76,7 @@ impl cobalt::Handler<cobalt::Server> for Server {
         let dt = self.dt;
         let level = self.level.take().unwrap();
         self.server.update_with(|_, entity| {
+            // TODO need to get the connection handle so we can get the actions
             entity.update(dt, &level);
         });
         self.level = Some(level);

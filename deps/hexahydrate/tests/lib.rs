@@ -786,9 +786,9 @@ fn test_server_ignore_invalid_packets() {
     assert_server_send_empty!(server, connection_one, vec![3, 2, 1, 2]).expect("Server ignores SendUpdateToServer packet for non existent entity");
     assert_server_send_empty!(server, connection_one, vec![3, 2, 1, 2, 5]).expect("Server ignores SendUpdateToServer packet for non existent entity");
 
-    assert_eq!(assert_server_send!(server, connection_one, vec![3, 2, 10, 2, 5], vec![]), Err(ServerError::InvalidPacketData));
-    assert_eq!(assert_server_send!(server, connection_one, vec![5, 2], vec![]), Err(ServerError::InvalidPacketData));
-    assert_eq!(assert_server_send!(server, connection_one, vec![255, 2], vec![]), Err(ServerError::InvalidPacketData));
+    assert_eq!(assert_server_send!(server, connection_one, vec![3, 2, 10, 2, 5], vec![]), Err(ServerError::RemainingPacketData(vec![5])));
+    assert_eq!(assert_server_send!(server, connection_one, vec![5, 2], vec![]), Err(ServerError::InvalidPacketData(vec![5, 2])));
+    assert_eq!(assert_server_send!(server, connection_one, vec![255, 2], vec![]), Err(ServerError::InvalidPacketData(vec![255, 2])));
 
 }
 
@@ -960,20 +960,20 @@ fn test_client_ignore_invalid_packets() {
     assert_client_send_empty!(client, vec![0, 0]).expect("Client ignores incomplete SendCreateToClient packet");
     assert_client_send_empty!(client, vec![0, 0, 1]).expect("Client ignores incomplete SendCreateToClient packet");
     assert_client_send_empty!(client, vec![0, 0, 1, 2]).expect("Client ignores incomplete SendCreateToClient packet");
-    assert_eq!(assert_client_send_empty!(client, vec![0, 0, 10, 2, 5]), Err(ClientError::InvalidPacketData));
+    assert_eq!(assert_client_send_empty!(client, vec![0, 0, 10, 2, 5]), Err(ClientError::RemainingPacketData(vec![5])));
 
     assert_client_send_empty!(client, vec![3, 2]).expect("Client ignores SendUpdateToClient packet for non existent entity");
     assert_client_send_empty!(client, vec![3, 2, 1]).expect("Client ignores SendUpdateToClient packet for non existent entity");
     assert_client_send_empty!(client, vec![3, 2, 1, 2]).expect("Client ignores SendUpdateToClient packet for non existent entity");
-    assert_eq!(assert_client_send_empty!(client, vec![3, 2, 10, 2, 5]), Err(ClientError::InvalidPacketData));
+    assert_eq!(assert_client_send_empty!(client, vec![3, 2, 10, 2, 5]), Err(ClientError::RemainingPacketData(vec![5])));
 
     assert_client_send_empty!(client, vec![4, 2]).expect("Client ignores SendDestroyToClient packet for non existent entity");
     assert_client_send_empty!(client, vec![5, 2]).expect("Client ignores SendForgetToClient packet for non existent entity");
     assert_client_send_empty!(client, vec![1, 2]).expect("Client ignores ConfirmClientCreate packet for non existent entity");
     assert_client_send_empty!(client, vec![1, 2, 0]).expect("Client ignores incomplete secondary packets");
 
-    assert_eq!(assert_client_send_empty!(client, vec![6, 2]), Err(ClientError::InvalidPacketData));
-    assert_eq!(assert_client_send_empty!(client, vec![255, 2]), Err(ClientError::InvalidPacketData));
+    assert_eq!(assert_client_send_empty!(client, vec![6, 2]), Err(ClientError::InvalidPacketData(vec![6, 2])));
+    assert_eq!(assert_client_send_empty!(client, vec![255, 2]), Err(ClientError::InvalidPacketData(vec![255, 2])));
 
     assert_eq!(stats.lock().unwrap().part_calls, 0);
     assert_eq!(stats.lock().unwrap().merge_calls, 0);
