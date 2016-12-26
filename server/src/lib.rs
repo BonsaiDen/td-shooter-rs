@@ -40,9 +40,13 @@ pub fn run(updates_per_second: u64, addr: String, level: Level) -> thread::JoinH
             .. cobalt::Config::default()
         };
 
-        let mut handler = Server::new(updates_per_second, level);
-        let mut server = cobalt::Server::new(config);
-        server.bind(&mut handler, addr.as_str()).unwrap();
+        let mut network = cobalt::ServerStream::new(config);
+        network.bind(addr.as_str()).expect("Failed to bind to address.");
+
+        let mut server = Server::new(updates_per_second);
+        loop {
+            server.update(&level, &mut network);
+        }
 
     })
 

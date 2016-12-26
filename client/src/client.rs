@@ -111,40 +111,44 @@ impl Client {
 
     pub fn update(&mut self, dt: f64, level: &Level, client: &mut cobalt::ClientStream) {
 
+        let input = PlayerInput::new(self.tick, self.buttons, self.input_angle as f32, dt as f32);
+
+        // Receive messages
+        let mut actions = Vec::new();
         while let Ok(event) = client.receive() {
             match event {
                 cobalt::ClientEvent::Connection => {
-                    println!("Now connected to server.");
+                    println!("[Client] Now connected to server.");
                 },
                 cobalt::ClientEvent::Message(packet) => {
                     match self.client.receive(packet) {
                         Err(hexahydrate::ClientError::InvalidPacketData(bytes)) => {
-                            println!("[Client] Unknown packet data: {:?}", bytes);
-                            println!("{:?}", Action::from_bytes(&bytes));
+                            if let Ok(action) = Action::from_bytes(&bytes) {
+                                actions.push(action);
+                            }
                         },
                         _ => {}
                     }
                 },
                 cobalt::ClientEvent::ConnectionLost => {
-                    println!("Lost connection to server!");
+                    println!("[Client] Lost connection to server!");
                     self.client.reset();
                     client.close().ok();
                 },
                 cobalt::ClientEvent::ConnectionClosed(_) => {
-                    println!("Closed connection to server.");
+                    println!("[Client] Closed connection to server.");
                     self.client.reset();
                     client.close().ok();
                 },
                 cobalt::ClientEvent::ConnectionFailed => {
                     self.client.reset();
-                    println!("Failed to connect to server!");
+                    println!("[Client] Failed to connect to server!");
                 },
                 _ => {}
             }
         }
 
         // Update entities
-        let input = PlayerInput::new(self.tick, self.buttons, self.input_angle as f32, dt as f32);
         self.client.update_with(|_, entity| {
             if entity.is_local() {
                 entity.update_local(level, input.clone());
@@ -153,6 +157,11 @@ impl Client {
                 entity.update_remote();
             }
         });
+
+        // Apply actions
+        for action in actions.drain(0..) {
+            println!("[Client] Received action from server: {:?}", action);
+        }
 
         // Send client inputs to server
         for packet in self.client.send(512) {

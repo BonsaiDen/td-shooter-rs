@@ -1,5 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 
 // External Dependencies ------------------------------------------------------
@@ -20,80 +20,97 @@ use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 // Server Implementation ------------------------------------------------------
 pub struct Server {
     dt: f64,
-    level: Option<Level>,
     server: hexahydrate::Server<Entity, ConnectionID>,
-    connections: HashMap<ConnectionID, (hexahydrate::ConnectionSlot<ConnectionID>, hexahydrate::ServerEntitySlot, ColorName)>,
+    connections: HashMap<ConnectionID, (
+        hexahydrate::ConnectionSlot<ConnectionID>,
+        hexahydrate::ServerEntitySlot,
+        ColorName,
+        VecDeque<Action>
+    )>,
     available_colors: Vec<ColorName>
 }
 
 impl Server {
 
-    pub fn new(updates_per_second: u64, level: Level) -> Server {
+    pub fn new(updates_per_second: u64) -> Server {
         Server {
             dt: 1.0 / updates_per_second as f64,
-            level: Some(level),
             server: hexahydrate::Server::<Entity, ConnectionID>::new((updates_per_second * 2) as usize),
             connections: HashMap::new(),
             available_colors: ColorName::all_colored().into_iter().rev().collect()
         }
     }
 
-    fn disconnect(&mut self, connection: &mut cobalt::Connection) {
-        if let Some((slot, entity_slot, color)) = self.connections.remove(&connection.id()) {
-            println!("Client disconnected");
-            self.server.entity_destroy(entity_slot).ok();
-            self.server.connection_remove(slot).expect("Connection does not exist.");
-            self.available_colors.push(color);
-        }
-    }
+    pub fn update(&mut self, level: &Level, server: &mut cobalt::ServerStream) {
 
-}
-
-impl cobalt::Handler<cobalt::Server> for Server {
-
-    fn tick_connections(
-        &mut self, _: &mut cobalt::Server,
-        connections: &mut HashMap<ConnectionID, cobalt::Connection>
-    ) {
-
-        // Receive client inputs
-        for (id, conn) in connections.iter_mut() {
-            for packet in conn.received() {
-                if let Some(&(ref slot, _, _)) = self.connections.get(id) {
-                    match self.server.connection_receive(slot, packet) {
-                        Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
-                            println!("[Server] Unknown packet data: {:?}", bytes);
-                            println!("{:?}", Action::from_bytes(&bytes));
-                        },
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        // TODO clean this up and get rif of the take() workaround
-        // TODO synchronous / event driven cobalt server?
         let dt = self.dt;
-        let level = self.level.take().unwrap();
+
+        // Accept and receive connections / messages
+        while let Ok(event) = server.accept_receive() {
+
+            match event {
+                cobalt::ServerEvent::Bind => {
+                    println!("[Server] Now accepting connections...");
+                },
+                cobalt::ServerEvent::Connection(id) => {
+                    if let Some(conn) = server.connection_mut(&id) {
+                        self.connect(conn);
+                    }
+                },
+                cobalt::ServerEvent::Message(id, packet) => {
+                    if let Some(&mut (ref slot, _, _, ref mut actions)) = self.connections.get_mut(&id) {
+                        match self.server.connection_receive(slot, packet) {
+                            Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
+                                if let Ok(action) = Action::from_bytes(&bytes) {
+                                    // TODO limit number of maximum actions?
+                                    actions.push_back(action);
+                                }
+                            },
+                            _ => {}
+                        }
+                    }
+                },
+                cobalt::ServerEvent::ConnectionLost(id) => {
+                    println!("[Server] Lost connection to client!");
+                    self.disconnect(&id);
+                },
+                cobalt::ServerEvent::ConnectionClosed(id, _) => {
+                    println!("[Server] Closed connection to client.");
+                    self.disconnect(&id);
+                },
+                _ => {}
+            }
+
+        }
+
+        // Update entities
         self.server.update_with(|_, entity| {
-            // TODO need to get the connection handle so we can get the actions
             entity.update(dt, &level);
         });
-        self.level = Some(level);
 
-        // Send updates to clients
-        for (id, conn) in connections.iter_mut() {
-            if let Some(&(ref slot, _, _)) = self.connections.get(id) {
-                for packet in self.server.connection_send(slot, 512).unwrap() {
-                    conn.send(cobalt::MessageKind::Instant, packet);
-                }
+        for (id, &mut (ref slot, _, _, ref mut actions)) in &mut self.connections {
+
+            // Apply Actions
+            while let Some(action) = actions.pop_front() {
+                println!("[Server] Received action from client: {:?}", action);
             }
+
+            // Send updates to clients
+            for packet in self.server.connection_send(slot, 512).unwrap() {
+                server.send(id, cobalt::MessageKind::Instant, packet).ok();
+            }
+
         }
+
+        // This sleeps to achieve the desired server tick rate
+        server.flush().ok();
 
     }
 
-    fn connection(&mut self, _: &mut cobalt::Server, conn: &mut cobalt::Connection) {
+    fn connect(&mut self, conn: &mut cobalt::Connection) {
 
+        // TODO do not directly create a entity but rather add the connection and then wait for a
+        // "JoinGame" Action and create the entity based on that
         if let Ok(slot) = self.server.connection_add(conn.id()) {
 
             if let Some(color) = self.available_colors.pop() {
@@ -107,29 +124,35 @@ impl cobalt::Handler<cobalt::Server> for Server {
                     }))
 
                 }) {
-                    println!("Client connected");
-                    self.connections.insert(conn.id(), (slot, entity_slot, color));
+                    println!("[Server] Client connected.");
+                    self.connections.insert(
+                        conn.id(), (slot, entity_slot, color, VecDeque::new())
+                    );
 
                 } else {
+                    println!("[Server] No more entity slots.");
                     conn.close()
                 }
 
             } else {
+                println!("[Server] No more available colors.");
                 conn.close();
             }
 
         } else {
+            println!("[Server] No more connection slots.");
             conn.close();
         }
 
     }
 
-    fn connection_lost(&mut self, _: &mut cobalt::Server, conn: &mut cobalt::Connection) {
-        self.disconnect(conn);
-    }
-
-    fn connection_closed(&mut self, _: &mut cobalt::Server, conn: &mut cobalt::Connection, _: bool) {
-        self.disconnect(conn);
+    fn disconnect(&mut self, id: &ConnectionID) {
+        if let Some((slot, entity_slot, color, _)) = self.connections.remove(id) {
+            println!("[Server] Client disconnected.");
+            self.server.entity_destroy(entity_slot).ok();
+            self.server.connection_remove(slot).expect("Connection does not exist.");
+            self.available_colors.push(color);
+        }
     }
 
 }
