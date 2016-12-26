@@ -122,7 +122,6 @@ impl Client {
                     self.client.reset();
                     println!("Failed to connect to server!");
                 },
-                cobalt::ClientEvent::Close => {},
                 _ => {}
             }
         }
@@ -164,7 +163,7 @@ impl Client {
         // Camera setup
         self.camera.x = (p.x as f64).max(-200.0).min(200.0);
         self.camera.y = (p.y as f64).max(-200.0).min(200.0);
-        self.camera.update(&args);
+        self.camera.update(args);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor);

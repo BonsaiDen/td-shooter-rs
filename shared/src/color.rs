@@ -98,6 +98,7 @@ impl Color {
         }
     }
 
+    #[allow(float_cmp)]
     pub fn to_hsl(&self) -> HSLColor {
 
         let (r, g, b) = (
@@ -152,7 +153,7 @@ impl Color {
         self.to_hsl().lighten(by).to_rgb()
     }
 
-    pub fn into_f32(&self) -> [f32; 4] {
+    pub fn into_f32(self) -> [f32; 4] {
         [
             self.r as f32 / 255.0,
             self.g as f32 / 255.0,
@@ -184,8 +185,8 @@ impl HSLColor {
         }
     }
 
-    pub fn into_f32(&self) -> [f32; 4] {
-        [self.h as f32, self.s as f32, self.l as f32, self.a as f32 / 255.0]
+    pub fn into_f32(self) -> [f32; 4] {
+        [self.h, self.s, self.l, self.a as f32 / 255.0]
     }
 
     pub fn to_rgb(&self) -> Color {

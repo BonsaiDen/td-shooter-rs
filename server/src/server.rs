@@ -52,7 +52,7 @@ impl cobalt::Handler<cobalt::Server> for Server {
 
     fn tick_connections(
         &mut self, _: &mut cobalt::Server,
-        connections: &mut HashMap<cobalt::ConnectionID, cobalt::Connection>
+        connections: &mut HashMap<ConnectionID, cobalt::Connection>
     ) {
 
         // Receive client inputs
@@ -60,7 +60,7 @@ impl cobalt::Handler<cobalt::Server> for Server {
             for packet in conn.received() {
                 if let Some(&(ref slot, _, _)) = self.connections.get(id) {
                     // TODO handle non-hexahydrate messages
-                    self.server.connection_receive(&slot, packet).expect("Invalid packet received.");
+                    self.server.connection_receive(slot, packet).expect("Invalid packet received.");
                 }
             }
         }

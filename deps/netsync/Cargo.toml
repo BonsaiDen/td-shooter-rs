@@ -4,3 +4,8 @@ version = "0.1.0"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 
 [dependencies]
+clippy = { version = "*", optional = true }
+
+[features]
+lint = ["clippy"]
+

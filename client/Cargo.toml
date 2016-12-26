@@ -11,9 +11,10 @@ netsync = { path = "../deps/netsync", version = "0.1.0" }
 hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
 clap = "*"
 cobalt = "0.13.0"
-
+clippy = { version = "*", optional = true }
 
 [features]
 loopback = ["server"]
 default = ["loopback"]
+lint = ["clippy"]
 

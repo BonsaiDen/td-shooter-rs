@@ -3,7 +3,7 @@ pub trait LevelCollision {
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Level {
     pub walls: Vec<LevelWall>
 }
@@ -88,6 +88,7 @@ impl LevelCollision for Level {
 
 }
 
+#[derive(Debug)]
 pub struct LevelWall {
     pub points: [f64; 4],
     pub collision: [f64; 4],
@@ -191,10 +192,6 @@ pub fn line_intersect_circle(line: &[f64; 4], cx: f64, cy: f64, r: f64) -> Optio
         let o = r - (ox * ox + oy * oy).sqrt();
 
         Some([fx, fy, gx, gy, hx, hy, o, oy.atan2(ox)])
-
-    // else test if the line is tangent to circle
-    } else if lec == r {
-        None
 
     } else {
         None
