@@ -16,7 +16,7 @@ use shared::level::{
 
 
 // Client Level ---------------------------------------------------------------
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Level {
     level: SharedLevel
 }
@@ -29,9 +29,19 @@ impl Level {
         }
     }
 
-    pub fn draw_2d(&self, c: Context, g: &mut G2d, x: f64, y: f64, radius: f64) {
+    pub fn draw_2d(
+        &self,
+        c: Context,
+        g: &mut G2d,
+        bounds: &[f64; 4],
+        x: f64, y: f64,
+        radius: f64
+    ) {
 
-        for wall in &self.level.walls {
+        let walls = self.level.get_walls_in_bounds(&bounds);
+        for i in &walls {
+
+            let wall = &self.level.walls[*i];
 
             let mut aabb_color = [0.5, 0.4, 0.4, 1.0];
             let mut line_color = [0.5, 0.5, 0.5, 1.0];
@@ -84,6 +94,19 @@ impl Level {
             }
 
         }
+
+        rectangle(
+            [0.0, 1.0, 0.0, 1.0],
+            [bounds[0] - 5.0, bounds[1] - 5.0, 10.0, 10.0],
+            c.transform, g
+        );
+
+        rectangle(
+            [0.0, 1.0, 0.0, 1.0],
+            [bounds[2] - 5.0, bounds[3] - 5.0, 10.0, 10.0],
+            c.transform, g
+        );
+
 
     }
 

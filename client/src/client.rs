@@ -170,10 +170,17 @@ impl Client {
         self.camera.update(args);
 
         // Mouse inputs
-        self.world_cursor = self.camera.s2w(self.screen_cursor);
+        self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
         self.input_angle = (self.world_cursor.1 - p.y as f64).atan2(self.world_cursor.0 - p.x as f64);
 
-        let outline_radius = PLAYER_RADIUS + 0.5;
+        let world_bounds = self.camera.b2w();
+        let player_bounds = [
+            -PLAYER_RADIUS * 0.5,
+            -PLAYER_RADIUS * 0.5,
+            PLAYER_RADIUS, PLAYER_RADIUS
+
+        ].into();
+
         window.draw_2d(e, |c, g| {
 
             let m = self.camera.apply(c);
@@ -189,20 +196,14 @@ impl Client {
             );
 
             // Level
-            level.draw_2d(m, g, p.x as f64, p.y as f64, PLAYER_RADIUS);
+            level.draw_2d(m, g, &world_bounds, p.x as f64, p.y as f64, PLAYER_RADIUS);
 
             // Players
-            let bounds = [
-                -PLAYER_RADIUS * 0.5,
-                -PLAYER_RADIUS * 0.5,
-                PLAYER_RADIUS, PLAYER_RADIUS
-
-            ].into();
-
             for (p, colors) in players {
 
-                // TODO optimize circle drawing with pre calculated triangles
-                let q = m.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
+                // TODO Further optimize circle drawing with pre-generated
+                // textures?
+                let q = m.trans(p.x as f64, p.y as f64);
 
                 // Outline
                 g.tri_list(
@@ -213,13 +214,15 @@ impl Client {
                         consts::PI * 1.999,
                         12,
                         q.transform,
-                        bounds,
+                        player_bounds,
                         PLAYER_RADIUS * 0.65,
                         |vertices| f(vertices)
                     )
                 );
 
+
                 // Body
+                let q = q.rot_rad(p.r as f64);
                 g.tri_list(
                     &self.draw_state,
                     &colors[0],
@@ -228,7 +231,7 @@ impl Client {
                         consts::PI * 1.999,
                         12,
                         q.transform,
-                        bounds,
+                        player_bounds,
                         PLAYER_RADIUS * 0.5,
                         |vertices| f(vertices)
                     )
@@ -243,7 +246,7 @@ impl Client {
                         -consts::PI * 1.75,
                         12,
                         q.transform,
-                        bounds,
+                        player_bounds,
                         PLAYER_RADIUS * 0.55,
                         |vertices| f(vertices)
                     )

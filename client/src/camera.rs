@@ -45,12 +45,18 @@ impl Camera {
         c.trans(self.center.0, self.center.1).scale(self.ratio, self.ratio).trans(-self.x, -self.y)
     }
 
-    pub fn s2w(&self, points: (f64, f64)) -> (f64, f64) {
+    pub fn s2w(&self, x: f64, y: f64) -> (f64, f64) {
         let divisor = 1.0 / self.ratio;
         (
-            (points.0 - self.center.0) * divisor + self.x,
-            (points.1 - self.center.1) * divisor + self.y
+            (x - self.center.0) * divisor + self.x,
+            (y - self.center.1) * divisor + self.y
         )
+    }
+
+    pub fn b2w(&self) -> [f64; 4] {
+        let top_left = self.s2w(0.0, 0.0);
+        let bottom_right = self.s2w(self.base_width, self.base_height);
+        [top_left.0, top_left.1, bottom_right.0, bottom_right.1]
     }
 
 }

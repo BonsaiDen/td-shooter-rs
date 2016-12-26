@@ -28,9 +28,50 @@ impl Level {
         }
     }
 
-    pub fn add_wall(&mut self, wall: LevelWall) {
-        self.store_wall_grid(&wall.aabb);
+    fn add_wall(&mut self, wall: LevelWall) {
+
+        {
+            let aabb = &wall.aabb;
+            let (top_left, bottom_right) = (
+                self.w2g(aabb[0], aabb[1]),
+                self.w2g(aabb[2], aabb[3])
+            );
+
+            for y in top_left.1..bottom_right.1 + 1{
+                for x in top_left.0..bottom_right.0 + 1{
+                    self.grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
+                }
+            }
+        }
+
         self.walls.push(wall);
+
+    }
+
+    pub fn get_walls_in_bounds(
+        &self,
+        bounds: &[f64; 4]
+
+    ) -> HashSet<usize> {
+
+        let (top_left, bottom_right) = (
+            self.w2g(bounds[0], bounds[1]),
+            self.w2g(bounds[2], bounds[3])
+        );
+
+        let mut walls = HashSet::new();
+        for y in top_left.1..bottom_right.1 + 1{
+            for x in top_left.0..bottom_right.0 + 1{
+                if let Some(indicies) = self.grid.get(&(x, y)) {
+                    for i in indicies {
+                        walls.insert(*i);
+                    }
+                }
+            }
+        }
+
+        walls
+
     }
 
     pub fn load() -> Level {
@@ -42,22 +83,7 @@ impl Level {
         level
     }
 
-    fn store_wall_grid(&mut self, aabb: &[f64; 4]) {
-
-        let (top_left, bottom_right) = (
-            self.grid_cell(aabb[0], aabb[1]),
-            self.grid_cell(aabb[2], aabb[3])
-        );
-
-        for y in top_left.1..bottom_right.1 + 1{
-            for x in top_left.0..bottom_right.0 + 1{
-                self.grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
-            }
-        }
-
-    }
-
-    fn grid_cell(&self, x: f64, y: f64) -> (isize, isize) {
+    fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
         let gx = (x / GRID_SPACING).round();
         let gy = (y / GRID_SPACING).round();
         (gx as isize, gy as isize)
@@ -69,21 +95,12 @@ impl LevelCollision for Level {
 
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64) {
 
-        let (top_left, bottom_right) = (
-            self.grid_cell(*x as f64 + radius, *y as f64 + radius),
-            self.grid_cell(*x as f64 - radius, *y as f64 - radius)
-        );
-
-        let mut walls = HashSet::new();
-        for y in (top_left.1 - 1)..bottom_right.1 + 1{
-            for x in (top_left.0 - 1)..bottom_right.0 + 1{
-                if let Some(indicies) = self.grid.get(&(x, y)) {
-                    for i in indicies {
-                        walls.insert(*i);
-                    }
-                }
-            }
-        }
+        let walls = self.get_walls_in_bounds(&[
+            *x as f64 - radius,
+            *y as f64 - radius,
+            *x as f64 + radius,
+            *y as f64 + radius
+        ]);
 
         let mut iterations = 0;
         let mut collisions = 1;
