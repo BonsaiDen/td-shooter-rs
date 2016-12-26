@@ -1,3 +1,11 @@
+// STD Dependencies -----------------------------------------------------------
+use std::collections::{HashMap, HashSet};
+
+
+// Statics --------------------------------------------------------------------
+const GRID_SPACING: f64 = 100.0;
+
+
 // Level Abstraction ----------------------------------------------------------
 pub trait LevelCollision {
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
@@ -5,7 +13,8 @@ pub trait LevelCollision {
 
 #[derive(Debug, Default)]
 pub struct Level {
-    pub walls: Vec<LevelWall>
+    pub walls: Vec<LevelWall>,
+    grid: HashMap<(isize, isize), Vec<usize>>
 }
 
 impl Level {
@@ -14,30 +23,44 @@ impl Level {
         Level {
             // TODO add a grid around the origin (-n to +n) for spatial lookup
             // of walls for both rendering and collision detection
-            walls: Vec::new()
+            walls: Vec::new(),
+            grid: HashMap::new()
         }
     }
 
     pub fn add_wall(&mut self, wall: LevelWall) {
-        // TODO calculate bounding box
-        // TODO calculate bounding box interception with grid
-        // TODO add wall index to affected grid cells
+        self.store_wall_grid(&wall.aabb);
         self.walls.push(wall);
     }
 
     pub fn load() -> Level {
-
         let mut level = Level::new();
         level.add_wall(LevelWall::new(100.0, 100.0, -100.0, 100.0));
         level.add_wall(LevelWall::new(-100.0, -100.0, -100.0, 100.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, -100.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, 100.0));
-            //Wall::new(100.0, -100.0, 100.0, 100.0),
-            //Wall::new(100.0, -100.0, -100.0, -100.0)
-            //
-
         level
+    }
 
+    fn store_wall_grid(&mut self, aabb: &[f64; 4]) {
+
+        let (top_left, bottom_right) = (
+            self.grid_cell(aabb[0], aabb[1]),
+            self.grid_cell(aabb[2], aabb[3])
+        );
+
+        for y in top_left.1..bottom_right.1 + 1{
+            for x in top_left.0..bottom_right.0 + 1{
+                self.grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
+            }
+        }
+
+    }
+
+    fn grid_cell(&self, x: f64, y: f64) -> (isize, isize) {
+        let gx = (x / GRID_SPACING).round();
+        let gy = (y / GRID_SPACING).round();
+        (gx as isize, gy as isize)
     }
 
 }
@@ -46,15 +69,33 @@ impl LevelCollision for Level {
 
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64) {
 
+        let (top_left, bottom_right) = (
+            self.grid_cell(*x as f64 + radius, *y as f64 + radius),
+            self.grid_cell(*x as f64 - radius, *y as f64 - radius)
+        );
+
+        let mut walls = HashSet::new();
+        for y in (top_left.1 - 1)..bottom_right.1 + 1{
+            for x in (top_left.0 - 1)..bottom_right.0 + 1{
+                if let Some(indicies) = self.grid.get(&(x, y)) {
+                    for i in indicies {
+                        walls.insert(*i);
+                    }
+                }
+            }
+        }
+
         let mut iterations = 0;
         let mut collisions = 1;
-
         while collisions > 0 && iterations < 10 {
 
             collisions = 0;
 
-            let mut overlap = [0.0, 0.0];
-            for wall in &self.walls {
+            let mut overlap = (0.0, 0.0);
+            for i in &walls {
+
+                let wall = &self.walls[*i];
+
                 if aabb_intersect_circle(
                     &wall.aabb,
                     *x as f64,
@@ -68,17 +109,18 @@ impl LevelCollision for Level {
                         radius + 1.0
                     ) {
 
-                        overlap[0] += (collision[7].cos() * collision[6]) as f32;
-                        overlap[1] += (collision[7].sin() * collision[6]) as f32;
+                        overlap.0 += (collision[7].cos() * collision[6]) as f32;
+                        overlap.1 += (collision[7].sin() * collision[6]) as f32;
 
                         collisions += 1;
 
                     }
                 }
+
             }
 
-            *x -= overlap[0];
-            *y -= overlap[1];
+            *x -= overlap.0;
+            *y -= overlap.1;
 
             iterations += 1;
 

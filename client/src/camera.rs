@@ -1,5 +1,5 @@
 // External Dependencies ------------------------------------------------------
-use piston_window::RenderArgs;
+use piston_window::{Context, RenderArgs, Transformed};
 
 
 // Client Camera Abstraction --------------------------------------------------
@@ -41,26 +41,8 @@ impl Camera {
 
     }
 
-    pub fn s2s(&self, scalar: f64) -> f64 {
-        scalar * self.ratio
-    }
-
-    pub fn w2s(&self, points: [f64; 4]) -> [f64; 4] {
-        [
-            self.center.0 + (points[0] - self.x) * self.ratio,
-            self.center.1 + (points[1] - self.y) * self.ratio,
-            points[2] * self.ratio,
-            points[3] * self.ratio
-        ]
-    }
-
-    pub fn w2p(&self, points: [f64; 4]) -> [f64; 4] {
-        [
-            self.center.0 + (points[0] - self.x) * self.ratio,
-            self.center.1 + (points[1] - self.y) * self.ratio,
-            self.center.0 + (points[2] - self.x) * self.ratio,
-            self.center.1 + (points[3] - self.y) * self.ratio,
-        ]
+    pub fn apply(&self, c: Context) -> Context {
+        c.trans(self.center.0, self.center.1).scale(self.ratio, self.ratio).trans(-self.x, -self.y)
     }
 
     pub fn s2w(&self, points: (f64, f64)) -> (f64, f64) {

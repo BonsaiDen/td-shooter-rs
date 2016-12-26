@@ -7,7 +7,6 @@ use piston_window::{
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
@@ -30,7 +29,7 @@ impl Level {
         }
     }
 
-    pub fn draw_2d(&self, c: Context, g: &mut G2d, camera: &Camera, x: f64, y: f64, radius: f64) {
+    pub fn draw_2d(&self, c: Context, g: &mut G2d, x: f64, y: f64, radius: f64) {
 
         for wall in &self.level.walls {
 
@@ -55,31 +54,31 @@ impl Level {
             }
 
             rectangle(aabb_color,
-                      camera.w2s([
+                      [
                         wall.aabb[0],
                         wall.aabb[1],
                         wall.aabb[2] - wall.aabb[0],
                         wall.aabb[3] - wall.aabb[1]
-                      ]),
+                      ],
                       c.transform, g);
 
             line(line_color,
-                camera.s2s(1.0),
-                camera.w2p(wall.points),
+                1.0,
+                wall.points,
                 c.transform, g);
 
             if let Some(markers) = markers {
                 rectangle([0.3, 1.0, 0.3, 1.0],
-                            camera.w2s([markers[0] - 1.0, markers[1] - 1.0, 2.0, 2.0]),
+                            [markers[0] - 1.0, markers[1] - 1.0, 2.0, 2.0],
                             c.transform, g);
 
                 rectangle([0.3, 1.0, 0.3, 1.0],
-                            camera.w2s([markers[2] - 1.0, markers[3] - 1.0, 2.0, 2.0]),
+                            [markers[2] - 1.0, markers[3] - 1.0, 2.0, 2.0],
                             c.transform, g);
 
                 line([0.3, 0.3, 1.0, 1.0],
-                    camera.s2s(0.5),
-                    camera.w2p([markers[4], markers[5], x, y]),
+                    0.5,
+                    [markers[4], markers[5], x, y],
                     c.transform, g);
 
             }

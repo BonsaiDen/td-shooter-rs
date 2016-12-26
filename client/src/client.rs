@@ -27,6 +27,7 @@ pub struct Client {
 
     // Rendering
     updates_per_second: u64,
+    draw_state: DrawState,
     camera: Camera,
 
     // Network
@@ -37,6 +38,7 @@ pub struct Client {
 impl Client {
 
     pub fn new(updates_per_second: u64, width: f64, height: f64) -> Client {
+
         Client {
 
             // Inputs
@@ -47,6 +49,7 @@ impl Client {
 
             // Rendering
             updates_per_second: updates_per_second,
+            draw_state: DrawState::default(),
             camera: Camera::new(width, height),
 
             // Network
@@ -151,13 +154,14 @@ impl Client {
 
         let u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
 
-        // TODO improve this
-        // TODO get color and draw colored border to indicate active player color
-        let mut p = PlayerPosition::default();
-        self.client.with_entities(|_, entity| {
+        // Get player positions and colors
+        let (mut p, mut colors) = (PlayerPosition::default(), [[0f32; 4]; 2]);
+        let players = self.client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
             if entity.is_local() {
                 p = entity.interpolate(u);
+                colors = entity.colors();
             }
+            (entity.interpolate(u), entity.colors())
         });
 
         // Camera setup
@@ -169,7 +173,10 @@ impl Client {
         self.world_cursor = self.camera.s2w(self.screen_cursor);
         self.input_angle = (self.world_cursor.1 - p.y as f64).atan2(self.world_cursor.0 - p.x as f64);
 
+        let outline_radius = PLAYER_RADIUS + 0.5;
         window.draw_2d(e, |c, g| {
+
+            let m = self.camera.apply(c);
 
             // Clear to black
             clear([0.0; 4], g);
@@ -177,52 +184,89 @@ impl Client {
             // Background Box
             rectangle(
                 [0.1, 0.1, 0.1, 1.0],
-                self.camera.w2s([-100.0, -100.0, 200.0, 200.0]),
-                c.transform, g
+                [-100.0, -100.0, 200.0, 200.0],
+                m.transform, g
             );
 
             // Level
-            level.draw_2d(c, g, &self.camera, p.x as f64, p.y as f64, PLAYER_RADIUS);
+            level.draw_2d(m, g, p.x as f64, p.y as f64, PLAYER_RADIUS);
 
             // Players
-            for (p, colors) in self.client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
-                (entity.interpolate(u), entity.colors()) // TODO return and use player colors
+            let bounds = [
+                -PLAYER_RADIUS * 0.5,
+                -PLAYER_RADIUS * 0.5,
+                PLAYER_RADIUS, PLAYER_RADIUS
 
-            }) {
-                circle_arc(
-                    colors[1],
-                    self.camera.s2s(PLAYER_RADIUS * 0.5),
-                    -consts::PI * 0.25 + p.r as f64,
-                    -consts::PI * 1.75 + p.r as f64,
-                    self.camera.w2s([
-                        p.x as f64 - PLAYER_RADIUS * 0.5, p.y as f64 - PLAYER_RADIUS * 0.5,
-                        PLAYER_RADIUS, PLAYER_RADIUS
-                    ]),
-                    c.transform, g
+            ].into();
+
+            for (p, colors) in players {
+
+                // TODO optimize circle drawing with pre calculated triangles
+                let q = m.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
+
+                // Outline
+                g.tri_list(
+                    &self.draw_state,
+                    &[0.0, 0.0, 0.0, 0.5],
+                    |f| triangulation::with_arc_tri_list(
+                        0.0,
+                        consts::PI * 1.999,
+                        12,
+                        q.transform,
+                        bounds,
+                        PLAYER_RADIUS * 0.65,
+                        |vertices| f(vertices)
+                    )
                 );
 
-                circle_arc(
-                    colors[0],
-                    self.camera.s2s(PLAYER_RADIUS * 0.5),
-                    consts::PI * 0.25 + p.r as f64,
-                    consts::PI * 1.75 + p.r as f64,
-                    self.camera.w2s([
-                        p.x as f64 - PLAYER_RADIUS * 0.5, p.y as f64 - PLAYER_RADIUS * 0.5,
-                        PLAYER_RADIUS, PLAYER_RADIUS
-                    ]),
-                    c.transform, g
+                // Body
+                g.tri_list(
+                    &self.draw_state,
+                    &colors[0],
+                    |f| triangulation::with_arc_tri_list(
+                        0.0,
+                        consts::PI * 1.999,
+                        12,
+                        q.transform,
+                        bounds,
+                        PLAYER_RADIUS * 0.5,
+                        |vertices| f(vertices)
+                    )
                 );
+
+                // Cone of sight
+                g.tri_list(
+                    &self.draw_state,
+                    &colors[1],
+                    |f| triangulation::with_arc_tri_list(
+                        -consts::PI * 0.25,
+                        -consts::PI * 1.75,
+                        12,
+                        q.transform,
+                        bounds,
+                        PLAYER_RADIUS * 0.55,
+                        |vertices| f(vertices)
+                    )
+                );
+
             }
 
             // Cursor marker
             rectangle(
-                [1.0, 0.0, 0.0, 1.0],
-                self.camera.w2s([
+                colors[0],
+                [
                     self.world_cursor.0 - 2.0, self.world_cursor.1 - 2.0,
                     4.0, 4.0
-                ]),
-                c.transform, g
+                ],
+                m.transform, g
             );
+
+            // Top / Bottom / Left / Right Border
+            let (w, h) = (args.width as f64, args.height as f64);
+            line(colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
+            line(colors[0], 2.0, [0.0, h, w, h], c.transform, g);
+            line(colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
+            line(colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
 
         });
 
