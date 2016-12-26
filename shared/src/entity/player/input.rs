@@ -35,12 +35,12 @@ impl NetworkInput for PlayerInput {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let input = PlayerNetworkInput(
+        encode(&PlayerNetworkInput(
             self.tick,
             self.buttons,
             ((self.r + consts::PI) * 2000.0).floor() as u16
-        );
-        encode(&input, SizeLimit::Infinite).unwrap()
+
+        ), SizeLimit::Infinite).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Option<(usize, Self)> where Self: Sized {

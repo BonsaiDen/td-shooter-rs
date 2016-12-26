@@ -1,3 +1,7 @@
+// STD Dependencies -----------------------------------------------------------
+use std::f32::consts;
+
+
 // External Dependencies ------------------------------------------------------
 use netsync::NetworkProperty;
 use bincode::SizeLimit;
@@ -9,10 +13,13 @@ use super::{PlayerInput, PLAYER_SPEED, PLAYER_RADIUS};
 use ::level::LevelCollision;
 
 
+// Statics --------------------------------------------------------------------
+const TAU: f32 = consts::PI * 2.0;
+
+
 // Player Network Position ----------------------------------------------------
 #[derive(Debug, Clone, Default, RustcEncodable, RustcDecodable)]
 pub struct PlayerPosition {
-    // TODO reduce these to less precision?
     pub x: f32,
     pub y: f32,
     pub r: f32
@@ -34,11 +41,21 @@ impl NetworkProperty for PlayerPosition {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        encode(&self, SizeLimit::Infinite).unwrap()
+        encode(&PlayerNetworkPosition(
+            self.x,
+            self.y,
+            ((self.r + consts::PI) * 2000.0).round() as u16
+
+        ), SizeLimit::Infinite).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Self where Self: Sized {
-        decode::<PlayerPosition>(bytes).unwrap()
+        let position = decode::<PlayerNetworkPosition>(bytes).unwrap();
+        PlayerPosition {
+            x: position.0,
+            y: position.1,
+            r: (position.2 as f32) / 2000.0 - consts::PI
+        }
     }
 
 }
@@ -69,7 +86,19 @@ impl PlayerPosition {
         let dist = ((dx * dx) + (dy * dy)).sqrt();
         state.x += (r.cos() * dist.min(PLAYER_SPEED * dt)) as f32;
         state.y += (r.sin() * dist.min(PLAYER_SPEED * dt)) as f32;
-        state.r = input.r;
+
+        // Limit rotation speed
+        let r = input.r - state.r;
+        let dr = r.sin().atan2(r.cos());
+        state.r += dr.min(consts::PI * 0.125).max(-consts::PI * 0.125);
+
+        // Limit rotation to 0..TAU
+        if state.r < 0.0 {
+            state.r += TAU;
+
+        } else if state.r > TAU {
+            state.r -= TAU;
+        }
 
         // Collision
         level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS);
@@ -77,4 +106,7 @@ impl PlayerPosition {
     }
 
 }
+
+#[derive(RustcEncodable, RustcDecodable)]
+struct PlayerNetworkPosition(f32, f32, u16);
 
