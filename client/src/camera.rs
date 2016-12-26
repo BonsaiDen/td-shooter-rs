@@ -10,7 +10,9 @@ pub struct Camera {
     ratio: f64,
     center: (f64, f64),
     base_width: f64,
-    base_height: f64
+    base_height: f64,
+    draw_width: f64,
+    draw_height: f64
 }
 
 impl Camera {
@@ -23,14 +25,19 @@ impl Camera {
             ratio: 1.0,
             center: (0.0, 0.0),
             base_width: base_width,
-            base_height: base_height
+            base_height: base_height,
+            draw_width: base_width,
+            draw_height: base_height
         }
     }
 
     pub fn update(&mut self, args: &RenderArgs) {
 
-        let h_ratio = 1.0 / self.base_width * args.draw_width as f64;
-        let v_ratio = 1.0 / self.base_height * args.draw_height as f64;
+        self.draw_width = args.draw_width as f64;
+        self.draw_height = args.draw_height as f64;
+
+        let h_ratio = 1.0 / self.base_width * self.draw_width;
+        let v_ratio = 1.0 / self.base_height * self.draw_height;
 
         // TODO stepped pertange zoom here? (25%, 50%, 100%, 200%)
         self.ratio = h_ratio.min(v_ratio) * (1.0 + self.z);
@@ -55,7 +62,7 @@ impl Camera {
 
     pub fn b2w(&self) -> [f64; 4] {
         let top_left = self.s2w(0.0, 0.0);
-        let bottom_right = self.s2w(self.base_width, self.base_height);
+        let bottom_right = self.s2w(self.draw_width, self.draw_height);
         [top_left.0, top_left.1, bottom_right.0, bottom_right.1]
     }
 
