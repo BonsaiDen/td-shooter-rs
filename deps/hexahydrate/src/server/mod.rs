@@ -147,6 +147,20 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
 
     }
 
+    pub fn entity_get(&self, entity_slot: &EntitySlot) -> Option<&Box<E>> {
+        if let Some(ref handle) = self.handles[entity_slot.index] {
+            if handle.is_alive() {
+                handle.get_entity()
+
+            } else {
+                None
+            }
+
+        } else {
+            None
+        }
+    }
+
     pub fn entity_destroy(&mut self, entity_slot: EntitySlot) -> Result<(), Error> {
 
         if entity_slot.server_index != self.index {
@@ -171,7 +185,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
         for &mut (ref entity_slot, _, _, _) in &mut self.active_handles {
             let handle = &mut self.handles[entity_slot.index];
             if handle.is_some()  {
-                if let Some(entity) = handle.as_mut().unwrap().mut_entity() {
+                if let Some(entity) = handle.as_mut().unwrap().get_entity_mut() {
                     items.push(callback(entity_slot, entity));
                 }
             }
@@ -183,7 +197,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
         for &mut (ref entity_slot, _, _, _) in &mut self.active_handles {
             let handle = &mut self.handles[entity_slot.index];
             if handle.is_some()  {
-                if let Some(entity) = handle.as_mut().unwrap().mut_entity() {
+                if let Some(entity) = handle.as_mut().unwrap().get_entity_mut() {
                     callback(entity_slot, entity);
                 }
             }
@@ -199,7 +213,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
                         && handle.as_ref().unwrap().is_alive();
 
             if is_alive {
-                callback(entity_slot, handle.as_mut().unwrap().mut_entity().unwrap())
+                callback(entity_slot, handle.as_mut().unwrap().get_entity_mut().unwrap())
 
             } else if *connection_count > 0 {
 

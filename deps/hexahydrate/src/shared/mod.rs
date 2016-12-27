@@ -69,7 +69,11 @@ impl<E: Entity<U> + ?Sized, R: EntitySerializer<E, S, O, U>, S, O, U: fmt::Debug
         self.entity.is_some()
     }
 
-    pub fn mut_entity(&mut self) -> Option<&mut Box<E>> {
+    pub fn get_entity(&self) -> Option<&Box<E>> {
+        self.entity.as_ref()
+    }
+
+    pub fn get_entity_mut(&mut self) -> Option<&mut Box<E>> {
         self.entity.as_mut()
     }
 

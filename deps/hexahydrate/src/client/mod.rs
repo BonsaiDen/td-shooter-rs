@@ -106,7 +106,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
         for &mut (ref entity_slot, _, _) in &mut self.active_handles {
             let handle = &mut self.handles[entity_slot.index];
             if handle.is_some()  {
-                if let Some(entity) = handle.as_mut().unwrap().mut_entity() {
+                if let Some(entity) = handle.as_mut().unwrap().get_entity_mut() {
                     items.push(callback(entity_slot, entity));
                 }
             }
@@ -118,7 +118,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
         for &mut (ref entity_slot, _, _) in &mut self.active_handles {
             let handle = &mut self.handles[entity_slot.index];
             if handle.is_some()  {
-                if let Some(entity) = handle.as_mut().unwrap().mut_entity() {
+                if let Some(entity) = handle.as_mut().unwrap().get_entity_mut() {
                     callback(entity_slot, entity);
                 }
             }
@@ -132,7 +132,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
             let handle = &mut self.handles[entity_slot.index];
             if handle.is_some() {
 
-                if let Some(entity) = handle.as_mut().unwrap().mut_entity() {
+                if let Some(entity) = handle.as_mut().unwrap().get_entity_mut() {
                     callback(entity_slot, entity);
 
                 // The server removes the entity once we confirmed receiving
@@ -245,7 +245,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug, R: EntityRegistry<E, U>> Client<E, U,
                     //
                     // In all other cases we'll do nothing.
                     } else {
-                        let existing_kind = self.handles[index].as_mut().unwrap().mut_entity().map_or(entity_bytes[0], |entity| {
+                        let existing_kind = self.handles[index].as_mut().unwrap().get_entity_mut().map_or(entity_bytes[0], |entity| {
                             entity.kind()
                         });
 

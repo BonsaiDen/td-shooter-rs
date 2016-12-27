@@ -88,11 +88,24 @@ impl Server {
             entity.update(dt, &level);
         });
 
-        for (id, &mut (ref slot, _, _, ref mut actions)) in &mut self.connections {
+        for (id, &mut (ref slot, ref entity_slot, _, ref mut actions)) in &mut self.connections {
 
             // Apply Actions
             while let Some(action) = actions.pop_front() {
                 println!("[Server] Received action from client: {:?}", action);
+                match action {
+                    Action::FireLaser(tick, client_r) => {
+                        if let Some(entity) = self.server.entity_get(entity_slot) {
+
+                            let server_r = entity.position(tick).r;
+                            let r = client_r - server_r;
+                            let diff_r = r.sin().atan2(r.cos());
+
+                            println!("[Server] Shot (server) {} (local) {} (diff) {}", server_r, client_r, diff_r);
+
+                        }
+                    }
+                }
             }
 
             // Send updates to clients

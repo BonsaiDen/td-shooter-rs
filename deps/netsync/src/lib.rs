@@ -177,7 +177,7 @@ pub struct ServerState<P: NetworkProperty, I: NetworkInput> {
 
 impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
-    pub fn get(&self, ticks_ago: usize) -> P {
+    pub fn get_relative(&self, ticks_ago: usize) -> P {
 
         let len = self.buffered_states.len();
         let ticks_ago = cmp::min(len, ticks_ago);
@@ -188,6 +188,12 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
             self.current.clone()
         }
 
+    }
+
+    pub fn get_absolute(&self, tick: u8) -> P {
+        let ticks_ago = cmp::max(0, self.last_input_tick as isize - tick as isize) as usize;
+        println!("get absolute: {}  last input: {} -> ago: {}", tick, self.last_input_tick, ticks_ago);
+        self.get_relative(ticks_ago)
     }
 
     pub fn receive(&mut self, bytes: &[u8]) {
@@ -201,7 +207,7 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
     pub fn send(&self, delay: Option<usize>) -> Vec<u8> {
 
         if let Some(delay) = delay {
-            self.get(delay).to_bytes()
+            self.get_relative(delay).to_bytes()
 
         } else {
             let mut bytes = vec![self.confirmed_tick];

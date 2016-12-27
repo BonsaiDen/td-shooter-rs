@@ -14,6 +14,7 @@ extern crate hexahydrate;
 extern crate netsync;
 extern crate cobalt;
 extern crate shared;
+extern crate glutin;
 
 
 // Modules --------------------------------------------------------------------
@@ -45,7 +46,7 @@ pub use self::client::*;
 // Client Runner --------------------------------------------------------------
 pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
 
-    // Setup piston
+    // Create Window
     let mut window: PistonWindow = WindowSettings::new(
             "Shooter",
             [BASE_WIDTH as u32, BASE_HEIGHT as u32]
@@ -54,6 +55,9 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
         .exit_on_esc(true)
         .build()
         .unwrap();
+
+    // Hide Cursor
+    window.window.window.set_cursor_state(glutin::CursorState::Hide).ok();
 
     // Events
     let mut events = window.events();

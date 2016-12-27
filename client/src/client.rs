@@ -33,6 +33,7 @@ pub struct Client {
 
     // Network
     client: hexahydrate::Client<Entity, ConnectionID, Registry>,
+    player_angle: f32,
     actions: Vec<Action>,
     tick: u8
 }
@@ -56,6 +57,7 @@ impl Client {
 
             // Network
             client: hexahydrate::Client::<Entity, ConnectionID, Registry>::new(Registry, (updates_per_second * 2) as usize),
+            player_angle: 0.0,
             actions: Vec::new(),
             tick: 0
 
@@ -66,7 +68,7 @@ impl Client {
 
         if let Some(Button::Mouse(button)) = e.press_args() {
             if button == MouseButton::Left {
-                self.actions.push(Action::FireLaser(self.tick));
+                self.actions.push(Action::FireLaser(self.tick, self.player_angle));
                 self.buttons |= 16;
             }
         }
@@ -191,6 +193,9 @@ impl Client {
             }
             (entity.interpolate(u), entity.colors())
         });
+
+        // TODO get from update() method instead?
+        self.player_angle = p.r;
 
         // Camera setup
         self.camera.x = (p.x as f64).max(-200.0).min(200.0);
