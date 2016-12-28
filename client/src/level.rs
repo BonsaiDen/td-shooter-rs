@@ -131,12 +131,6 @@ impl Level {
         _: bool
     ) {
 
-        // TODO implement server side visibility
-        // TODO server needs to send visibility flag for remote entities, if not visibile no
-        // position will be transmitted!
-        // TODO need to fix potential issues with entities warping due to interpolation
-        // TODO last state must NOT be updated if entities are marked as invisible :)
-
         // Visibility overlay
         let mut polygon = Vec::new();
         for (a, b) in self.visible_points(x, y) {
@@ -184,6 +178,10 @@ impl LevelVisibility for Level {
         self.level.visibility_bounds(x, y)
     }
 
+    fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool {
+        self.level.circle_visible_from(cx, cy, radius, x, y)
+    }
+
 }
 
 impl LevelCollision for Level {
@@ -198,6 +196,10 @@ impl LevelCollision for Level {
 
     fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
         self.level.collide_beam(x, y, r, l)
+    }
+
+    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]> {
+        self.level.collide_line(line)
     }
 
 }

@@ -13,6 +13,7 @@ use cobalt::ConnectionID;
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
+use shared::level::{LevelCollision, LevelVisibility};
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
@@ -300,56 +301,107 @@ impl Client {
             // Players
             for (p, colors) in players {
 
-                // TODO Further optimize circle drawing with pre-generated
-                // textures?
-                let q = m.trans(p.x as f64, p.y as f64);
-
-                // Outline
-                g.tri_list(
-                    &DrawState::default(),
-                    &[0.0, 0.0, 0.0, 0.5],
-                    |f| triangulation::with_arc_tri_list(
-                        0.0,
-                        consts::PI * 1.999,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.65,
-                        |vertices| f(vertices)
-                    )
+                let locally_visible = level.circle_visible_from(
+                    p.x as f64, p.y as f64,
+                    PLAYER_RADIUS,
+                    self.player_position.x as f64,
+                    self.player_position.y as f64
                 );
 
+                if p.visible && locally_visible {
 
-                // Body
-                let q = q.rot_rad(p.r as f64);
-                g.tri_list(
-                    &DrawState::default(),
-                    &colors[0],
-                    |f| triangulation::with_arc_tri_list(
-                        0.0,
-                        consts::PI * 1.999,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.5,
-                        |vertices| f(vertices)
-                    )
-                );
+                    // TODO Further optimize circle drawing with pre-generated
+                    // textures?
+                    let q = m.trans(p.x as f64, p.y as f64);
 
-                // Cone of sight
-                g.tri_list(
-                    &DrawState::default(),
-                    &colors[1],
-                    |f| triangulation::with_arc_tri_list(
-                        -consts::PI * 0.25,
-                        -consts::PI * 1.75,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.55,
-                        |vertices| f(vertices)
-                    )
-                );
+                    // Outline
+                    g.tri_list(
+                        &DrawState::default(),
+                        &[0.0, 0.0, 0.0, 0.5],
+                        |f| triangulation::with_arc_tri_list(
+                            0.0,
+                            consts::PI * 1.999,
+                            12,
+                            q.transform,
+                            player_bounds,
+                            PLAYER_RADIUS * 0.65,
+                            |vertices| f(vertices)
+                        )
+                    );
+
+                    // Body
+                    let q = q.rot_rad(p.r as f64);
+                    g.tri_list(
+                        &DrawState::default(),
+                        &colors[0],
+                        |f| triangulation::with_arc_tri_list(
+                            0.0,
+                            consts::PI * 1.999,
+                            12,
+                            q.transform,
+                            player_bounds,
+                            PLAYER_RADIUS * 0.5,
+                            |vertices| f(vertices)
+                        )
+                    );
+
+                    // Cone of sight
+                    g.tri_list(
+                        &DrawState::default(),
+                        &colors[1],
+                        |f| triangulation::with_arc_tri_list(
+                            -consts::PI * 0.25,
+                            -consts::PI * 1.75,
+                            12,
+                            q.transform,
+                            player_bounds,
+                            PLAYER_RADIUS * 0.55,
+                            |vertices| f(vertices)
+                        )
+                    );
+
+                }
+
+                // Visibility debug lines
+                if self.debug_draw {
+
+                    let lines = [[
+                         p.x as f64 - PLAYER_RADIUS,
+                         p.y as f64,
+                         self.player_position.x as f64,
+                         self.player_position.y as f64
+
+                    ], [
+                         p.x as f64 + PLAYER_RADIUS,
+                         p.y as f64,
+                         self.player_position.x as f64,
+                         self.player_position.y as f64
+
+                    ], [
+                         p.x as f64,
+                         p.y as f64 - PLAYER_RADIUS,
+                         self.player_position.x as f64,
+                         self.player_position.y as f64
+
+                    ], [
+                         p.x as f64,
+                         p.y as f64 + PLAYER_RADIUS,
+                         self.player_position.x as f64,
+                         self.player_position.y as f64
+                    ]];
+
+                    let mut color = self.player_colors[0];
+                    if locally_visible {
+                        color = [0.0, 1.0, 0.0, 1.0];
+                    }
+
+                    for i in 0..4 {
+                        if level.collide_line(&lines[i]).is_none() {
+                            line(color, 0.25, lines[i], m.transform, g);
+                        }
+                    }
+
+                }
 
             }
 

@@ -13,9 +13,13 @@ use netsync::ServerState;
 use ::entity::Entity;
 use shared::entity::PLAYER_RADIUS;
 use shared::action::Action;
-use shared::level::{Level, LevelCollision};
+use shared::level::{Level, LevelCollision, LevelVisibility};
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
+
+
+// Statics --------------------------------------------------------------------
+const LASER_BEAM_LENGTH: f32 = 200.0;
 
 
 // Server Implementation ------------------------------------------------------
@@ -28,7 +32,8 @@ pub struct Server {
         ColorName,
         VecDeque<Action>
     )>,
-    available_colors: Vec<ColorName>
+    available_colors: Vec<ColorName>,
+    positions: Vec<(f64, f64)>
 }
 
 impl Server {
@@ -38,7 +43,8 @@ impl Server {
             dt: 1.0 / updates_per_second as f64,
             addr: addr,
             connections: HashMap::new(),
-            available_colors: ColorName::all_colored().into_iter().rev().collect()
+            available_colors: ColorName::all_colored().into_iter().rev().collect(),
+            positions: vec![(-100.0, -110.0), (-40.0, 16.0)]
         }
     }
 
@@ -94,9 +100,14 @@ impl Server {
             entity.update(dt, &level);
         });
 
+        // Get current entity positions
+        let current_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerPosition), _>(|_, entity| {
+            (entity.owner(), entity.current_position())
+        });
+
         // Apply actions
         let mut outgoing_actions = Vec::new();
-        for (id, &mut (ref slot, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
+        for (conn_id, &mut (ref slot, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
 
             // Apply Actions
             while let Some(action) = incoming_actions.pop_front() {
@@ -114,7 +125,7 @@ impl Server {
                                 p.x + p.r.cos() * (PLAYER_RADIUS as f32 - 0.5),
                                 p.y + p.r.sin() * (PLAYER_RADIUS as f32 - 0.5),
                                 p.r,
-                                100.0
+                                LASER_BEAM_LENGTH
                             );
 
                             if let Some(intersection) = level.collide_beam(
@@ -143,9 +154,34 @@ impl Server {
                 }
             }
 
+            // Check to which other entities this player's entity is visible
+            if let Some(player_entity) = entity_server.entity_get_mut(entity_slot) {
+
+                let player_position = player_entity.current_position();
+                for &(entity_conn_id, ref position) in &current_entities {
+                    if let Some(ref entity_conn_id) = entity_conn_id {
+
+                        // Ignore self-visibility
+                        if entity_conn_id != conn_id {
+                            let visible = level.circle_visible_from(
+                                player_position.x as f64,
+                                player_position.y as f64,
+                                PLAYER_RADIUS,
+                                position.x as f64,
+                                position.y as f64
+                            );
+                            player_entity.set_visibility(*entity_conn_id, visible);
+                        }
+
+                    }
+
+                }
+
+            }
+
             // Send updates to clients
             for packet in entity_server.connection_send(slot, 512).unwrap() {
-                server.send(id, cobalt::MessageKind::Instant, packet).ok();
+                server.send(conn_id, cobalt::MessageKind::Instant, packet).ok();
             }
 
         }
@@ -176,10 +212,13 @@ impl Server {
 
                 // Create a new player entity for the connected client
                 if let Ok(entity_slot) = entity_server.entity_create_with(|| {
+
+                    let p = self.positions.remove(0);
                     Box::new(PlayerEntity::<ServerState<PlayerPosition, PlayerInput>>::new(Some(conn.id()), false, color, PlayerPosition {
-                        x: -50.0,
-                        y: 0.0,
-                        r: 0.0
+                        x: p.0 as f32,
+                        y: p.1 as f32,
+                        r: 0.0,
+                        visible: true
                     }))
 
                 }) {

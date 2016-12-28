@@ -23,26 +23,38 @@ const TAU: f32 = consts::PI * 2.0;
 pub struct PlayerPosition {
     pub x: f32,
     pub y: f32,
-    pub r: f32
+    pub r: f32,
+    pub visible: bool
 }
 
 impl NetworkProperty for PlayerPosition {
 
     fn interpolate_from(&self, last: &Self, u: f64) -> Self {
-        let dx = self.x - last.x;
-        let dy = self.y - last.y;
-        let r = self.r - last.r;
-        let dr = r.sin().atan2(r.cos());
 
-        PlayerPosition {
-            x: last.x + (dx * u as f32),
-            y: last.y + (dy * u as f32),
-            r: last.r + (dr * u as f32)
+        // Prevent interpolation glitches when a player entity becomes visible
+        // again
+        if !last.visible {
+            self.clone()
+
+        } else {
+            let dx = self.x - last.x;
+            let dy = self.y - last.y;
+            let r = self.r - last.r;
+            let dr = r.sin().atan2(r.cos());
+
+            PlayerPosition {
+                x: last.x + (dx * u as f32),
+                y: last.y + (dy * u as f32),
+                r: last.r + (dr * u as f32),
+                visible: self.visible
+            }
         }
+
     }
 
     fn to_bytes(&self) -> Vec<u8> {
         encode(&PlayerNetworkPosition(
+            self.visible,
             self.x,
             self.y,
             rad_to_u16(self.r)
@@ -53,9 +65,10 @@ impl NetworkProperty for PlayerPosition {
     fn from_bytes(bytes: &[u8]) -> Self where Self: Sized {
         let position = decode::<PlayerNetworkPosition>(bytes).unwrap();
         PlayerPosition {
-            x: position.0,
-            y: position.1,
-            r: u16_to_rad(position.2)
+            x: position.1,
+            y: position.2,
+            r: u16_to_rad(position.3),
+            visible: position.0
         }
     }
 
@@ -115,5 +128,5 @@ impl PlayerPosition {
 }
 
 #[derive(RustcEncodable, RustcDecodable)]
-struct PlayerNetworkPosition(f32, f32, u16);
+struct PlayerNetworkPosition(bool, f32, f32, u16);
 

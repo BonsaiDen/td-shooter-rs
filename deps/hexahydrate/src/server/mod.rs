@@ -161,6 +161,20 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
         }
     }
 
+    pub fn entity_get_mut(&mut self, entity_slot: &EntitySlot) -> Option<&mut Box<E>> {
+        if let Some(ref mut handle) = self.handles[entity_slot.index] {
+            if handle.is_alive() {
+                handle.get_entity_mut()
+
+            } else {
+                None
+            }
+
+        } else {
+            None
+        }
+    }
+
     pub fn entity_destroy(&mut self, entity_slot: EntitySlot) -> Result<(), Error> {
 
         if entity_slot.server_index != self.index {

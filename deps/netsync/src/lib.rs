@@ -97,6 +97,26 @@ impl<P: NetworkProperty, I: NetworkInput> ClientState<P, I> {
 
     }
 
+    pub fn receive_with<F: FnMut(&P, &mut P)>(&mut self, bytes: &[u8], tick: Option<u8>, mut modifier: F) {
+
+        let mut state = P::from_bytes(bytes);
+        modifier(&self.current, &mut state);
+
+        // Confirmed remote state for locally controlled state
+        if let Some(tick) = tick {
+            // TODO compare with local last tick to avoid receiving outdated state?
+            // tick_is_more_recent(tick, self.confirmed_tick)
+            self.confirmed_state = Some(state);
+            self.confirmed_tick = tick;
+
+        // Remote controlled state
+        } else {
+            self.confirmed_state = Some(state);
+            self.confirmed_tick = 0;
+        }
+
+    }
+
 }
 
 impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ClientState<P, I> {
@@ -212,6 +232,23 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
         } else {
             let mut bytes = vec![self.confirmed_tick];
             bytes.append(&mut self.current.to_bytes());
+            bytes
+        }
+
+    }
+
+    pub fn send_with<F: FnMut(&mut P)>(&self, delay: Option<usize>, mut modifier: F) -> Vec<u8> {
+
+        if let Some(delay) = delay {
+            let mut state = self.get_relative(delay);
+            modifier(&mut state);
+            state.to_bytes()
+
+        } else {
+            let mut bytes = vec![self.confirmed_tick];
+            let mut state = self.current.clone();
+            modifier(&mut state);
+            bytes.append(&mut state.to_bytes());
             bytes
         }
 

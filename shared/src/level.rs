@@ -16,7 +16,7 @@ use ::entity::PLAYER_RADIUS;
 const MAX_LEVEL_SIZE: f32 = 512.0;
 const COLLISION_GRID_SPACING: f64 = 100.0;
 const VISIBILITY_GRID_SPACING: f64 = PLAYER_RADIUS * 2.0;
-const VISIBILITY_MAX_DISTANCE: f64 = 300.0;
+const VISIBILITY_MAX_DISTANCE: f64 = 150.0;
 
 
 // Level Abstraction ----------------------------------------------------------
@@ -24,11 +24,13 @@ pub trait LevelCollision {
     fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4];
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
     fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]>;
+    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]>;
 }
 
 pub trait LevelVisibility {
     fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))>;
     fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4];
+    fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool;
 }
 
 #[derive(Debug, Default)]
@@ -82,7 +84,7 @@ impl Level {
                     cy + VISIBILITY_MAX_DISTANCE
                 ]);
 
-                // Calculate visibile points for all walls
+                // Calculate visible points for all walls
                 if !walls.is_empty() {
 
                     let mut visible_points = Vec::new();
@@ -212,8 +214,8 @@ impl Level {
     ) -> HashSet<usize> {
 
         let (top_left, bottom_right) = (
-            self.w2g(bounds[0], bounds[1]),
-            self.w2g(bounds[2], bounds[3])
+            self.w2g(bounds[0].min(bounds[2]), bounds[1].min(bounds[3])),
+            self.w2g(bounds[2].max(bounds[0]), bounds[3].max(bounds[1]))
         );
 
         let mut walls = HashSet::new();
@@ -314,7 +316,6 @@ struct Endpoint {
 
 struct Segment {
     wall_index: usize,
-    d: f64,
     p1: Endpoint,
     p2: Endpoint
 }
@@ -336,7 +337,7 @@ impl LevelVisibility for Level {
         // Go through all walls in range
         // TODO make this more efficient later on
         // TODO figure out what information can be pre-calculated?
-        // TODO do a rough estimation of all visibile walls from the center
+        // TODO do a rough estimation of all visible walls from the center
         // of the visibility grid cells so we have a better pre-filtering of
         // the walls when performing real-time player queries
         let mut endpoints = Vec::new();
@@ -358,14 +359,9 @@ impl LevelVisibility for Level {
                 dr -= 2.0 * consts::PI;
             }
 
-            let dx = 0.5 * (wall.points[0] + wall.points[2]) - x;
-            let dy = 0.5 * (wall.points[1] + wall.points[3]) - y;
-
             let p1_begins_segment = dr > 0.0;
-
             let segment = Segment {
                 wall_index: wi,
-                d: (dx * dx + dy * dy),
                 p1: Endpoint {
                     wall_index: wi,
                     segment_index: segments.len(),
@@ -482,6 +478,22 @@ impl LevelVisibility for Level {
         ]
     }
 
+    fn circle_visible_from(&self, ox: f64, oy: f64, radius: f64, x: f64, y: f64) -> bool {
+
+        let (dx, dy) = (x - ox, y - oy);
+        let l = (dx * dx + dy * dy).sqrt();
+        if l > VISIBILITY_MAX_DISTANCE * 1.4 {
+            false
+
+        } else {
+            self.collide_line(&[x, y, ox + radius, oy]).is_none()
+                || self.collide_line(&[x, y, ox - radius, oy]).is_none()
+                || self.collide_line(&[x, y, ox, oy + radius]).is_none()
+                || self.collide_line(&[x, y, ox, oy - radius]).is_none()
+        }
+
+    }
+
 }
 
 impl LevelCollision for Level {
@@ -551,15 +563,18 @@ impl LevelCollision for Level {
     fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
 
         let line = [
-            x + r.cos(),
-            y + r.sin(),
+            x,
+            y,
             x + r.cos() * l,
             y + r.sin() * l
         ];
 
-        let walls = self.get_walls_in_bounds(&line);
-        self.collide_beam_with_walls(&line, &walls)
+        self.collide_line(&line)
 
+    }
+
+    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]> {
+        self.collide_beam_with_walls(&line, &self.get_walls_in_bounds(&line))
     }
 
 }

@@ -1,3 +1,7 @@
+// STD Dependencies -----------------------------------------------------------
+use std::collections::HashMap;
+
+
 // External Dependencies ------------------------------------------------------
 use hexahydrate;
 use cobalt::ConnectionID;
@@ -18,7 +22,8 @@ pub struct PlayerEntity<S: NetworkState<PlayerPosition, PlayerInput>> {
     pub local: bool,
     pub owner: Option<ConnectionID>,
     pub state: S,
-    pub is_new: bool
+    pub is_new: bool,
+    pub visibility_state: HashMap<ConnectionID, bool>
 }
 
 impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
@@ -38,12 +43,27 @@ impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
             local: local,
             owner: owner,
             state: S::new(30),
-            is_new: true
+            is_new: true,
+            visibility_state: HashMap::new()
         };
 
         entity.state.set(position);
         entity
 
+    }
+
+    pub fn is_visible_to(&self, connection_slot: Option<&hexahydrate::ConnectionSlot<ConnectionID>>) -> bool {
+        if let Some(slot) = connection_slot {
+            if let Some(state) = self.visibility_state.get(&slot.user_data) {
+                *state
+
+            } else {
+                false
+            }
+
+        } else {
+            false
+        }
     }
 
     pub fn is_owned_by(&self, connection_slot: Option<&hexahydrate::ConnectionSlot<ConnectionID>>) -> bool {
@@ -70,7 +90,20 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerPositi
             Some(self.state.send(None))
 
         } else {
-            Some(self.state.send(Some(4))) // TODO make configurable
+            // TODO make ticks_ago configurable
+            let bytes = self.state.send_with(Some(4), |state| {
+                if self.is_visible_to(connection_slot) {
+                    state.visible = true;
+
+                } else {
+                    state.x = 0.0;
+                    state.y = 0.0;
+                    state.r = 0.0;
+                    state.visible = false;
+                }
+
+            });
+            Some(bytes)
         }
     }
 
