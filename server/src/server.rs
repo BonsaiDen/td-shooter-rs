@@ -21,7 +21,7 @@ use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 // Server Implementation ------------------------------------------------------
 pub struct Server {
     dt: f64,
-    server: hexahydrate::Server<Entity, ConnectionID>,
+    addr: String,
     connections: HashMap<ConnectionID, (
         hexahydrate::ConnectionSlot<ConnectionID>,
         hexahydrate::ServerEntitySlot,
@@ -33,16 +33,21 @@ pub struct Server {
 
 impl Server {
 
-    pub fn new(updates_per_second: u64) -> Server {
+    pub fn new(addr: String, updates_per_second: u64) -> Server {
         Server {
             dt: 1.0 / updates_per_second as f64,
-            server: hexahydrate::Server::<Entity, ConnectionID>::new((updates_per_second * 2) as usize),
+            addr: addr,
             connections: HashMap::new(),
             available_colors: ColorName::all_colored().into_iter().rev().collect()
         }
     }
 
-    pub fn update(&mut self, level: &Level, server: &mut cobalt::ServerStream) {
+    pub fn update(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        server: &mut cobalt::ServerStream,
+        level: &Level
+    ) {
 
         let dt = self.dt;
 
@@ -51,16 +56,16 @@ impl Server {
 
             match event {
                 cobalt::ServerEvent::Bind => {
-                    println!("[Server] Now accepting connections...");
+                    println!("[Server] Now accepting connections on {}", self.addr);
                 },
                 cobalt::ServerEvent::Connection(id) => {
                     if let Some(conn) = server.connection_mut(&id) {
-                        self.connect(conn);
+                        self.connect(entity_server, conn);
                     }
                 },
                 cobalt::ServerEvent::Message(id, packet) => {
                     if let Some(&mut (ref slot, _, _, ref mut incoming_actions)) = self.connections.get_mut(&id) {
-                        match self.server.connection_receive(slot, packet) {
+                        match entity_server.connection_receive(slot, packet) {
                             Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
                                 if let Ok(action) = Action::from_bytes(&bytes) {
                                     // TODO limit number of maximum actions?
@@ -73,11 +78,11 @@ impl Server {
                 },
                 cobalt::ServerEvent::ConnectionLost(id) => {
                     println!("[Server] Lost connection to client!");
-                    self.disconnect(&id);
+                    self.disconnect(entity_server, &id);
                 },
                 cobalt::ServerEvent::ConnectionClosed(id, _) => {
                     println!("[Server] Closed connection to client.");
-                    self.disconnect(&id);
+                    self.disconnect(entity_server, &id);
                 },
                 _ => {}
             }
@@ -85,7 +90,7 @@ impl Server {
         }
 
         // Update entities
-        self.server.update_with(|_, entity| {
+        entity_server.update_with(|_, entity| {
             entity.update(dt, &level);
         });
 
@@ -98,23 +103,17 @@ impl Server {
                 println!("[Server] Received action from client: {:?}", action);
                 match action {
                     Action::FiredLaserBeam(tick, client_r) => {
-                        if let Some(entity) = self.server.entity_get(entity_slot) {
+                        if let Some(entity) = entity_server.entity_get(entity_slot) {
 
-                            // TODO unify with PlayerPosition stuff
                             let mut p = entity.position(tick);
                             p.merge_client_angle(client_r);
-                            //let r = client_r - p.r;
-                            //let dr = r.sin().atan2(r.cos());
-
-                            //println!("[Server] Shot (server) {} (local) {} (diff) {}", p.r, client_r, dr);
 
                             // TODO laser beam collision
-                            //dr.min(consts::PI * 0.125).max(-consts::PI * 0.125);
                             outgoing_actions.push(Action::CreateLaserBeam(
                                 entity.color_name().to_u8(),
                                 p.x + p.r.cos() * (PLAYER_RADIUS as f32 + 0.5),
                                 p.y + p.r.sin() * (PLAYER_RADIUS as f32 + 0.5),
-                                p.r, // TODO apply correction with client angle?
+                                p.r,
                                 100
                             ));
 
@@ -125,7 +124,7 @@ impl Server {
             }
 
             // Send updates to clients
-            for packet in self.server.connection_send(slot, 512).unwrap() {
+            for packet in entity_server.connection_send(slot, 512).unwrap() {
                 server.send(id, cobalt::MessageKind::Instant, packet).ok();
             }
 
@@ -143,16 +142,20 @@ impl Server {
 
     }
 
-    fn connect(&mut self, conn: &mut cobalt::Connection) {
+    fn connect(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        conn: &mut cobalt::Connection
+    ) {
 
         // TODO do not directly create a entity but rather add the connection and then wait for a
         // "JoinGame" Action and create the entity based on that
-        if let Ok(slot) = self.server.connection_add(conn.id()) {
+        if let Ok(slot) = entity_server.connection_add(conn.id()) {
 
             if let Some(color) = self.available_colors.pop() {
 
                 // Create a new player entity for the connected client
-                if let Ok(entity_slot) = self.server.entity_create_with(|| {
+                if let Ok(entity_slot) = entity_server.entity_create_with(|| {
                     Box::new(PlayerEntity::<ServerState<PlayerPosition, PlayerInput>>::new(Some(conn.id()), false, color, PlayerPosition {
                         x: -50.0,
                         y: 0.0,
@@ -182,11 +185,15 @@ impl Server {
 
     }
 
-    fn disconnect(&mut self, id: &ConnectionID) {
+    fn disconnect(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        id: &ConnectionID
+    ) {
         if let Some((slot, entity_slot, color, _)) = self.connections.remove(id) {
             println!("[Server] Client disconnected.");
-            self.server.entity_destroy(entity_slot).ok();
-            self.server.connection_remove(slot).expect("Connection does not exist.");
+            entity_server.entity_destroy(entity_slot).ok();
+            entity_server.connection_remove(slot).expect("Connection does not exist.");
             self.available_colors.push(color);
         }
     }

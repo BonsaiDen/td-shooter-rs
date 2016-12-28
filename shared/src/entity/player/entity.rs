@@ -17,7 +17,8 @@ pub struct PlayerEntity<S: NetworkState<PlayerPosition, PlayerInput>> {
     pub color_dark: [f32; 4],
     pub local: bool,
     pub owner: Option<ConnectionID>,
-    pub state: S // TODO rename into properties?
+    pub state: S,
+    pub is_new: bool
 }
 
 impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
@@ -36,7 +37,8 @@ impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
             color_dark: Color::from_name(color).darken(0.5).into_f32(),
             local: local,
             owner: owner,
-            state: S::new(30) // TODO make configurable
+            state: S::new(30),
+            is_new: true
         };
 
         entity.state.set(position);

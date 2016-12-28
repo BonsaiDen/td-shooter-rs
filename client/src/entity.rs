@@ -19,10 +19,20 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn update_local(&mut self, level: &Level, input: PlayerInput);
     fn color_name(&self) -> ColorName;
     fn colors(&self) -> [[f32; 4]; 2];
-
+    fn is_new(&mut self) -> bool;
 }
 
 impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
+
+    fn is_new(&mut self) -> bool {
+        if self.is_new {
+            self.is_new = false;
+            true
+
+        } else {
+            false
+        }
+    }
 
     fn is_local(&self) -> bool {
         self.local

@@ -30,15 +30,15 @@ pub struct Client {
     world_cursor: (f64, f64),
 
     // Rendering
-    updates_per_second: u64,
     camera: Camera,
-    draw_state: DrawState,
-    player_color: ColorName,
-    player_position: PlayerPosition,
+    updates_per_second: u64,
     effects: Vec<Box<Effect>>,
 
+    // Player Colors
+    player_colors: [[f32; 4]; 2],
+    player_position: PlayerPosition,
+
     // Network
-    client: hexahydrate::Client<Entity, ConnectionID, Registry>,
     actions: Vec<Action>,
     tick: u8
 }
@@ -56,30 +56,37 @@ impl Client {
             world_cursor: (0.0, 0.0),
 
             // Rendering
-            updates_per_second: updates_per_second,
             camera: Camera::new(width, height),
-            draw_state: DrawState::default(),
-            player_color: ColorName::Black,
-            player_position: PlayerPosition::default(),
+            updates_per_second: updates_per_second,
             effects: Vec::new(),
 
+            // Colors
+            player_colors: [[0f32; 4]; 2],
+            player_position: PlayerPosition::default(),
+
             // Network
-            client: hexahydrate::Client::<Entity, ConnectionID, Registry>::new(Registry, (updates_per_second * 2) as usize),
             actions: Vec::new(),
             tick: 0
 
         }
     }
 
-    pub fn input(&mut self, e: &Input) {
+    pub fn input(
+        &mut self,
+        _: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
+        _: &Level,
+        e: &Input
+    ) {
 
         if let Some(Button::Mouse(button)) = e.press_args() {
             // Limit shot rate
             if button == MouseButton::Left {
                 self.actions.push(Action::FiredLaserBeam(self.tick, self.player_position.r));
 
-                // TODO create laser on server but already play
+                // TODO create laser on server but already play sfx
                 // TODO have a small sparkle / rotation / start effect at the source of the beam
+                // TODO create local effect on next render frame to have a better synchronization
+                // with the server
                 self.effects.push(Box::new(LaserBeam::from_point(
                     ColorName::Grey,
                     self.player_position.x as f64,
@@ -133,9 +140,17 @@ impl Client {
 
     }
 
-    pub fn update(&mut self, dt: f64, level: &Level, client: &mut cobalt::ClientStream) {
+    pub fn update(
+        &mut self,
+        entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
+        client: &mut cobalt::ClientStream,
+        level: &Level,
+        dt: f64
+    ) {
 
-        let input = PlayerInput::new(self.tick, self.buttons, self.input_angle as f32, dt as f32);
+        let input = PlayerInput::new(
+            self.tick, self.buttons, self.input_angle as f32, dt as f32
+        );
 
         // Receive messages
         let mut actions = Vec::new();
@@ -145,7 +160,7 @@ impl Client {
                     println!("[Client] Now connected to server.");
                 },
                 cobalt::ClientEvent::Message(packet) => {
-                    match self.client.receive(packet) {
+                    match entity_client.receive(packet) {
                         Err(hexahydrate::ClientError::InvalidPacketData(bytes)) => {
                             if let Ok(action) = Action::from_bytes(&bytes) {
                                 actions.push(action);
@@ -156,16 +171,16 @@ impl Client {
                 },
                 cobalt::ClientEvent::ConnectionLost => {
                     println!("[Client] Lost connection to server!");
-                    self.client.reset();
+                    entity_client.reset();
                     client.close().ok();
                 },
                 cobalt::ClientEvent::ConnectionClosed(_) => {
                     println!("[Client] Closed connection to server.");
-                    self.client.reset();
+                    entity_client.reset();
                     client.close().ok();
                 },
                 cobalt::ClientEvent::ConnectionFailed => {
-                    self.client.reset();
+                    entity_client.reset();
                     println!("[Client] Failed to connect to server!");
                 },
                 _ => {}
@@ -173,8 +188,11 @@ impl Client {
         }
 
         // Update entities
-        self.client.update_with(|_, entity| {
+        entity_client.update_with(|_, entity| {
             if entity.is_local() {
+                if entity.is_new() {
+                    self.player_colors = entity.colors();
+                }
                 entity.update_local(level, input.clone());
 
             } else {
@@ -202,7 +220,7 @@ impl Client {
         }
 
         // Send client inputs to server
-        for packet in self.client.send(512) {
+        for packet in entity_client.send(512) {
             client.send(cobalt::MessageKind::Instant, packet).ok();
         }
 
@@ -216,28 +234,25 @@ impl Client {
 
     }
 
-    pub fn draw_2d(&mut self, window: &mut PistonWindow, e: &Event, args: &RenderArgs, level: &Level) {
+    pub fn draw_2d(
+        &mut self,
+        entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
+        level: &Level,
+        window: &mut PistonWindow,
+        e: &Event,
+        args: &RenderArgs,
+    ) {
 
         let t = clock_ticks::precise_time_ms();
         let u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
 
         // Get player positions and colors
-        // TODO optimize
-        let (mut p, mut colors) = (PlayerPosition::default(), [[0f32; 4]; 2]);
-        let mut color_name = ColorName::Black;
-        let players = self.client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
+        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
             if entity.is_local() {
-                p = entity.interpolate(u);
-                colors = entity.colors();
-                color_name = entity.color_name();
+                self.player_position = entity.interpolate(u);
             }
             (entity.interpolate(u), entity.colors())
         });
-
-        self.player_color = color_name;
-
-        // TODO get from update() method instead?
-        self.player_position = p;
 
         // Camera setup
         self.camera.x = (self.player_position.x as f64).max(-200.0).min(200.0);
@@ -288,7 +303,7 @@ impl Client {
 
                 // Outline
                 g.tri_list(
-                    &self.draw_state,
+                    &DrawState::default(),
                     &[0.0, 0.0, 0.0, 0.5],
                     |f| triangulation::with_arc_tri_list(
                         0.0,
@@ -305,7 +320,7 @@ impl Client {
                 // Body
                 let q = q.rot_rad(p.r as f64);
                 g.tri_list(
-                    &self.draw_state,
+                    &DrawState::default(),
                     &colors[0],
                     |f| triangulation::with_arc_tri_list(
                         0.0,
@@ -320,7 +335,7 @@ impl Client {
 
                 // Cone of sight
                 g.tri_list(
-                    &self.draw_state,
+                    &DrawState::default(),
                     &colors[1],
                     |f| triangulation::with_arc_tri_list(
                         -consts::PI * 0.25,
@@ -344,7 +359,7 @@ impl Client {
 
             // Cursor marker
             rectangle(
-                colors[0],
+                self.player_colors[0],
                 [
                     self.world_cursor.0 - 2.0, self.world_cursor.1 - 2.0,
                     4.0, 4.0
@@ -354,10 +369,10 @@ impl Client {
 
             // Top / Bottom / Left / Right Border
             let (w, h) = (args.width as f64, args.height as f64);
-            line(colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
-            line(colors[0], 2.0, [0.0, h, w, h], c.transform, g);
-            line(colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
-            line(colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
+            line(self.player_colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
+            line(self.player_colors[0], 2.0, [0.0, h, w, h], c.transform, g);
+            line(self.player_colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
+            line(self.player_colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
 
         });
 

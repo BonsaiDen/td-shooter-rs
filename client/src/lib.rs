@@ -32,10 +32,12 @@ static BASE_HEIGHT: f64 = 480.0;
 
 
 // External Dependencies ------------------------------------------------------
+use cobalt::ConnectionID;
 use piston_window::{Event, Events, EventLoop, PistonWindow, WindowSettings};
 
 
 // Internal Dependencies ------------------------------------------------------
+use ::entity::{Entity, Registry};
 use shared::UPDATES_PER_SECOND;
 use shared::level::Level as SharedLevel;
 use level::Level;
@@ -53,6 +55,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
             "Shooter",
             [BASE_WIDTH as u32, BASE_HEIGHT as u32]
         )
+        .samples(4)
         .vsync(false)
         .exit_on_esc(true)
         .build()
@@ -68,13 +71,23 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Level and Game
     let level = Level::new(SharedLevel::load());
     let mut client = Client::new(updates_per_second, BASE_WIDTH, BASE_HEIGHT);
+    let mut entity_client = hexahydrate::Client::<Entity, ConnectionID, Registry>::new(
+        Registry,
+        (updates_per_second * 2) as usize
+    );
 
     // Gameloop
     while let Some(e) = events.next(&mut window) {
         match e {
-            Event::Input(ref event) => client.input(event),
-            Event::Update(update) => client.update(update.dt, &level, &mut network),
-            Event::Render(args) => client.draw_2d(&mut window, &e, &args, &level),
+            Event::Input(ref event) => client.input(
+                &mut entity_client, &level, event
+            ),
+            Event::Update(update) => client.update(
+                &mut entity_client, &mut network, &level, update.dt
+            ),
+            Event::Render(args) => client.draw_2d(
+                &mut entity_client, &level, &mut window, &e, &args
+            ),
             _ => { }
         }
         window.event(&e);

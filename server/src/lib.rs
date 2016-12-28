@@ -20,7 +20,12 @@ extern crate shared;
 use std::thread;
 
 
+// External Dependencies ------------------------------------------------------
+use cobalt::ConnectionID;
+
+
 // Internal Dependencies ------------------------------------------------------
+use ::entity::Entity;
 use ::server::Server;
 use shared::level::Level;
 
@@ -31,7 +36,12 @@ mod entity;
 
 
 // Server Runner ---------------------------------------------------------------
-pub fn run(updates_per_second: u64, addr: String, level: Level) -> thread::JoinHandle<()> {
+pub fn run(
+    updates_per_second: u64,
+    addr: String,
+    level: Level
+
+) -> thread::JoinHandle<()> {
 
     thread::spawn(move || {
 
@@ -43,9 +53,13 @@ pub fn run(updates_per_second: u64, addr: String, level: Level) -> thread::JoinH
         let mut network = cobalt::ServerStream::new(config);
         network.bind(addr.as_str()).expect("Failed to bind to address.");
 
-        let mut server = Server::new(updates_per_second);
+        let mut server = Server::new(addr, updates_per_second);
+        let mut entity_server = hexahydrate::Server::<Entity, ConnectionID>::new(
+            (updates_per_second * 2) as usize
+        );
+
         loop {
-            server.update(&level, &mut network);
+            server.update(&mut entity_server, &mut network, &level);
         }
 
     })
