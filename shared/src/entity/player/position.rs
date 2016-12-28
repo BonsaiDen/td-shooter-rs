@@ -10,6 +10,7 @@ use bincode::rustc_serialize::{encode, decode};
 
 // Internal Dependencies ------------------------------------------------------
 use super::{PlayerInput, PLAYER_SPEED, PLAYER_RADIUS};
+use ::util::{rad_to_u16, u16_to_rad};
 use ::level::LevelCollision;
 
 
@@ -44,7 +45,7 @@ impl NetworkProperty for PlayerPosition {
         encode(&PlayerNetworkPosition(
             self.x,
             self.y,
-            ((self.r + consts::PI) * 2000.0).round() as u16
+            rad_to_u16(self.r)
 
         ), SizeLimit::Infinite).unwrap()
     }
@@ -54,7 +55,7 @@ impl NetworkProperty for PlayerPosition {
         PlayerPosition {
             x: position.0,
             y: position.1,
-            r: (position.2 as f32) / 2000.0 - consts::PI
+            r: u16_to_rad(position.2)
         }
     }
 

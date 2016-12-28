@@ -1,11 +1,11 @@
-// STD Dependencies -----------------------------------------------------------
-use std::f32::consts;
-
-
 // External Dependencies ------------------------------------------------------
 use netsync::NetworkInput;
 use bincode::SizeLimit;
 use bincode::rustc_serialize::{encode, decode};
+
+
+// Internal Dependencies ------------------------------------------------------
+use ::util::{rad_to_u16, u16_to_rad};
 
 
 // Player Network Input -------------------------------------------------------
@@ -38,20 +38,18 @@ impl NetworkInput for PlayerInput {
         encode(&PlayerNetworkInput(
             self.tick,
             self.buttons,
-            ((self.r + consts::PI) * 2000.0).floor() as u16
+            rad_to_u16(self.r)
 
         ), SizeLimit::Infinite).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Option<(usize, Self)> where Self: Sized {
         if bytes.len() >= 4 {
-            // TODO get encoded size automatically?
-            // encoded_size::<PlayerInput>(&self)
             let input = decode::<PlayerNetworkInput>(bytes).unwrap();
             Some((4, PlayerInput {
                 tick: input.0,
                 buttons: input.1,
-                r: (input.2 as f32) / 2000.0 - consts::PI,
+                r: u16_to_rad(input.2),
                 dt: 0.0
             }))
 

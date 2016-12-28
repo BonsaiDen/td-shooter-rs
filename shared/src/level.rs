@@ -22,8 +22,6 @@ impl Level {
 
     pub fn new() -> Level {
         Level {
-            // TODO add a grid around the origin (-n to +n) for spatial lookup
-            // of walls for both rendering and collision detection
             walls: Vec::new(),
             grid: HashMap::new()
         }
@@ -160,7 +158,6 @@ impl LevelCollision for Level {
         for i in &walls {
 
             let wall = &self.walls[*i];
-            println!("wall: {:?}", wall.points);
             if let Some(new) = line_intersect_line(&line, &wall.points) {
 
                 let is_closer = if let Some(existing) = intersection {
