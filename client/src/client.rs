@@ -87,9 +87,8 @@ impl Client {
                 self.actions.push(Action::FiredLaserBeam(self.tick, self.player_position.r));
 
                 // TODO create laser on server but already play sfx
-                // TODO have a small sparkle / rotation / start effect at the source of the beam
-                // TODO create local effect on next render frame to have a better synchronization
-                // with the server
+                // TODO play laser SFX
+                // TODO limit laser firing rate on client and server
                 if self.debug_draw {
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::Grey,
@@ -215,6 +214,7 @@ impl Client {
             println!("[Client] Received action from server: {:?}", action);
             match action {
                 Action::CreateLaserBeam(color, x, y, r, l) => {
+                    // TODO have a small sparkle / rotation / start effect at the source of the beam
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::from_u8(color),
                         x as f64,

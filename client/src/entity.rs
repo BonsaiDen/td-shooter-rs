@@ -43,8 +43,6 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
     }
 
     fn update_remote(&mut self) {
-        // TODO do we need to do more things here with the remote entitis?
-        // e.g. level collision?
         self.state.update_with(|_, _| {});
     }
 

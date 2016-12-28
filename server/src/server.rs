@@ -32,8 +32,7 @@ pub struct Server {
         ColorName,
         VecDeque<Action>
     )>,
-    available_colors: Vec<ColorName>,
-    positions: Vec<(f64, f64)>
+    available_colors: Vec<ColorName>
 }
 
 impl Server {
@@ -43,8 +42,7 @@ impl Server {
             dt: 1.0 / updates_per_second as f64,
             addr: addr,
             connections: HashMap::new(),
-            available_colors: ColorName::all_colored().into_iter().rev().collect(),
-            positions: vec![(-100.0, -110.0), (-40.0, 16.0)]
+            available_colors: ColorName::all_colored().into_iter().rev().collect()
         }
     }
 
@@ -213,10 +211,9 @@ impl Server {
                 // Create a new player entity for the connected client
                 if let Ok(entity_slot) = entity_server.entity_create_with(|| {
 
-                    let p = self.positions.remove(0);
                     Box::new(PlayerEntity::<ServerState<PlayerPosition, PlayerInput>>::new(Some(conn.id()), false, color, PlayerPosition {
-                        x: p.0 as f32,
-                        y: p.1 as f32,
+                        x: 0.0,
+                        y: 0.0,
                         r: 0.0,
                         visible: true
                     }))
