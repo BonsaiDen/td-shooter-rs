@@ -2,7 +2,6 @@
 use std::f32::consts;
 
 
-
 // Conversion Utilities -------------------------------------------------------
 pub fn rad_to_u16(r: f32) -> u16 {
     ((r + consts::PI) * 2000.0).round() as u16

@@ -1,21 +1,43 @@
 // STD Dependencies -----------------------------------------------------------
+use std::f64::consts;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
 
+// External Dependencies ------------------------------------------------------
+use clock_ticks;
+
+
+// Internal Dependencies ------------------------------------------------------
+use ::entity::PLAYER_RADIUS;
+
+
 // Statics --------------------------------------------------------------------
-const GRID_SPACING: f64 = 100.0;
+const MAX_LEVEL_SIZE: f32 = 512.0;
+const COLLISION_GRID_SPACING: f64 = 100.0;
+const VISIBILITY_GRID_SPACING: f64 = PLAYER_RADIUS * 2.0;
+const VISIBILITY_MAX_DISTANCE: f64 = 300.0;
 
 
 // Level Abstraction ----------------------------------------------------------
 pub trait LevelCollision {
+    fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4];
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
     fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]>;
+}
+
+pub trait LevelVisibility {
+    fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))>;
+    fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4];
 }
 
 #[derive(Debug, Default)]
 pub struct Level {
     pub walls: Vec<LevelWall>,
-    grid: HashMap<(isize, isize), Vec<usize>>
+    bounds: [f64; 4],
+    // TODO later on we can optimize the memory access here
+    collision_grid: HashMap<(isize, isize), Vec<usize>>,
+    visibility_grid: HashMap<(isize, isize), Vec<(usize, usize, f64, f64)>>
 }
 
 impl Level {
@@ -23,9 +45,139 @@ impl Level {
     pub fn new() -> Level {
         Level {
             walls: Vec::new(),
-            grid: HashMap::new()
+            bounds: [1000000.0, 1000000.0, -100000.0, -1000000.0],
+            collision_grid: HashMap::new(),
+            visibility_grid: HashMap::new()
         }
     }
+
+    /*
+    fn pre_calculate_visibility(&mut self) {
+
+        println!("[Level] Bounds {:?}", self.bounds);
+
+        let start = clock_ticks::precise_time_ms();
+
+        let (top_left, bottom_right) = (
+            self.w2v(self.bounds[0], self.bounds[1]),
+            self.w2v(self.bounds[2], self.bounds[3])
+        );
+
+        // Go through all possible visibility cells
+        let mut visibility_grid = HashMap::new();
+        for y in top_left.1..bottom_right.1 + 1 {
+            for x in top_left.0..bottom_right.0 + 1 {
+
+                // Calculate cell center
+                let (cx, cy) = (
+                    (x as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
+                    (y as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
+                );
+
+                // Get list of walls within the bounds for this cell
+                let walls = self.get_walls_in_bounds(&[
+                    cx - VISIBILITY_MAX_DISTANCE,
+                    cy - VISIBILITY_MAX_DISTANCE,
+                    cx + VISIBILITY_MAX_DISTANCE,
+                    cy + VISIBILITY_MAX_DISTANCE
+                ]);
+
+                // Calculate visibile points for all walls
+                if !walls.is_empty() {
+
+                    let mut visible_points = Vec::new();
+
+                    // Add points in range for each of the walls
+                    for i in &walls {
+                        let wall = &self.walls[*i];
+                        visible_points.push((*i, 0, wall.points[0], wall.points[1]));
+                        visible_points.push((*i, 1, wall.points[2], wall.points[3]));
+                    }
+
+                    if !visible_points.is_empty() {
+                        visibility_grid.insert((x, y), visible_points);
+                    }
+
+                }
+
+            }
+        }
+
+        // Merge adjacents visibility cells and filter out duplicate entries
+        let mut merged_visibility_grid = HashMap::new();
+        for &(gx, gy) in visibility_grid.keys() {
+
+            // List of all merged points
+            let mut merged_visible_points = Vec::new();
+
+            // HashSet for point de-duplication
+            let mut merged_indicies = HashSet::new();
+
+            for y in (gy - 1)..(gy + 2) {
+                for x in (gx - 1)..(gx + 2) {
+
+                    // Get points in current grid cell
+                    if let Some(points) = visibility_grid.get(&(x, y)) {
+
+                        for point in points {
+                            let index = (point.0, point.1);
+                            if !merged_indicies.contains(&index) {
+                                merged_indicies.insert(index);
+                                merged_visible_points.push(*point);
+                            }
+                        }
+
+                    }
+
+                }
+            }
+
+            if !merged_visible_points.is_empty() {
+
+                // Get center of current grid cell
+                let (cx, cy) = (
+                    (gx as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
+                    (gy as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
+                );
+
+                // Calculate point angles
+                let mut point_angles: Vec<(f64, _)> = {
+                    merged_visible_points.into_iter().map(|p| {
+                        let (dx, dy) = (cx - p.2, cy - p.3);
+                        (dy.atan2(dx) + consts::PI, p)
+
+                    }).collect()
+                };
+
+                // Sort points in clockwise order
+                point_angles.sort_by(|a, b| {
+                    if a.0 < b.0 {
+                        Ordering::Greater
+
+                    } else if a.0 > b.0 {
+                        Ordering::Less
+
+                    } else {
+                        Ordering::Equal
+                    }
+                });
+
+                let sorted_points: Vec<_> = point_angles.into_iter().map(|(_, p)| {
+                    p
+
+                }).collect();
+
+                merged_visibility_grid.insert((gx, gy), sorted_points);
+            }
+
+        }
+
+        self.visibility_grid = merged_visibility_grid;
+
+        println!("[Level] Visibility pre-calculated in {}ms", clock_ticks::precise_time_ms() - start);
+
+    }
+    */
 
     fn add_wall(&mut self, wall: LevelWall) {
 
@@ -36,9 +188,15 @@ impl Level {
                 self.w2g(aabb[2], aabb[3])
             );
 
+            self.bounds[0] = self.bounds[0].min(aabb[0]);
+            self.bounds[1] = self.bounds[1].min(aabb[1]);
+
+            self.bounds[2] = self.bounds[2].max(aabb[2]);
+            self.bounds[3] = self.bounds[3].max(aabb[3]);
+
             for y in (top_left.1 - 1)..bottom_right.1 + 1 {
                 for x in (top_left.0 - 1)..bottom_right.0 + 1 {
-                    self.grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
+                    self.collision_grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
                 }
             }
         }
@@ -61,7 +219,7 @@ impl Level {
         let mut walls = HashSet::new();
         for y in (top_left.1 - 1)..bottom_right.1 + 1 {
             for x in (top_left.0 - 1)..bottom_right.0 + 1 {
-                if let Some(indicies) = self.grid.get(&(x, y)) {
+                if let Some(indicies) = self.collision_grid.get(&(x, y)) {
                     for i in indicies {
                         walls.insert(*i);
                     }
@@ -77,20 +235,266 @@ impl Level {
         let mut level = Level::new();
         level.add_wall(LevelWall::new(100.0, 100.0, -100.0, 100.0));
         level.add_wall(LevelWall::new(-100.0, -100.0, -100.0, 100.0));
+        level.add_wall(LevelWall::new(-50.0, -100.0, -50.0, 0.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, -100.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, 100.0));
+        level.add_walls_from_bounds(&[
+            -VISIBILITY_MAX_DISTANCE, -VISIBILITY_MAX_DISTANCE,
+            VISIBILITY_MAX_DISTANCE, VISIBILITY_MAX_DISTANCE
+        ]);
+        //level.pre_calculate_visibility();
         level
     }
 
+    fn add_walls_from_bounds(&mut self, bounds: &[f64; 4]) {
+
+        // Top
+        self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[2], bounds[1]));
+
+        // Right
+        self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[0], bounds[3]));
+
+        // Bottom
+        self.add_wall(LevelWall::new(bounds[0], bounds[3], bounds[2], bounds[3]));
+
+        // Left
+        self.add_wall(LevelWall::new(bounds[2], bounds[1], bounds[2], bounds[3]));
+
+    }
+
     fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
-        let gx = ((x ) / GRID_SPACING).round();
-        let gy = ((y ) / GRID_SPACING).round();
+        let gx = ((x - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
+        let gy = ((y - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
         (gx as isize, gy as isize)
+    }
+
+    fn w2v(&self, x: f64, y: f64) -> (isize, isize) {
+        let gx = ((x - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
+        let gy = ((y - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
+        (gx as isize, gy as isize)
+    }
+
+    fn collide_beam_with_walls(&self, line: &[f64; 4], walls: &HashSet<usize>) -> Option<[f64; 5]> {
+
+        let mut intersection: Option<[f64; 5]> = None;
+        for i in walls {
+
+            let wall = &self.walls[*i];
+            if let Some(new) = line_intersect_line(&line, &wall.points) {
+
+                let is_closer = if let Some(existing) = intersection {
+                    new[4] < existing[4]
+
+                } else {
+                    true
+                };
+
+                if is_closer {
+                    intersection = Some(new);
+                }
+
+            }
+        }
+
+        intersection
+
+    }
+
+}
+
+#[derive(Clone)]
+struct Endpoint {
+    wall_index: usize,
+    segment_index: usize,
+    begins_segment: bool,
+    r: f64,
+    x: f64,
+    y: f64
+}
+
+struct Segment {
+    wall_index: usize,
+    d: f64,
+    p1: Endpoint,
+    p2: Endpoint
+}
+
+impl LevelVisibility for Level {
+
+    // TODO version which returns wall indicies for visibility pre-calcualtion of walls from
+    // certain grid spaces
+    fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))> {
+
+        // TODO do a lookup into the visibility grid -> wall index cache
+        let walls = self.get_walls_in_bounds(&[
+            x - VISIBILITY_MAX_DISTANCE,
+            y - VISIBILITY_MAX_DISTANCE,
+            x + VISIBILITY_MAX_DISTANCE,
+            y + VISIBILITY_MAX_DISTANCE
+        ]);
+
+        // Go through all walls in range
+        // TODO make this more efficient later on
+        // TODO figure out what information can be pre-calculated?
+        // TODO do a rough estimation of all visibile walls from the center
+        // of the visibility grid cells so we have a better pre-filtering of
+        // the walls when performing real-time player queries
+        let mut endpoints = Vec::new();
+        let mut segments = Vec::new();
+        for wi in walls {
+
+            let wall = &self.walls[wi];
+
+            // Calculate endpoints
+            let r1 = endpoint_angle(wall.points[0], wall.points[1], x, y);
+            let r2 = endpoint_angle(wall.points[2], wall.points[3], x, y);
+
+            let mut dr = r2 - r1;
+            if dr <= -consts::PI {
+                dr += 2.0 * consts::PI;
+            }
+
+            if dr > consts::PI {
+                dr -= 2.0 * consts::PI;
+            }
+
+            let dx = 0.5 * (wall.points[0] + wall.points[2]) - x;
+            let dy = 0.5 * (wall.points[1] + wall.points[3]) - y;
+
+            let p1_begins_segment = dr > 0.0;
+
+            let segment = Segment {
+                wall_index: wi,
+                d: (dx * dx + dy * dy),
+                p1: Endpoint {
+                    wall_index: wi,
+                    segment_index: segments.len(),
+                    begins_segment: p1_begins_segment,
+                    r: r1,
+                    x: wall.points[0],
+                    y: wall.points[1]
+                },
+                p2: Endpoint {
+                    wall_index: wi,
+                    segment_index: segments.len(),
+                    begins_segment: !p1_begins_segment,
+                    r: r2,
+                    x: wall.points[2],
+                    y: wall.points[3]
+                }
+            };
+
+            endpoints.push(segment.p1.clone());
+            endpoints.push(segment.p2.clone());
+            segments.push(segment);
+
+        }
+
+        // Sort endpoints
+        endpoints.sort_by(|a, b| {
+
+            if a.r > b.r {
+                Ordering::Greater
+
+            } else if a.r < b.r {
+                Ordering::Less
+
+            } else if !a.begins_segment && b.begins_segment {
+                Ordering::Greater
+
+            } else if a.begins_segment && !b.begins_segment {
+                Ordering::Less
+
+            } else {
+                Ordering::Equal
+            }
+
+        });
+
+        // Calculate visibility
+        let mut start_r = 0.0;
+        let mut open_segments: Vec<isize> = Vec::new();
+        let mut triangle_points = Vec::new();
+
+        for pass in 0..2 {
+
+            for endpoint in &endpoints {
+
+                // Get current open segment to check if it changed later on
+                // TODO optimize all of these
+                let open_segment_index = open_segments.get(0).map(|i| *i).unwrap_or(-1);
+
+                if endpoint.begins_segment {
+                    let mut index = 0;
+                    // TODO Clean up access
+                    let mut segment_index = open_segments.get(index).map(|i| *i).unwrap_or(-1);
+                    while segment_index != -1 && segment_in_front_of(x, y, &segments[endpoint.segment_index], &segments[segment_index as usize])  {
+                        index += 1;
+                        segment_index = open_segments.get(index).map(|i| *i).unwrap_or(-1);
+                    }
+
+                    if segment_index == -1 {
+                        open_segments.push(endpoint.segment_index as isize)
+
+                    } else {
+                        open_segments.insert(index, endpoint.segment_index as isize);
+                    }
+
+                } else {
+                    open_segments.retain(|index| {
+                        *index != endpoint.segment_index as isize
+                    })
+                }
+
+                // Check if open segment has changed
+                // TODO Clean up access
+                if open_segment_index != open_segments.get(0).map(|i| *i).unwrap_or(-1) {
+                    if pass == 1 {
+                        // segments[open_segment_index as usize].wall_index
+                        triangle_points.push(get_triangle_points(x, y, start_r, endpoint.r, segments.get(open_segment_index as usize)));
+                        //output.push((start_r, endpoint.r));
+                        //println!("add triangle: {}", segments[open_segment_index as usize].wall_index);
+                    }
+                    start_r = endpoint.r;
+                }
+
+            }
+
+        }
+
+        // TODO return wall indicies for pre-calculation of visible walls?
+        triangle_points
+
+        // TODO perform player visibility lookup with a simpler calculation?
+        // get edgepoints of enemy player circle (extrude them to compensate for lage)
+        // and perform a simple 4-times line intersection, if any of the lines connects
+        // we have visibility
+
+    }
+
+    fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+        let (gx, gy) = self.w2v(x, y);
+        [
+            (gx as f64) * VISIBILITY_GRID_SPACING,
+            (gy as f64) * VISIBILITY_GRID_SPACING,
+            VISIBILITY_GRID_SPACING,
+            VISIBILITY_GRID_SPACING
+        ]
     }
 
 }
 
 impl LevelCollision for Level {
+
+    fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+        let (gx, gy) = self.w2g(x, y);
+        [
+            (gx as f64) * COLLISION_GRID_SPACING,
+            (gy as f64) * COLLISION_GRID_SPACING,
+            COLLISION_GRID_SPACING,
+            COLLISION_GRID_SPACING
+        ]
+    }
 
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64) {
 
@@ -139,8 +543,8 @@ impl LevelCollision for Level {
 
         }
 
-        *x = x.min(300.0).max(-300.0);
-        *y = y.min(300.0).max(-300.0);
+        *x = x.min(MAX_LEVEL_SIZE).max(-MAX_LEVEL_SIZE);
+        *y = y.min(MAX_LEVEL_SIZE).max(-MAX_LEVEL_SIZE);
 
     }
 
@@ -154,27 +558,7 @@ impl LevelCollision for Level {
         ];
 
         let walls = self.get_walls_in_bounds(&line);
-        let mut intersection: Option<[f64; 5]> = None;
-        for i in &walls {
-
-            let wall = &self.walls[*i];
-            if let Some(new) = line_intersect_line(&line, &wall.points) {
-
-                let is_closer = if let Some(existing) = intersection {
-                    new[4] < existing[4]
-
-                } else {
-                    true
-                };
-
-                if is_closer {
-                    intersection = Some(new);
-                }
-
-            }
-        }
-
-        intersection
+        self.collide_beam_with_walls(&line, &walls)
 
     }
 
@@ -211,7 +595,103 @@ impl LevelWall {
 }
 
 
-// Helpers --------------------------------------------------------------------
+// Visibility Helpers ---------------------------------------------------------
+fn endpoint_angle(ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
+    let (dx, dy) = (ax - bx, ay - by);
+    dy.atan2(dx)
+}
+
+fn point_left_of(segment: &Segment, point: (f64, f64)) -> bool {
+    let cross = (segment.p2.x - segment.p1.x) * (point.1 - segment.p1.y)
+              - (segment.p2.y - segment.p1.y) * (point.0 - segment.p1.x);
+
+    cross < 0.0
+}
+
+fn interpolate_point(ax: f64, ay: f64, bx: f64, by: f64, f: f64) -> (f64, f64) {
+    (
+        ax * (1.0 - f) + bx * f,
+        ay * (1.0 - f) + by * f
+    )
+}
+
+fn segment_in_front_of(x: f64, y: f64, a: &Segment, b: &Segment) -> bool {
+
+    let a1 = point_left_of(a, interpolate_point(b.p1.x, b.p1.y, b.p2.x, b.p2.y, 0.01));
+    let a2 = point_left_of(a, interpolate_point(b.p2.x, b.p2.y, b.p1.x, b.p1.y, 0.01));
+    let a3 = point_left_of(a, (x, y));
+    let b1 = point_left_of(b, interpolate_point(a.p1.x, a.p1.y, a.p2.x, a.p2.y, 0.01));
+    let b2 = point_left_of(b, interpolate_point(a.p2.x, a.p2.y, a.p1.x, a.p1.y, 0.01));
+    let b3 = point_left_of(b, (x, y));
+
+    if b1 == b2 && b2 != b3 {
+        true
+
+    } else if a1 == a2 && a2 == a3 {
+        true
+
+    // TODO these are superflous since we alway return false anyways
+    //} else if A1 == A2 && A2 != A3 {
+    //    false
+
+    //} else if B1 == B2 && B2 == B3 {
+    //    false
+
+    } else {
+        false
+    }
+}
+
+fn get_triangle_points(x: f64, y: f64, r1: f64, r2: f64, segment: Option<&Segment>) -> ((f64, f64), (f64, f64)) {
+
+    let p1 = (x, y);
+    let mut p2 = (x + r1.cos(), y + r1.sin());
+    let mut p3 = (0.0, 0.0);
+    let mut p4 = (0.0, 0.0);
+
+    if let Some(segment) = segment {
+        p3.0 = segment.p1.x;
+        p3.1 = segment.p1.y;
+        p4.0 = segment.p2.x;
+        p4.1 = segment.p2.y;
+
+    // Fallback for open level bounds
+    } else {
+        p3.0 = x + r1.cos() * VISIBILITY_MAX_DISTANCE;
+        p3.1 = y + r1.sin() * VISIBILITY_MAX_DISTANCE;
+        p4.0 = x + r2.cos() * VISIBILITY_MAX_DISTANCE;
+        p4.1 = y + r2.sin() * VISIBILITY_MAX_DISTANCE;
+    }
+
+    let p_begin = line_intersection(p3, p4, p1, p2);
+
+    p2.0 = x + r2.cos();
+    p2.1 = y + r2.sin();
+
+    let p_end = line_intersection(p3, p4, p1, p2);
+
+    (p_begin, p_end)
+}
+
+
+fn line_intersection(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64)) -> (f64, f64) {
+
+    let s = (
+        (d.0 - c.0) * (a.1 - c.1) - (d.1 - c.1) * (a.0 - c.0)
+
+    ) / (
+        (d.1 - c.1) * (b.0 - a.0) - (d.0 - c.0) * (b.1 - a.1)
+    );
+
+    (
+        a.0 + s * (b.0 - a.0),
+        a.1 + s * (b.1 - a.1)
+    )
+
+}
+
+
+// Collision Helpers ----------------------------------------------------------
 pub fn aabb_intersect_circle(aabb: &[f64; 4], x: f64, y: f64, r: f64) -> bool {
 
     let px = if x > aabb[2] {

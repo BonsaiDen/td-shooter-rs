@@ -11,6 +11,7 @@
 
 // Crates ---------------------------------------------------------------------
 extern crate rustc_serialize;
+extern crate clock_ticks;
 extern crate bincode;
 extern crate hexahydrate;
 extern crate netsync;

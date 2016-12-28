@@ -33,6 +33,7 @@ pub struct Client {
     camera: Camera,
     updates_per_second: u64,
     effects: Vec<Box<Effect>>,
+    debug_draw: bool,
 
     // Player Colors
     player_colors: [[f32; 4]; 2],
@@ -59,6 +60,7 @@ impl Client {
             camera: Camera::new(width, height),
             updates_per_second: updates_per_second,
             effects: Vec::new(),
+            debug_draw: false,
 
             // Colors
             player_colors: [[0f32; 4]; 2],
@@ -87,15 +89,17 @@ impl Client {
                 // TODO have a small sparkle / rotation / start effect at the source of the beam
                 // TODO create local effect on next render frame to have a better synchronization
                 // with the server
-                self.effects.push(Box::new(LaserBeam::from_point(
-                    ColorName::Grey,
-                    self.player_position.x as f64,
-                    self.player_position.y as f64,
-                    self.player_position.r as f64,
-                    PLAYER_RADIUS + 0.5,
-                    100.0,
-                    400
-                )));
+                if self.debug_draw {
+                    self.effects.push(Box::new(LaserBeam::from_point(
+                        ColorName::Grey,
+                        self.player_position.x as f64,
+                        self.player_position.y as f64,
+                        self.player_position.r as f64,
+                        PLAYER_RADIUS + 0.5,
+                        100.0,
+                        400
+                    )));
+                }
 
                 self.buttons |= 16;
 
@@ -113,6 +117,11 @@ impl Client {
         }
 
         if let Some(Button::Keyboard(key)) = e.press_args() {
+
+            if key == Key::G {
+                self.debug_draw = !self.debug_draw;
+            }
+
             self.buttons |= match key {
                 Key::W => 1,
                 Key::A => 8,
@@ -279,19 +288,13 @@ impl Client {
             // Clear to black
             clear([0.0; 4], g);
 
-            // Background Box
-            rectangle(
-                [0.1, 0.1, 0.1, 1.0],
-                [-100.0, -100.0, 200.0, 200.0],
-                m.transform, g
-            );
-
             // Level
             level.draw_2d(
                 m, g, &world_bounds,
                 self.player_position.x as f64,
                 self.player_position.y as f64,
-                PLAYER_RADIUS
+                PLAYER_RADIUS,
+                self.debug_draw
             );
 
             // Players
@@ -356,6 +359,14 @@ impl Client {
             }
 
             self.effects.retain(|e| e.alive(t));
+
+            // Visibility overlay
+            level.draw_2d_overlay(
+                m, g, &world_bounds,
+                self.player_position.x as f64,
+                self.player_position.y as f64,
+                self.debug_draw
+            );
 
             // Cursor marker
             rectangle(

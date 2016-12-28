@@ -5,6 +5,7 @@ authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 
 [dependencies]
 rustc-serialize = "0.3"
+clock_ticks = "*"
 bincode = "0.4.0"
 netsync = { path = "../deps/netsync", version = "0.1.0" }
 hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
