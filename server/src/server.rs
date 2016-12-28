@@ -19,7 +19,7 @@ use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 
 
 // Statics --------------------------------------------------------------------
-const LASER_BEAM_LENGTH: f32 = 200.0;
+const LASER_BEAM_LENGTH: f32 = 100.0;
 
 
 // Server Implementation ------------------------------------------------------
