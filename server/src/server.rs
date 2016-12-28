@@ -166,7 +166,7 @@ impl Server {
                             let visible = level.circle_visible_from(
                                 player_position.x as f64,
                                 player_position.y as f64,
-                                PLAYER_RADIUS,
+                                PLAYER_RADIUS * 1.5,
                                 position.x as f64,
                                 position.y as f64
                             );
