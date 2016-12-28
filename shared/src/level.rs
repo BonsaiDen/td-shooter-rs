@@ -9,6 +9,7 @@ const GRID_SPACING: f64 = 100.0;
 // Level Abstraction ----------------------------------------------------------
 pub trait LevelCollision {
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
+    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]>;
 }
 
 #[derive(Debug, Default)]
@@ -37,8 +38,8 @@ impl Level {
                 self.w2g(aabb[2], aabb[3])
             );
 
-            for y in top_left.1..bottom_right.1 + 1{
-                for x in top_left.0..bottom_right.0 + 1{
+            for y in (top_left.1 - 1)..bottom_right.1 + 1 {
+                for x in (top_left.0 - 1)..bottom_right.0 + 1 {
                     self.grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
                 }
             }
@@ -60,8 +61,8 @@ impl Level {
         );
 
         let mut walls = HashSet::new();
-        for y in top_left.1..bottom_right.1 + 1{
-            for x in top_left.0..bottom_right.0 + 1{
+        for y in (top_left.1 - 1)..bottom_right.1 + 1 {
+            for x in (top_left.0 - 1)..bottom_right.0 + 1 {
                 if let Some(indicies) = self.grid.get(&(x, y)) {
                     for i in indicies {
                         walls.insert(*i);
@@ -84,8 +85,8 @@ impl Level {
     }
 
     fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
-        let gx = (x / GRID_SPACING).round();
-        let gy = (y / GRID_SPACING).round();
+        let gx = ((x ) / GRID_SPACING).round();
+        let gy = ((y ) / GRID_SPACING).round();
         (gx as isize, gy as isize)
     }
 
@@ -125,12 +126,9 @@ impl LevelCollision for Level {
                         *y as f64,
                         radius + 1.0
                     ) {
-
                         overlap.0 += (collision[7].cos() * collision[6]) as f32;
                         overlap.1 += (collision[7].sin() * collision[6]) as f32;
-
                         collisions += 1;
-
                     }
                 }
 
@@ -142,6 +140,44 @@ impl LevelCollision for Level {
             iterations += 1;
 
         }
+
+        *x = x.min(300.0).max(-300.0);
+        *y = y.min(300.0).max(-300.0);
+
+    }
+
+    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
+
+        let line = [
+            x + r.cos(),
+            y + r.sin(),
+            x + r.cos() * l,
+            y + r.sin() * l
+        ];
+
+        let walls = self.get_walls_in_bounds(&line);
+        let mut intersection: Option<[f64; 5]> = None;
+        for i in &walls {
+
+            let wall = &self.walls[*i];
+            println!("wall: {:?}", wall.points);
+            if let Some(new) = line_intersect_line(&line, &wall.points) {
+
+                let is_closer = if let Some(existing) = intersection {
+                    new[4] < existing[4]
+
+                } else {
+                    true
+                };
+
+                if is_closer {
+                    intersection = Some(new);
+                }
+
+            }
+        }
+
+        intersection
 
     }
 
@@ -255,6 +291,38 @@ pub fn line_intersect_circle(line: &[f64; 4], cx: f64, cy: f64, r: f64) -> Optio
     } else {
         None
     }
+
+}
+
+pub fn line_intersect_line(line: &[f64; 4], other: &[f64; 4]) -> Option<[f64; 5]> {
+
+    let (ax, ay) = ( line[2] -  line[0],  line[3] -  line[1]);
+    let (bx, by) = (other[2] - other[0], other[3] - other[1]);
+    let (cx, cy) = ( line[0] - other[0],  line[1] - other[1]);
+
+    let d = ax * by - bx * ay;
+    if d != 0.0 {
+
+        let s = ax * cy - cx * ay;
+        if s <= 0.0 && d < 0.0 && s >= d || s >= 0.0 && d > 0.0 && s <= d {
+
+            let t = bx * cy - cx * by;
+            if t <= 0.0 && d < 0.0 && t > d || t >= 0.0 && d > 0.0 && t < d {
+
+                let t = t / d;
+                let dx = line[0] + t * ax;
+                let dy = line[1] + t * ay;
+                let (ex, ey) = (line[0] - dx, line[1] - dy);
+
+                return Some([line[0], line[1], dx, dy, (ex * ex + ey * ey).sqrt()]);
+
+            }
+
+        }
+
+    }
+
+    None
 
 }
 

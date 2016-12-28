@@ -3,11 +3,11 @@ use piston_window::{Context, G2d};
 
 
 // Modules --------------------------------------------------------------------
-pub mod laser;
+pub mod laser_beam;
 
 
 // Re-Exports -----------------------------------------------------------------
-pub use self::laser::LaserBeam;
+pub use self::laser_beam::LaserBeam;
 
 
 // Effect Trait ---------------------------------------------------------------

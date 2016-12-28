@@ -13,7 +13,7 @@ use netsync::ServerState;
 use ::entity::Entity;
 use shared::entity::PLAYER_RADIUS;
 use shared::action::Action;
-use shared::level::Level;
+use shared::level::{Level, LevelCollision};
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 
@@ -108,13 +108,33 @@ impl Server {
                             let mut p = entity.position(tick);
                             p.merge_client_angle(client_r);
 
-                            // TODO laser beam collision
+                            let (mut x, mut y, r, mut l) = (
+                                // We move the origin of the beam into the player
+                                // in order to avoid wall clipping
+                                p.x + p.r.cos() * (PLAYER_RADIUS as f32 - 0.5),
+                                p.y + p.r.sin() * (PLAYER_RADIUS as f32 - 0.5),
+                                p.r,
+                                100.0
+                            );
+
+                            if let Some(intersection) = level.collide_beam(
+                                x as f64,
+                                y as f64,
+                                r as f64,
+                                l as f64
+                            ) {
+                                l = intersection[4] as f32;
+                            }
+
+                            // We now move the beam out of the player again and
+                            // shorten it to fix any resulting wall clipping
+                            x += r.cos() * 1.0;
+                            y += r.sin() * 1.0;
+                            l = (l - 1.0).max(0.0);
+
                             outgoing_actions.push(Action::CreateLaserBeam(
                                 entity.color_name().to_u8(),
-                                p.x + p.r.cos() * (PLAYER_RADIUS as f32 + 0.5),
-                                p.y + p.r.sin() * (PLAYER_RADIUS as f32 + 0.5),
-                                p.r,
-                                100
+                                x, y, r, l
                             ));
 
                         }
@@ -163,7 +183,7 @@ impl Server {
                     }))
 
                 }) {
-                    println!("[Server] Client connected.");
+                    println!("[Server] New client connection.");
                     self.connections.insert(
                         conn.id(), (slot, entity_slot, color, VecDeque::new())
                     );

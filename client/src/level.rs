@@ -118,5 +118,9 @@ impl LevelCollision for Level {
         self.level.collide(x, y, radius);
     }
 
+    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
+        self.level.collide_beam(x, y, r, l)
+    }
+
 }
 

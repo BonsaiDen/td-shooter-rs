@@ -14,9 +14,9 @@ use shared::color::{Color, ColorName};
 
 // Laser Effect ---------------------------------------------------------------
 pub struct LaserBeam {
+    pub line: [f64; 4],
     color_dark: [f32; 4],
     color_light: [f32; 4],
-    line: [f64; 4],
     start: u64,
     duration: u64
 }
@@ -25,9 +25,9 @@ impl LaserBeam {
 
     pub fn new(color: ColorName, line: [f64; 4], duration: u64) -> LaserBeam {
         LaserBeam {
+            line: line,
             color_dark: Color::from_name(color).darken(0.5).into_f32(),
             color_light: Color::from_name(color).into_f32(),
-            line: line,
             start: clock_ticks::precise_time_ms(),
             duration: duration
         }
