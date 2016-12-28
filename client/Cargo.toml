@@ -11,7 +11,7 @@ shared = { path = "../shared", version = "0.1.0" }
 server = { path = "../server", version = "0.1.0", optional = true }
 netsync = { path = "../deps/netsync", version = "0.1.0" }
 hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
-cobalt = { path = "../../cobalt-rs", version = "0.14.0" }
+cobalt = { git = "https://github.com/bonsaiden/cobalt-rs.git", rev = "server_stream" }
 clap = "*"
 clippy = { version = "*", optional = true }
 
