@@ -58,6 +58,5 @@ fn main() {
 
     client::run(UPDATES_PER_SECOND, network);
 
-
 }
 

@@ -7,6 +7,7 @@ use netsync::{ClientState, NetworkState};
 
 // Internal Dependencies ------------------------------------------------------
 use ::level::Level;
+use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 
 
@@ -16,6 +17,7 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn interpolate(&self, u: f64) -> PlayerPosition;
     fn update_remote(&mut self);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
+    fn color_name(&self) -> ColorName;
     fn colors(&self) -> [[f32; 4]; 2];
 
 }
@@ -41,6 +43,10 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
         self.state.update_with(|state, input| {
             PlayerPosition::update(input.dt as f64, state, input, level);
         });
+    }
+
+    fn color_name(&self) -> ColorName {
+        self.color
     }
 
     fn colors(&self) -> [[f32; 4]; 2] {

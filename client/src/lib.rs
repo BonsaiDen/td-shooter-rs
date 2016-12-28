@@ -10,6 +10,7 @@
 
 // Crates ---------------------------------------------------------------------
 extern crate piston_window;
+extern crate clock_ticks;
 extern crate hexahydrate;
 extern crate netsync;
 extern crate cobalt;
@@ -20,6 +21,7 @@ extern crate glutin;
 // Modules --------------------------------------------------------------------
 mod camera;
 mod client;
+mod effect;
 mod level;
 mod entity;
 

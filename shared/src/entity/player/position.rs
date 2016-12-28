@@ -105,6 +105,12 @@ impl PlayerPosition {
 
     }
 
+    pub fn merge_client_angle(&mut self, client_r: f32) {
+        let r = client_r - self.r;
+        let dr = r.sin().atan2(r.cos());
+        self.r += dr.min(consts::PI * 0.125).max(-consts::PI * 0.125);
+    }
+
 }
 
 #[derive(RustcEncodable, RustcDecodable)]

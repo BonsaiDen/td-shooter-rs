@@ -5,6 +5,7 @@ use netsync::{ServerState, NetworkState};
 
 
 // Internal Dependencies ------------------------------------------------------
+use ::shared::color::ColorName;
 use ::shared::level::Level;
 use ::shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 
@@ -15,6 +16,7 @@ type ServerPlayerEntity = PlayerEntity<ServerState<PlayerPosition, PlayerInput>>
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn update(&mut self, dt: f64, level: &Level);
     fn position(&self, tick: u8) -> PlayerPosition;
+    fn color_name(&self) -> ColorName;
 }
 
 impl Entity for ServerPlayerEntity {
@@ -27,6 +29,10 @@ impl Entity for ServerPlayerEntity {
 
     fn position(&self, tick: u8) -> PlayerPosition {
         self.state.get_absolute(tick)
+    }
+
+    fn color_name(&self) -> ColorName {
+        self.color
     }
 
 }

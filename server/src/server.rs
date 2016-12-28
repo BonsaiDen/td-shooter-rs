@@ -11,6 +11,7 @@ use netsync::ServerState;
 
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
+use shared::entity::PLAYER_RADIUS;
 use shared::action::Action;
 use shared::level::Level;
 use shared::color::ColorName;
@@ -58,12 +59,12 @@ impl Server {
                     }
                 },
                 cobalt::ServerEvent::Message(id, packet) => {
-                    if let Some(&mut (ref slot, _, _, ref mut actions)) = self.connections.get_mut(&id) {
+                    if let Some(&mut (ref slot, _, _, ref mut incoming_actions)) = self.connections.get_mut(&id) {
                         match self.server.connection_receive(slot, packet) {
                             Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
                                 if let Ok(action) = Action::from_bytes(&bytes) {
                                     // TODO limit number of maximum actions?
-                                    actions.push_back(action);
+                                    incoming_actions.push_back(action);
                                 }
                             },
                             _ => {}
@@ -88,23 +89,38 @@ impl Server {
             entity.update(dt, &level);
         });
 
-        for (id, &mut (ref slot, ref entity_slot, _, ref mut actions)) in &mut self.connections {
+        // Apply actions
+        let mut outgoing_actions = Vec::new();
+        for (id, &mut (ref slot, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
 
             // Apply Actions
-            while let Some(action) = actions.pop_front() {
+            while let Some(action) = incoming_actions.pop_front() {
                 println!("[Server] Received action from client: {:?}", action);
                 match action {
-                    Action::FireLaser(tick, client_r) => {
+                    Action::FiredLaserBeam(tick, client_r) => {
                         if let Some(entity) = self.server.entity_get(entity_slot) {
 
-                            let server_r = entity.position(tick).r;
-                            let r = client_r - server_r;
-                            let diff_r = r.sin().atan2(r.cos());
+                            // TODO unify with PlayerPosition stuff
+                            let mut p = entity.position(tick);
+                            p.merge_client_angle(client_r);
+                            //let r = client_r - p.r;
+                            //let dr = r.sin().atan2(r.cos());
 
-                            println!("[Server] Shot (server) {} (local) {} (diff) {}", server_r, client_r, diff_r);
+                            //println!("[Server] Shot (server) {} (local) {} (diff) {}", p.r, client_r, dr);
+
+                            // TODO laser beam collision
+                            //dr.min(consts::PI * 0.125).max(-consts::PI * 0.125);
+                            outgoing_actions.push(Action::CreateLaserBeam(
+                                entity.color_name().to_u8(),
+                                p.x + p.r.cos() * (PLAYER_RADIUS as f32 + 0.5),
+                                p.y + p.r.sin() * (PLAYER_RADIUS as f32 + 0.5),
+                                p.r, // TODO apply correction with client angle?
+                                100
+                            ));
 
                         }
-                    }
+                    },
+                    _ => {}
                 }
             }
 
@@ -113,6 +129,13 @@ impl Server {
                 server.send(id, cobalt::MessageKind::Instant, packet).ok();
             }
 
+        }
+
+        // Send new actions
+        for (id, _) in &mut self.connections {
+            for action in &outgoing_actions {
+                server.send(id, cobalt::MessageKind::Reliable, action.to_bytes()).ok();
+            }
         }
 
         // This sleeps to achieve the desired server tick rate

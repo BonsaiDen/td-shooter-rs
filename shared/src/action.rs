@@ -7,7 +7,10 @@ use bincode::rustc_serialize::{encode, decode, DecodingError};
 // Network Actions ------------------------------------------------------------
 #[derive(Debug, RustcEncodable, RustcDecodable)]
 pub enum Action {
-    FireLaser(u8, f32)
+    FiredLaserBeam(u8, f32),
+    // TODO use smaller values
+    // TODO create helper for f32 <> u16
+    CreateLaserBeam(u8, f32, f32, f32, u8)
 }
 
 impl Action {

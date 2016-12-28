@@ -4,15 +4,18 @@ use std::f64::consts;
 
 // External Dependencies ------------------------------------------------------
 use piston_window::*;
+use clock_ticks;
 use hexahydrate;
 use cobalt;
 use cobalt::ConnectionID;
 
 
 // Internal Dependencies ------------------------------------------------------
-use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
 use shared::action::Action;
+use shared::color::ColorName;
+use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
 use ::entity::{Entity, Registry};
+use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
 use ::level::Level;
 
@@ -28,12 +31,14 @@ pub struct Client {
 
     // Rendering
     updates_per_second: u64,
-    draw_state: DrawState,
     camera: Camera,
+    draw_state: DrawState,
+    player_color: ColorName,
+    player_position: PlayerPosition,
+    effects: Vec<Box<Effect>>,
 
     // Network
     client: hexahydrate::Client<Entity, ConnectionID, Registry>,
-    player_angle: f32,
     actions: Vec<Action>,
     tick: u8
 }
@@ -52,12 +57,14 @@ impl Client {
 
             // Rendering
             updates_per_second: updates_per_second,
-            draw_state: DrawState::default(),
             camera: Camera::new(width, height),
+            draw_state: DrawState::default(),
+            player_color: ColorName::Black,
+            player_position: PlayerPosition::default(),
+            effects: Vec::new(),
 
             // Network
             client: hexahydrate::Client::<Entity, ConnectionID, Registry>::new(Registry, (updates_per_second * 2) as usize),
-            player_angle: 0.0,
             actions: Vec::new(),
             tick: 0
 
@@ -67,9 +74,24 @@ impl Client {
     pub fn input(&mut self, e: &Input) {
 
         if let Some(Button::Mouse(button)) = e.press_args() {
+            // Limit shot rate
             if button == MouseButton::Left {
-                self.actions.push(Action::FireLaser(self.tick, self.player_angle));
+                self.actions.push(Action::FiredLaserBeam(self.tick, self.player_position.r));
+
+                // TODO create laser on server but already play
+                // TODO have a small sparkle / rotation / start effect at the source of the beam
+                self.effects.push(Box::new(LaserBeam::from_point(
+                    ColorName::Grey,
+                    self.player_position.x as f64,
+                    self.player_position.y as f64,
+                    self.player_position.r as f64,
+                    PLAYER_RADIUS + 0.5,
+                    100.0,
+                    400
+                )));
+
                 self.buttons |= 16;
+
             }
         }
 
@@ -163,6 +185,20 @@ impl Client {
         // Apply actions
         for action in actions.drain(0..) {
             println!("[Client] Received action from server: {:?}", action);
+            match action {
+                Action::CreateLaserBeam(color, x, y, r, l) => {
+                    self.effects.push(Box::new(LaserBeam::from_point(
+                        ColorName::from_u8(color),
+                        x as f64,
+                        y as f64,
+                        r as f64,
+                        0.0,
+                        l as f64,
+                        400
+                    )));
+                },
+                _ => {}
+            }
         }
 
         // Send client inputs to server
@@ -182,30 +218,37 @@ impl Client {
 
     pub fn draw_2d(&mut self, window: &mut PistonWindow, e: &Event, args: &RenderArgs, level: &Level) {
 
+        let t = clock_ticks::precise_time_ms();
         let u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
 
         // Get player positions and colors
+        // TODO optimize
         let (mut p, mut colors) = (PlayerPosition::default(), [[0f32; 4]; 2]);
+        let mut color_name = ColorName::Black;
         let players = self.client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
             if entity.is_local() {
                 p = entity.interpolate(u);
                 colors = entity.colors();
+                color_name = entity.color_name();
             }
             (entity.interpolate(u), entity.colors())
         });
 
+        self.player_color = color_name;
+
         // TODO get from update() method instead?
-        self.player_angle = p.r;
+        self.player_position = p;
 
         // Camera setup
-        self.camera.x = (p.x as f64).max(-200.0).min(200.0);
-        self.camera.y = (p.y as f64).max(-200.0).min(200.0);
+        self.camera.x = (self.player_position.x as f64).max(-200.0).min(200.0);
+        self.camera.y = (self.player_position.y as f64).max(-200.0).min(200.0);
         self.camera.update(args);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
-        self.input_angle = (self.world_cursor.1 - p.y as f64).atan2(self.world_cursor.0 - p.x as f64);
+        self.input_angle = (self.world_cursor.1 - self.player_position.y as f64).atan2(self.world_cursor.0 - self.player_position.x as f64);
 
+        // Bounding Rects
         let world_bounds = self.camera.b2w();
         let player_bounds = [
             -PLAYER_RADIUS * 0.5,
@@ -229,7 +272,12 @@ impl Client {
             );
 
             // Level
-            level.draw_2d(m, g, &world_bounds, p.x as f64, p.y as f64, PLAYER_RADIUS);
+            level.draw_2d(
+                m, g, &world_bounds,
+                self.player_position.x as f64,
+                self.player_position.y as f64,
+                PLAYER_RADIUS
+            );
 
             // Players
             for (p, colors) in players {
@@ -286,6 +334,13 @@ impl Client {
                 );
 
             }
+
+            // Effects
+            for effect in &self.effects {
+                effect.draw_2d(m, g, t);
+            }
+
+            self.effects.retain(|e| e.alive(t));
 
             // Cursor marker
             rectangle(
