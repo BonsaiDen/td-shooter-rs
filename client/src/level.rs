@@ -31,13 +31,13 @@ impl Level {
         }
     }
 
-    pub fn draw_2d(
+    pub fn draw_2d_background(
         &self,
         c: Context,
         g: &mut G2d,
         bounds: &[f64; 4],
         x: f64, y: f64,
-        radius: f64,
+        _: f64,
         debug: bool
     ) {
 
@@ -69,6 +69,18 @@ impl Level {
 
         }
 
+    }
+
+    pub fn draw_2d_walls(
+        &self,
+        c: Context,
+        g: &mut G2d,
+        bounds: &[f64; 4],
+        x: f64, y: f64,
+        radius: f64,
+        debug: bool
+    ) {
+
         // Get all walls within the screen bounds
         let walls = self.level.get_walls_in_bounds(&bounds);
         for i in &walls {
@@ -77,6 +89,7 @@ impl Level {
             let wall_color = [0.8, 0.8, 0.8, 1.0];
 
             // Wall drawing
+            // TODO render walls on top of everything else?
             line(wall_color,
                 1.0,
                 wall.points,
@@ -133,7 +146,7 @@ impl Level {
 
         // Visibility overlay
         let mut polygon = Vec::new();
-        for (a, b) in self.visible_points(x, y) {
+        for (_, a, b) in self.calculate_visibility(x, y) {
             polygon.push([x, y]);
             polygon.push([a.0, a.1]);
             polygon.push([b.0, b.1]);
@@ -170,8 +183,8 @@ impl Level {
 
 impl LevelVisibility for Level {
 
-    fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))> {
-        self.level.visible_points(x, y)
+    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))> {
+        self.level.calculate_visibility(x, y)
     }
 
     fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4] {

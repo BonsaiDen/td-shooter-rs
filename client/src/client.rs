@@ -289,8 +289,8 @@ impl Client {
             // Clear to black
             clear([0.0; 4], g);
 
-            // Level
-            level.draw_2d(
+            // Level Background
+            level.draw_2d_background(
                 m, g, &world_bounds,
                 self.player_position.x as f64,
                 self.player_position.y as f64,
@@ -301,6 +301,7 @@ impl Client {
             // Players
             for (p, colors) in players {
 
+                // TODO keep velocity for hidden entities and fade them out
                 let locally_visible = level.circle_visible_from(
                     p.x as f64, p.y as f64,
                     PLAYER_RADIUS,
@@ -417,6 +418,15 @@ impl Client {
                 m, g, &world_bounds,
                 self.player_position.x as f64,
                 self.player_position.y as f64,
+                self.debug_draw
+            );
+
+            // Level Walls
+            level.draw_2d_walls(
+                m, g, &world_bounds,
+                self.player_position.x as f64,
+                self.player_position.y as f64,
+                PLAYER_RADIUS,
                 self.debug_draw
             );
 

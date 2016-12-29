@@ -28,7 +28,7 @@ pub trait LevelCollision {
 }
 
 pub trait LevelVisibility {
-    fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))>;
+    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))>;
     fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4];
     fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool;
 }
@@ -39,7 +39,7 @@ pub struct Level {
     bounds: [f64; 4],
     // TODO later on we can optimize the memory access here
     collision_grid: HashMap<(isize, isize), Vec<usize>>,
-    visibility_grid: HashMap<(isize, isize), Vec<(usize, usize, f64, f64)>>
+    visibility_grid: HashMap<(isize, isize), HashSet<usize>>
 }
 
 impl Level {
@@ -53,7 +53,6 @@ impl Level {
         }
     }
 
-    /*
     fn pre_calculate_visibility(&mut self) {
 
         println!("[Level] Bounds {:?}", self.bounds);
@@ -66,7 +65,7 @@ impl Level {
         );
 
         // Go through all possible visibility cells
-        let mut visibility_grid = HashMap::new();
+        let mut visibility_grid: HashMap<(isize, isize), Vec<usize>> = HashMap::new();
         for y in top_left.1..bottom_right.1 + 1 {
             for x in top_left.0..bottom_right.0 + 1 {
 
@@ -76,7 +75,6 @@ impl Level {
                     (y as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
                 );
 
-                // Get list of walls within the bounds for this cell
                 let walls = self.get_walls_in_bounds(&[
                     cx - VISIBILITY_MAX_DISTANCE,
                     cy - VISIBILITY_MAX_DISTANCE,
@@ -84,102 +82,45 @@ impl Level {
                     cy + VISIBILITY_MAX_DISTANCE
                 ]);
 
-                // Calculate visible points for all walls
-                if !walls.is_empty() {
-
-                    let mut visible_points = Vec::new();
-
-                    // Add points in range for each of the walls
-                    for i in &walls {
-                        let wall = &self.walls[*i];
-                        visible_points.push((*i, 0, wall.points[0], wall.points[1]));
-                        visible_points.push((*i, 1, wall.points[2], wall.points[3]));
-                    }
-
-                    if !visible_points.is_empty() {
-                        visibility_grid.insert((x, y), visible_points);
-                    }
-
-                }
+                visibility_grid.insert(
+                    (x, y),
+                    self.get_visibility_for_walls(cx, cy, &walls).into_iter().map(|v| v.0).collect()
+                );
 
             }
         }
 
         // Merge adjacents visibility cells and filter out duplicate entries
-        let mut merged_visibility_grid = HashMap::new();
+        let mut merged_grid = HashMap::new();
         for &(gx, gy) in visibility_grid.keys() {
 
-            // List of all merged points
-            let mut merged_visible_points = Vec::new();
+            let mut visible_walls: HashSet<usize> = HashSet::new();
 
-            // HashSet for point de-duplication
-            let mut merged_indicies = HashSet::new();
-
+            // Get current cell and its 8 neighbors
             for y in (gy - 1)..(gy + 2) {
                 for x in (gx - 1)..(gx + 2) {
 
-                    // Get points in current grid cell
-                    if let Some(points) = visibility_grid.get(&(x, y)) {
-
-                        for point in points {
-                            let index = (point.0, point.1);
-                            if !merged_indicies.contains(&index) {
-                                merged_indicies.insert(index);
-                                merged_visible_points.push(*point);
-                            }
+                    // Merge all visibile wall indicies
+                    if let Some(wall_indicies) = visibility_grid.get(&(x, y)) {
+                        for index in wall_indicies {
+                            visible_walls.insert(*index);
                         }
-
                     }
 
                 }
             }
 
-            if !merged_visible_points.is_empty() {
-
-                // Get center of current grid cell
-                let (cx, cy) = (
-                    (gx as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
-                    (gy as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
-                );
-
-                // Calculate point angles
-                let mut point_angles: Vec<(f64, _)> = {
-                    merged_visible_points.into_iter().map(|p| {
-                        let (dx, dy) = (cx - p.2, cy - p.3);
-                        (dy.atan2(dx) + consts::PI, p)
-
-                    }).collect()
-                };
-
-                // Sort points in clockwise order
-                point_angles.sort_by(|a, b| {
-                    if a.0 < b.0 {
-                        Ordering::Greater
-
-                    } else if a.0 > b.0 {
-                        Ordering::Less
-
-                    } else {
-                        Ordering::Equal
-                    }
-                });
-
-                let sorted_points: Vec<_> = point_angles.into_iter().map(|(_, p)| {
-                    p
-
-                }).collect();
-
-                merged_visibility_grid.insert((gx, gy), sorted_points);
+            if !visible_walls.is_empty() {
+                merged_grid.insert((gx, gy), visible_walls);
             }
 
         }
 
-        self.visibility_grid = merged_visibility_grid;
+        self.visibility_grid = merged_grid;
 
         println!("[Level] Visibility pre-calculated in {}ms", clock_ticks::precise_time_ms() - start);
 
     }
-    */
 
     fn add_wall(&mut self, wall: LevelWall) {
 
@@ -244,8 +185,22 @@ impl Level {
             -VISIBILITY_MAX_DISTANCE, -VISIBILITY_MAX_DISTANCE,
             VISIBILITY_MAX_DISTANCE, VISIBILITY_MAX_DISTANCE
         ]);
-        //level.pre_calculate_visibility();
+        level.pre_calculate_visibility();
         level
+    }
+
+    // Internal ---------------------------------------------------------------
+
+    fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
+        let gx = ((x - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
+        let gy = ((y - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
+        (gx as isize, gy as isize)
+    }
+
+    fn w2v(&self, x: f64, y: f64) -> (isize, isize) {
+        let gx = ((x - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
+        let gy = ((y - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
+        (gx as isize, gy as isize)
     }
 
     fn add_walls_from_bounds(&mut self, bounds: &[f64; 4]) {
@@ -262,18 +217,6 @@ impl Level {
         // Left
         self.add_wall(LevelWall::new(bounds[2], bounds[1], bounds[2], bounds[3]));
 
-    }
-
-    fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
-        let gx = ((x - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
-        let gy = ((y - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
-        (gx as isize, gy as isize)
-    }
-
-    fn w2v(&self, x: f64, y: f64) -> (isize, isize) {
-        let gx = ((x - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
-        let gy = ((y - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
-        (gx as isize, gy as isize)
     }
 
     fn collide_beam_with_walls(&self, line: &[f64; 4], walls: &HashSet<usize>) -> Option<[f64; 5]> {
@@ -302,49 +245,14 @@ impl Level {
 
     }
 
-}
-
-#[derive(Clone)]
-struct Endpoint {
-    wall_index: usize,
-    segment_index: usize,
-    begins_segment: bool,
-    r: f64,
-    x: f64,
-    y: f64
-}
-
-struct Segment {
-    wall_index: usize,
-    p1: Endpoint,
-    p2: Endpoint
-}
-
-impl LevelVisibility for Level {
-
-    // TODO version which returns wall indicies for visibility pre-calcualtion of walls from
-    // certain grid spaces
-    fn visible_points(&self, x: f64, y: f64) -> Vec<((f64, f64), (f64, f64))> {
-
-        // TODO do a lookup into the visibility grid -> wall index cache
-        let walls = self.get_walls_in_bounds(&[
-            x - VISIBILITY_MAX_DISTANCE,
-            y - VISIBILITY_MAX_DISTANCE,
-            x + VISIBILITY_MAX_DISTANCE,
-            y + VISIBILITY_MAX_DISTANCE
-        ]);
+    fn get_visibility_segments(&self, x: f64, y: f64, walls: &HashSet<usize>) -> (Vec<Segment>, Vec<Endpoint>) {
 
         // Go through all walls in range
-        // TODO make this more efficient later on
-        // TODO figure out what information can be pre-calculated?
-        // TODO do a rough estimation of all visible walls from the center
-        // of the visibility grid cells so we have a better pre-filtering of
-        // the walls when performing real-time player queries
         let mut endpoints = Vec::new();
         let mut segments = Vec::new();
-        for wi in walls {
+        for i in walls {
 
-            let wall = &self.walls[wi];
+            let wall = &self.walls[*i];
 
             // Calculate endpoints
             let r1 = endpoint_angle(wall.points[0], wall.points[1], x, y);
@@ -361,9 +269,9 @@ impl LevelVisibility for Level {
 
             let p1_begins_segment = dr > 0.0;
             let segment = Segment {
-                wall_index: wi,
+                wall_index: *i,
                 p1: Endpoint {
-                    wall_index: wi,
+                    wall_index: *i,
                     segment_index: segments.len(),
                     begins_segment: p1_begins_segment,
                     r: r1,
@@ -371,7 +279,7 @@ impl LevelVisibility for Level {
                     y: wall.points[1]
                 },
                 p2: Endpoint {
-                    wall_index: wi,
+                    wall_index: *i,
                     segment_index: segments.len(),
                     begins_segment: !p1_begins_segment,
                     r: r2,
@@ -407,10 +315,17 @@ impl LevelVisibility for Level {
 
         });
 
-        // Calculate visibility
-        let mut start_r = 0.0;
+        (segments, endpoints)
+
+    }
+
+    fn get_visibility_for_walls(&self, x: f64, y: f64, walls: &HashSet<usize>) -> Vec<(usize, (f64, f64), (f64, f64))> {
+
+        let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
+
         let mut open_segments: Vec<isize> = Vec::new();
-        let mut triangle_points = Vec::new();
+        let mut visibility = Vec::new();
+        let mut r = 0.0;
 
         for pass in 0..2 {
 
@@ -418,15 +333,20 @@ impl LevelVisibility for Level {
 
                 // Get current open segment to check if it changed later on
                 // TODO optimize all of these
-                let open_segment_index = open_segments.get(0).map(|i| *i).unwrap_or(-1);
+                let open_segment_index = open_segments.get(0).map_or(-1, |i| *i);
 
                 if endpoint.begins_segment {
+
                     let mut index = 0;
                     // TODO Clean up access
-                    let mut segment_index = open_segments.get(index).map(|i| *i).unwrap_or(-1);
-                    while segment_index != -1 && segment_in_front_of(x, y, &segments[endpoint.segment_index], &segments[segment_index as usize])  {
+                    let mut segment_index = open_segments.get(index).map_or(-1, |i| *i);
+                    while segment_index != -1 && segment_in_front_of(
+                        x, y,
+                        &segments[endpoint.segment_index],
+                        &segments[segment_index as usize]
+                    )  {
                         index += 1;
-                        segment_index = open_segments.get(index).map(|i| *i).unwrap_or(-1);
+                        segment_index = open_segments.get(index).map_or(-1, |i| *i);
                     }
 
                     if segment_index == -1 {
@@ -444,28 +364,43 @@ impl LevelVisibility for Level {
 
                 // Check if open segment has changed
                 // TODO Clean up access
-                if open_segment_index != open_segments.get(0).map(|i| *i).unwrap_or(-1) {
+                if open_segment_index != open_segments.get(0).map_or(-1, |i| *i) {
+
                     if pass == 1 {
-                        // segments[open_segment_index as usize].wall_index
-                        triangle_points.push(get_triangle_points(x, y, start_r, endpoint.r, segments.get(open_segment_index as usize)));
-                        //output.push((start_r, endpoint.r));
-                        //println!("add triangle: {}", segments[open_segment_index as usize].wall_index);
+
+                        let segment = segments.get(open_segment_index as usize)    ;
+                        let points = get_triangle_points(x, y, r, endpoint.r, segment);
+                        visibility.push((
+                            segment.map_or(0, |s| s.wall_index),
+                            points.0,
+                            points.1
+                        ));
+
                     }
-                    start_r = endpoint.r;
+
+                    r = endpoint.r;
+
                 }
 
             }
 
         }
 
-        // TODO return wall indicies for pre-calculation of visible walls?
-        triangle_points
+        visibility
 
-        // TODO perform player visibility lookup with a simpler calculation?
-        // get edgepoints of enemy player circle (extrude them to compensate for lage)
-        // and perform a simple 4-times line intersection, if any of the lines connects
-        // we have visibility
+    }
 
+}
+
+impl LevelVisibility for Level {
+
+    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))> {
+        if let Some(walls) = self.visibility_grid.get(&self.w2v(x, y)) {
+            self.get_visibility_for_walls(x, y, &walls)
+
+        } else {
+            Vec::new()
+        }
     }
 
     fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4] {
@@ -611,6 +546,22 @@ impl LevelWall {
 
 
 // Visibility Helpers ---------------------------------------------------------
+#[derive(Clone)]
+struct Endpoint {
+    wall_index: usize,
+    segment_index: usize,
+    begins_segment: bool,
+    r: f64,
+    x: f64,
+    y: f64
+}
+
+struct Segment {
+    wall_index: usize,
+    p1: Endpoint,
+    p2: Endpoint
+}
+
 fn endpoint_angle(ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
     let (dx, dy) = (ax - bx, ay - by);
     dy.atan2(dx)

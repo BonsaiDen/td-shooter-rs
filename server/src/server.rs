@@ -72,7 +72,7 @@ impl Server {
                         match entity_server.connection_receive(slot, packet) {
                             Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
                                 if let Ok(action) = Action::from_bytes(&bytes) {
-                                    // TODO limit number of maximum actions?
+                                    // TODO limit number of maximum actions per second?
                                     incoming_actions.push_back(action);
                                 }
                             },
