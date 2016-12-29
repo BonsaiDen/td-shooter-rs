@@ -271,7 +271,10 @@ impl Client {
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
-        self.input_angle = (self.world_cursor.1 - self.player_position.y as f64).atan2(self.world_cursor.0 - self.player_position.x as f64);
+        self.input_angle = (
+            self.world_cursor.1 - self.player_position.y as f64
+
+        ).atan2(self.world_cursor.0 - self.player_position.x as f64);
 
         // Bounding Rects
         let world_bounds = self.camera.b2w();
@@ -301,8 +304,13 @@ impl Client {
             // Players
             for (p, colors) in players {
 
+                let locally_in_light = level.circle_in_light(
+                    p.x as f64, p.y as f64,
+                    PLAYER_RADIUS,
+                );
+
                 // TODO keep velocity for hidden entities and fade them out
-                let locally_visible = level.circle_visible_from(
+                let locally_visible = locally_in_light || level.circle_visible_from(
                     p.x as f64, p.y as f64,
                     PLAYER_RADIUS,
                     self.player_position.x as f64,

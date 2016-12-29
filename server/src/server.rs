@@ -156,12 +156,21 @@ impl Server {
             if let Some(player_entity) = entity_server.entity_get_mut(entity_slot) {
 
                 let player_position = player_entity.current_position();
+
+                // Check if player is in one of the level lights
+                let player_in_light = level.circle_in_light(
+                    player_position.x as f64,
+                    player_position.y as f64,
+                    PLAYER_RADIUS * 1.5
+                );
+
+                // Check and set visibility to other entities
                 for &(entity_conn_id, ref position) in &current_entities {
                     if let Some(ref entity_conn_id) = entity_conn_id {
 
                         // Ignore self-visibility
                         if entity_conn_id != conn_id {
-                            let visible = level.circle_visible_from(
+                            let visible = player_in_light || level.circle_visible_from(
                                 player_position.x as f64,
                                 player_position.y as f64,
                                 PLAYER_RADIUS * 1.5,

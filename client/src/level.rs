@@ -20,15 +20,24 @@ use shared::level::{
 // Client Level ---------------------------------------------------------------
 #[derive(Debug, Default)]
 pub struct Level {
-    level: SharedLevel
+    level: SharedLevel,
+    light_vertices: Vec<Vec<[f64; 2]>>
 }
 
 impl Level {
 
     pub fn new(level: SharedLevel) -> Level {
+
+        let light_vertices = level.lights.iter().map(|l| {
+            l.generate_vertices(&level)
+
+        }).collect();
+
         Level {
-            level: level
+            level: level,
+            light_vertices: light_vertices
         }
+
     }
 
     pub fn draw_2d_background(
@@ -89,7 +98,6 @@ impl Level {
             let wall_color = [0.8, 0.8, 0.8, 1.0];
 
             // Wall drawing
-            // TODO render walls on top of everything else?
             line(wall_color,
                 1.0,
                 wall.points,
@@ -170,6 +178,30 @@ impl Level {
             }
         );
 
+        for (i, light) in self.level.lights.iter().enumerate() {
+            if aabb_intersect(&light.aabb, &bounds) {
+
+                let vertices = &self.light_vertices[i];
+                g.tri_list(
+                    &DrawState::new_clip(),
+                    &[1.0, 1.0, 1.0, 1.00],
+                    |f| {
+                        let n = vertices.len();
+                        let mut i = 0;
+                        triangulation::stream_polygon_tri_list(c.transform, || {
+                            if i >= n { return None; }
+                            let j = i;
+                            i += 1;
+                            Some(vertices[j])
+
+                        }, f);
+
+                    }
+                );
+
+            }
+        }
+
         // Actual overlay
         Rectangle::new([0.0, 0.0, 0.0, 0.75]).draw(
             [bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
@@ -179,6 +211,10 @@ impl Level {
 
     }
 
+}
+
+fn aabb_intersect(a: &[f64; 4], b: &[f64; 4]) -> bool {
+    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
 }
 
 impl LevelVisibility for Level {
@@ -193,6 +229,10 @@ impl LevelVisibility for Level {
 
     fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool {
         self.level.circle_visible_from(cx, cy, radius, x, y)
+    }
+
+    fn circle_in_light(&self, x: f64, y: f64, radius: f64) -> bool {
+        self.level.circle_in_light(x, y, radius)
     }
 
 }
