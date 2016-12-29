@@ -176,15 +176,41 @@ impl Level {
 
     pub fn load() -> Level {
         let mut level = Level::new();
+
+        // Left
+        level.add_wall(LevelWall::new(-100.0, -100.0, -100.0, 0.0));
+        level.add_wall(LevelWall::new(-100.0, 5.0, -100.0, 100.0));
+
         level.add_wall(LevelWall::new(100.0, 100.0, -100.0, 100.0));
-        level.add_wall(LevelWall::new(-100.0, -100.0, -100.0, 100.0));
         level.add_wall(LevelWall::new(-50.0, -100.0, -50.0, 0.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, -100.0));
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, 100.0));
-        level.add_walls_from_bounds(&[
+
+        level.add_walls_from_rect(&[
             -VISIBILITY_MAX_DISTANCE, -VISIBILITY_MAX_DISTANCE,
             VISIBILITY_MAX_DISTANCE, VISIBILITY_MAX_DISTANCE
         ]);
+
+        level.add_walls_from_rect(&[
+            50.0, -10.0,
+            60.0, 10.0
+        ]);
+
+        level.add_walls_from_rect(&[
+            70.0, -10.0,
+            80.0, 10.0
+        ]);
+
+        level.add_walls_from_rect(&[
+            90.0, -10.0,
+            100.0, 10.0
+        ]);
+
+        level.add_walls_from_rect(&[
+            110.0, -10.0,
+            120.0, 10.0
+        ]);
+
         level.pre_calculate_visibility();
         level
     }
@@ -203,7 +229,7 @@ impl Level {
         (gx as isize, gy as isize)
     }
 
-    fn add_walls_from_bounds(&mut self, bounds: &[f64; 4]) {
+    fn add_walls_from_rect(&mut self, bounds: &[f64; 4]) {
 
         // Top
         self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[2], bounds[1]));
