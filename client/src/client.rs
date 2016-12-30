@@ -6,18 +6,16 @@ use std::f64::consts;
 use cobalt;
 use cobalt::ConnectionID;
 use hexahydrate;
-use clock_ticks;
 
 use piston::input::*;
-use graphics::{Context, Transformed};
+use graphics::Transformed;
 
 
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
-use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
-use ::renderer::{Renderer, StencilMode};
+use ::renderer::Renderer;
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
@@ -35,7 +33,6 @@ pub struct Client {
 
     // Rendering
     camera: Camera,
-    updates_per_second: u64,
     effects: Vec<Box<Effect>>,
     debug_draw: bool,
 
@@ -50,7 +47,7 @@ pub struct Client {
 
 impl Client {
 
-    pub fn new(updates_per_second: u64, width: f64, height: f64) -> Client {
+    pub fn new( width: f64, height: f64) -> Client {
 
         Client {
 
@@ -62,7 +59,6 @@ impl Client {
 
             // Rendering
             camera: Camera::new(width, height),
-            updates_per_second: updates_per_second,
             effects: Vec::new(),
             debug_draw: false,
 
@@ -312,8 +308,19 @@ impl Client {
                     colors[0][3] = visibility as f32;
                     colors[1][3] = visibility as f32;
 
+                    renderer.set_color([0.0, 0.0, 0.0, 0.5]);
+                    renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS + 1.0);
+
+                    let q = q.rot_rad(p.r as f64);
                     renderer.set_color(colors[0]);
-                    renderer.circle(&q, 12, 0.0, 0.0, PLAYER_RADIUS);
+                    renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS);
+
+                    renderer.set_color(colors[1]);
+                    renderer.circle_arc(
+                        &q, 10, 0.0, 0.0, PLAYER_RADIUS,
+                        0.0,
+                        consts::PI * 0.25
+                    );
 
                 }
             }
@@ -358,154 +365,36 @@ impl Client {
 
     pub fn render_hud(&mut self, renderer: &mut Renderer) {
 
-        // TODO this does somehow work!
-        // renderer.set_stencil_mode(StencilMode::Replace(128));
-        // renderer.set_color([0.5, 0.5, 0.5, 1.0]);
-        // renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
+        let context = renderer.context().clone();
+        renderer.set_color(self.player_colors[0]);
+        renderer.rectangle(&context, &[
+            self.screen_cursor.0 - 2.0, self.screen_cursor.1 - 2.0,
+            4.0, 4.0
+        ]);
 
-        // renderer.set_stencil_mode(StencilMode::Add(1));
-        // renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
-
-        // renderer.set_stencil_mode(StencilMode::Inside(129));
-        // renderer.set_color([1.0, 1.0, 0.0, 1.0]);
-        // renderer.circle(self.camera.context(), 12, 0.0, 0.0, 50.0);
-
-        /*
-
-        // Cursor marker
-        rectangle(
-            self.player_colors[0],
-            [
-                self.world_cursor.0 - 2.0, self.world_cursor.1 - 2.0,
-                4.0, 4.0
-            ],
-            m.transform, g
-        );
-
-        // Top / Bottom / Left / Right Border
-        let (w, h) = (args.width as f64, args.height as f64);
-        line(self.player_colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
-        line(self.player_colors[0], 2.0, [0.0, h, w, h], c.transform, g);
-        line(self.player_colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
-        line(self.player_colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
-        */
+        let (w, h) = (renderer.width(), renderer.height());
+        renderer.line(&context, &[0.0, 0.0,   w, 0.0], 2.0);
+        renderer.line(&context, &[0.0,   h,   w,   h], 2.0);
+        renderer.line(&context, &[0.0, 0.0, 0.0,   h], 2.0);
+        renderer.line(&context, &[w,   0.0,   w,   h], 2.0);
 
     }
 
     /*
-        let m = self.camera.apply(c);
-
-        // Level Background
-        level.draw_2d_background(
-            m, g, &world_bounds,
-            self.player_position.x as f64,
-            self.player_position.y as f64,
-            PLAYER_RADIUS,
-            self.debug_draw
+        // Cone of sight
+        g.tri_list(
+            &DrawState::default(),
+            &colors[1],
+            |f| triangulation::with_arc_tri_list(
+                -consts::PI * 0.25,
+                -consts::PI * 1.75,
+                12,
+                q.transform,
+                player_bounds,
+                PLAYER_RADIUS * 0.55,
+                |vertices| f(vertices)
+            )
         );
-
-        // Players
-        for (p, mut colors, visibility) in players {
-
-            if visibility > 0.0 {
-
-                colors[0][3] = visibility as f32;
-                colors[1][3] = visibility as f32;
-
-                // TODO Further optimize circle drawing with pre-generated
-                // textures?
-                let q = m.trans(p.x as f64, p.y as f64);
-
-                // Outline
-                g.tri_list(
-                    &DrawState::default(),
-                    &[0.0, 0.0, 0.0, 0.5],
-                    |f| triangulation::with_arc_tri_list(
-                        0.0,
-                        consts::PI * 1.999,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.65,
-                        |vertices| f(vertices)
-                    )
-                );
-
-                // Body
-                let q = q.rot_rad(p.r as f64);
-                g.tri_list(
-                    &DrawState::default(),
-                    &colors[0],
-                    |f| triangulation::with_arc_tri_list(
-                        0.0,
-                        consts::PI * 1.999,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.5,
-                        |vertices| f(vertices)
-                    )
-                );
-
-                // Cone of sight
-                g.tri_list(
-                    &DrawState::default(),
-                    &colors[1],
-                    |f| triangulation::with_arc_tri_list(
-                        -consts::PI * 0.25,
-                        -consts::PI * 1.75,
-                        12,
-                        q.transform,
-                        player_bounds,
-                        PLAYER_RADIUS * 0.55,
-                        |vertices| f(vertices)
-                    )
-                );
-
-            }
-
-            // Visibility debug lines
-            if self.debug_draw {
-
-                let lines = [[
-                     p.x as f64 - PLAYER_RADIUS,
-                     p.y as f64,
-                     self.player_position.x as f64,
-                     self.player_position.y as f64
-
-                ], [
-                     p.x as f64 + PLAYER_RADIUS,
-                     p.y as f64,
-                     self.player_position.x as f64,
-                     self.player_position.y as f64
-
-                ], [
-                     p.x as f64,
-                     p.y as f64 - PLAYER_RADIUS,
-                     self.player_position.x as f64,
-                     self.player_position.y as f64
-
-                ], [
-                     p.x as f64,
-                     p.y as f64 + PLAYER_RADIUS,
-                     self.player_position.x as f64,
-                     self.player_position.y as f64
-                ]];
-
-                let mut color = self.player_colors[0];
-                if visibility > 0.0 && !p.visible {
-                    color = [0.0, 1.0, 0.0, 1.0];
-                }
-
-                for i in 0..4 {
-                    if level.collide_line(&lines[i]).is_none() {
-                        line(color, 0.25, lines[i], m.transform, g);
-                    }
-                }
-
-            }
-
-        }
     */
 
 }

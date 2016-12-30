@@ -4,9 +4,7 @@ use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
-    LevelVisibility,
-    aabb_intersect_circle,
-    line_intersect_circle
+    LevelVisibility
 };
 
 
@@ -32,9 +30,9 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        x: f64,
-        y: f64,
-        debug: bool
+        _: f64,
+        _: f64,
+        _: bool
     ) {
         let bounds = self.level.bounds;
         renderer.set_color([0.3, 0.3, 0.3, 1.0]);
@@ -48,13 +46,15 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        debug: bool
+        _: bool
     ) {
 
         // TODO pre-render stencil value into a buffer in order to speed up
         // rendering
         let bounds = camera.b2w();
         let context = camera.context();
+
+        // TODO fix random crack lines
 
         // Render light visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
@@ -90,18 +90,7 @@ impl Level {
         camera: &Camera,
         x: f64,
         y: f64,
-        debug: bool
-    ) {
-
-    }
-
-    pub fn render_walls(
-        &self,
-        renderer: &mut Renderer,
-        camera: &Camera,
-        x: f64,
-        y: f64,
-        debug: bool
+        _: bool
     ) {
 
         let bounds = camera.b2w();
@@ -122,178 +111,28 @@ impl Level {
 
     }
 
-    /*
-    pub fn draw_2d_background(
+    pub fn render_walls(
         &self,
-        c: Context,
-        g: &mut G2d,
-        bounds: &[f64; 4],
-        x: f64, y: f64,
+        renderer: &mut Renderer,
+        camera: &Camera,
         _: f64,
-        debug: bool
-    ) {
-
-        // Background Box
-        rectangle(
-            [0.3, 0.3, 0.3, 1.0],
-            [bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
-            c.transform, g
-        );
-
-        if debug {
-
-            let collision_grid_color = [0.1, 0.4, 0.1, 0.5];
-            let visibility_grid_color = [0.6, 0.6, 0.1, 0.5];
-
-            // Collision grid debug
-            rectangle(
-                collision_grid_color,
-                self.level.collision_bounds(x, y),
-                c.transform, g
-            );
-
-            // Visibility grid debug
-            rectangle(
-                visibility_grid_color,
-                self.level.visibility_bounds(x, y),
-                c.transform, g
-            );
-
-        }
-
-    }
-
-    pub fn draw_2d_walls(
-        &self,
-        c: Context,
-        g: &mut G2d,
-        bounds: &[f64; 4],
-        x: f64, y: f64,
-        radius: f64,
-        debug: bool
-    ) {
-
-        // Get all walls within the screen bounds
-        let walls = self.level.get_walls_in_bounds(&bounds);
-        for i in &walls {
-
-            let wall = &self.level.walls[*i];
-            let wall_color = [0.8, 0.8, 0.8, 1.0];
-
-            // Wall drawing
-            line(wall_color,
-                1.0,
-                wall.points,
-                c.transform, g);
-
-            if debug {
-
-                // Collision / intersection debug
-                let mut markers = None;
-                if aabb_intersect_circle(&wall.aabb, x, y, radius + 2.0) {
-
-                    if let Some(collision) = line_intersect_circle(
-                        &wall.collision,
-                        x,
-                        y,
-                        radius + 2.0
-                    ) {
-                        markers = Some(collision);
-                    }
-
-                }
-
-                // Player collision detection debug
-                if let Some(markers) = markers {
-                    rectangle([0.3, 1.0, 0.3, 1.0],
-                                [markers[0] - 1.0, markers[1] - 1.0, 2.0, 2.0],
-                                c.transform, g);
-
-                    rectangle([0.3, 1.0, 0.3, 1.0],
-                                [markers[2] - 1.0, markers[3] - 1.0, 2.0, 2.0],
-                                c.transform, g);
-
-                    line([0.3, 0.3, 1.0, 1.0],
-                        0.5,
-                        [markers[4], markers[5], x, y],
-                        c.transform, g);
-
-                }
-
-            }
-
-        }
-
-    }
-
-    pub fn draw_2d_overlay(
-        &self,
-        c: Context,
-        g: &mut G2d,
-        bounds: &[f64; 4],
-        x: f64, y: f64,
+        _: f64,
         _: bool
     ) {
 
-        // Visibility overlay
-        let mut polygon = Vec::new();
-        for (_, a, b) in self.calculate_visibility(x, y) {
-            polygon.push([x, y]);
-            polygon.push([a.0, a.1]);
-            polygon.push([b.0, b.1]);
+        renderer.set_stencil_mode(StencilMode::None);
+        renderer.set_color([0.8, 0.8, 0.8, 1.0]);
+
+        let bounds = camera.b2w();
+        let context = camera.context();
+        let walls = self.level.get_walls_in_bounds(&bounds);
+
+        for i in &walls {
+            let wall = &self.level.walls[*i];
+            renderer.line(&context, &wall.points, 1.0);
         }
-
-        // Stencil buffer
-        g.tri_list(
-            &DrawState::new_clip(),
-            &[1.0, 1.0, 1.0, 1.0],
-            |f| {
-                let n = polygon.len();
-                let mut i = 0;
-                triangulation::stream_polygon_tri_list(c.transform, || {
-                    if i >= n { return None; }
-                    let j = i;
-                    i += 1;
-                    Some(polygon[j])
-
-                }, f);
-
-            }
-        );
-
-        for (i, light) in self.level.lights.iter().enumerate() {
-            if aabb_intersect(&light.aabb, &bounds) {
-
-                let vertices = &self.light_vertices[i];
-                g.tri_list(
-                    &DrawState::new_clip(),
-                    &[1.0, 1.0, 1.0, 1.00],
-                    |f| {
-                        let n = vertices.len();
-                        let mut i = 0;
-                        triangulation::stream_polygon_tri_list(c.transform, || {
-                            if i >= n { return None; }
-                            let j = i;
-                            i += 1;
-                            Some(vertices[j])
-
-                        }, f);
-
-                    }
-                );
-
-            }
-        }
-
-        // Actual overlay
-        Rectangle::new([0.0, 0.0, 0.0, 0.75]).draw(
-            [bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
-            &DrawState::new_outside(),
-            c.transform, g
-        );
 
     }
-    */
 
 }
 

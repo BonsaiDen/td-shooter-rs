@@ -420,16 +420,14 @@ impl Renderer {
         self.encoder.clear_stencil(&self.output_stencil, value);
     }
 
-    pub fn line(&mut self) {
-        // TODO flush with line pipeline
-    }
-
     pub fn light_polygon(
         &mut self,
         context: &Context,
         x: f64, y: f64,
         endpoints: &[(usize, (f64, f64), (f64, f64))]
     ) {
+
+        // TODO support polygon caching via pre-calculation
 
         let m = context.transform;
         let mut vertices = Vec::new();
@@ -463,6 +461,45 @@ impl Renderer {
         self.draw_triangle_list(color, &vertices);
     }
 
+    pub fn line(&mut self, context: &Context, p: &[f64; 4], width: f64) {
+
+        // TODO support line caching via pre-calculation
+
+        let m = context.transform;
+        let (dx, dy) = (p[0] - p[2], p[1] - p[3]);
+        let pr = dy.atan2(dx) - consts::PI * 0.5;
+
+        // |^
+        let (ax, ay) = (p[0] + pr.cos() * width, p[1] + pr.sin() * width);
+
+        // ^|
+        let (bx, by) = (p[0] - pr.cos() * width, p[1] - pr.sin() * width);
+
+        // _|
+        let (cx, cy) = (p[2] + pr.cos() * width, p[3] + pr.sin() * width);
+
+        // |_
+        let (dx, dy) = (p[2] - pr.cos() * width, p[3] - pr.sin() * width);
+
+        let vertices = [
+
+            // A B C
+            tx(m,  ax,  ay), ty(m,  ax,  ay),
+            tx(m,  bx,  by), ty(m,  bx,  by),
+            tx(m,  cx,  cy), ty(m,  cx,  cy),
+
+            // A C D
+            tx(m,  cx,  cy), ty(m,  cx,  cy),
+            tx(m,  dx,  dy), ty(m,  dx,  dy),
+            tx(m,  bx,  by), ty(m,  bx,  by)
+
+        ];
+
+        let color = self.color;
+        self.draw_triangle_list(color, &vertices);
+
+    }
+
     pub fn circle(
         &mut self,
         context: &Context,
@@ -472,10 +509,8 @@ impl Renderer {
         r: f64
     ) {
 
-        // TODO support circles with openings?
-        // TODO use shaders for circle drawing?
-
-        // TODO pre-calculate base circles?
+        // TODO support circle caching via pre-calculation and only translate
+        // the points
         let m = context.transform;
         let step = consts::PI * 2.0 / segments as f64;
         let mut vertices = Vec::new();
@@ -496,6 +531,70 @@ impl Renderer {
             let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
             vertices.push(tx(m, bx, by));
             vertices.push(ty(m, bx, by));
+
+        }
+
+        let color = self.color;
+        self.draw_triangle_list(color, &vertices);
+
+    }
+
+    pub fn circle_arc(
+        &mut self,
+        context: &Context,
+        segments: usize,
+        x: f64,
+        y: f64,
+        r: f64,
+        angle: f64,
+        half_cone: f64
+    ) {
+
+        // TODO support circle caching via pre-calculation and only translate
+        // the points
+        let m = context.transform;
+        let step = consts::PI * 2.0 / segments as f64;
+        let mut vertices = Vec::new();
+        for i in 0..segments {
+
+            let mut ar = i as f64 * step;
+            let mut br = ar + step;
+
+            // Distance from center
+            let adr = ar - angle;
+            let adr = adr.sin().atan2(adr.cos()).abs();
+
+            let bdr = br - angle;
+            let bdr = bdr.sin().atan2(bdr.cos()).abs();
+
+            // See if segments falls within cone
+            if bdr < half_cone || adr < half_cone {
+
+                // Limit angle of a
+                if adr > half_cone {
+                    ar = angle - half_cone;
+                }
+
+                // Limit angle of b
+                if bdr > half_cone {
+                    br = angle - half_cone;
+                }
+
+                // Center
+                vertices.push(tx(m, x, y));
+                vertices.push(ty(m, x, y));
+
+                // First outer point
+                let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
+                vertices.push(tx(m, ax, ay));
+                vertices.push(ty(m, ax, ay));
+
+                // Second outer point
+                let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
+                vertices.push(tx(m, bx, by));
+                vertices.push(ty(m, bx, by));
+
+            }
 
         }
 
@@ -541,7 +640,7 @@ fn create_pipeline(
 ) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
 
     use gfx::Primitive;
-    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, RasterMethod};
+    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample};
     use gfx::traits::*;
     use shaders_graphics2d::colored;
 
@@ -560,7 +659,7 @@ fn create_pipeline(
 
     ).unwrap();
 
-    let colored_pipeline = |
+    let polygon_pipeline = |
         factory: &mut gfx_device_gl::Factory,
         blend_preset: Blend,
         stencil: Stencil,
@@ -569,9 +668,6 @@ fn create_pipeline(
     | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
 
         let mut r = Rasterizer::new_fill();
-        // TODO create an additional line pipeline
-        //r.method = RasterMethod::Line(3);
-        // TODO have another pipeline without multisampling for UI?
         r.samples = Some(MultiSample);
 
         factory.create_pipeline_from_program(
@@ -591,7 +687,7 @@ fn create_pipeline(
 
     };
 
-    ColoredStencil::new(factory, colored_pipeline)
+    ColoredStencil::new(factory, polygon_pipeline)
 
 }
 

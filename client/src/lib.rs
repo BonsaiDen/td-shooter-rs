@@ -79,7 +79,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     let level = Level::new(SharedLevel::load());
 
     // Game Client
-    let mut client = Client::new(updates_per_second, BASE_WIDTH, BASE_HEIGHT);
+    let mut client = Client::new(BASE_WIDTH, BASE_HEIGHT);
     let mut entity_client = hexahydrate::Client::<Entity, ConnectionID, Registry>::new(
         Registry,
         (updates_per_second * 2) as usize

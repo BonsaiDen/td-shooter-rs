@@ -4,7 +4,6 @@ use std::f64::consts;
 
 // External Dependencies ------------------------------------------------------
 use clock_ticks;
-use graphics::Context;
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -53,20 +52,26 @@ impl Effect for LaserBeam {
 
     fn render(&self, renderer: &mut Renderer, camera: &Camera) {
 
+        let context = camera.context();
         let exp = renderer.t() - self.start;
         let u = ((1.0 / self.duration as f64) * exp as f64).min(1.0).max(0.0);
         let a = (0.35 + u * 0.5) as f32;
 
-        // TODO re-enable
-        //line(
-        //    [self.color_dark[0], self.color_dark[1], self.color_dark[2], 1.0 - a],
-        //    u.sin() * 4.0, self.line, c.transform, g
-        //);
+        renderer.set_color([
+            self.color_dark[0],
+            self.color_dark[1],
+            self.color_dark[2],
+            1.0 - a
+        ]);
+        renderer.line(context, &self.line, u.sin() * 4.0);
 
-        //line(
-        //    [self.color_light[0], self.color_light[1], self.color_light[2], a],
-        //    (u * consts::PI).sin() * 0.75, self.line, c.transform, g
-        //);
+        renderer.set_color([
+            self.color_light[0],
+            self.color_light[1],
+            self.color_light[2],
+            1.0 - a
+        ]);
+        renderer.line(context, &self.line, (u * consts::PI).sin() * 0.85)
 
     }
 
