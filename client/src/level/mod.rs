@@ -8,18 +8,32 @@ use shared::level::{
 };
 
 
+// Modules --------------------------------------------------------------------
+mod cached_light_source;
+use self::cached_light_source::CachedLightSource;
+
+
 // Client Level ---------------------------------------------------------------
 #[derive(Debug, Default)]
 pub struct Level {
-    level: SharedLevel
+    level: SharedLevel,
+    lights: Vec<CachedLightSource>
 }
 
 impl Level {
 
     pub fn new(level: SharedLevel) -> Level {
+
+        let cached_lights = level.lights.iter().map(|l| {
+            CachedLightSource::from_light(&level, l)
+
+        }).collect();
+
         Level {
-            level: level
+            level: level,
+            lights: cached_lights
         }
+
     }
 
     pub fn bounds(&self) -> &[f64; 4] {
@@ -49,32 +63,24 @@ impl Level {
         _: bool
     ) {
 
+        // TODO fix random crack lines
         // TODO pre-render stencil value into a buffer in order to speed up
         // rendering
-        let bounds = camera.b2w();
-        let context = camera.context();
-
-        // TODO fix random crack lines
 
         // Render light visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
-        for light in &self.level.lights {
-            if aabb_intersect(&light.aabb, &bounds) {
-                let endpoints = self.calculate_visibility(light.x, light.y);
-                renderer.light_polygon(&context, light.x, light.y, &endpoints);
-            }
+        for light in &self.lights {
+            light.render_visibility_stencil(renderer, camera);
         }
 
         // Render light cirlces into stencil combining with the cones
         renderer.set_stencil_mode(StencilMode::Add(1));
-        for light in &self.level.lights {
-            // Only draw visible lights
-            if aabb_intersect(&light.aabb, &bounds) {
-                renderer.circle(&context, 12, light.x, light.y, light.radius);
-            }
+        for light in &self.lights {
+            light.render_light_stencil(renderer, camera);
         }
 
         // Render light color circles based on stencil
+        let bounds = camera.b2w();
         renderer.set_stencil_mode(StencilMode::Inside(255));
         renderer.set_color([0.7, 0.6, 0.0, 0.2]);
         renderer.rectangle(
@@ -136,10 +142,8 @@ impl Level {
 
 }
 
-fn aabb_intersect(a: &[f64; 4], b: &[f64; 4]) -> bool {
-    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
-}
 
+// Traits ---------------------------------------------------------------------
 impl LevelVisibility for Level {
 
     fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))> {

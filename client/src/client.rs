@@ -308,10 +308,10 @@ impl Client {
                     colors[0][3] = visibility as f32;
                     colors[1][3] = visibility as f32;
 
+                    let q = q.rot_rad(p.r as f64);
                     renderer.set_color([0.0, 0.0, 0.0, 0.5]);
                     renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS + 1.0);
 
-                    let q = q.rot_rad(p.r as f64);
                     renderer.set_color(colors[0]);
                     renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS);
 
