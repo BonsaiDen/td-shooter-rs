@@ -3,16 +3,21 @@
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![deny(
     trivial_numeric_casts,
-    unsafe_code,
-    unused_import_braces, unused_qualifications
+    unused_import_braces
 )]
 
 
 // Crates ---------------------------------------------------------------------
-extern crate piston;
-extern crate graphics;
-extern crate opengl_graphics;
+#[macro_use]
+extern crate gfx;
+extern crate gfx_window_glutin;
+extern crate gfx_device_gl;
 extern crate glutin_window;
+extern crate shaders_graphics2d;
+extern crate shader_version;
+extern crate draw_state;
+extern crate graphics;
+extern crate piston;
 
 extern crate clock_ticks;
 extern crate hexahydrate;
@@ -68,6 +73,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Events
     let mut events = renderer.events();
     events.set_ups(UPDATES_PER_SECOND);
+    events.set_max_fps(120);
 
     // Level
     let level = Level::new(SharedLevel::load());

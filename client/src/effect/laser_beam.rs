@@ -53,7 +53,7 @@ impl Effect for LaserBeam {
 
     fn render(&self, renderer: &mut Renderer, camera: &Camera) {
 
-        let exp = renderer.get_t() - self.start;
+        let exp = renderer.t() - self.start;
         let u = ((1.0 / self.duration as f64) * exp as f64).min(1.0).max(0.0);
         let a = (0.35 + u * 0.5) as f32;
 

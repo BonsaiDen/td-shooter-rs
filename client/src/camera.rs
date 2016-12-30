@@ -1,5 +1,4 @@
 // External Dependencies ------------------------------------------------------
-use piston::input::RenderArgs;
 use graphics::{Context, Transformed};
 
 
@@ -14,6 +13,7 @@ pub struct Camera {
     pub z: f64,
     ratio: f64,
     center: (f64, f64),
+    context: Context,
     base_width: f64,
     base_height: f64,
     draw_width: f64,
@@ -30,6 +30,7 @@ impl Camera {
             z: 1.0,
             ratio: 1.0,
             center: (0.0, 0.0),
+            context: Context::new(),
             base_width: base_width,
             base_height: base_height,
             draw_width: base_width,
@@ -63,9 +64,20 @@ impl Camera {
             bottom_right.1
         ];
 
-        // TODO get renderer context
-        // c.trans(self.center.0, self.center.1).scale(self.ratio, self.ratio).trans(-self.x, -self.y)
+        self.context = renderer.context().trans(
+            self.center.0,
+            self.center.1
 
+        ).scale(
+            self.ratio,
+            self.ratio
+
+        ).trans(-self.x, -self.y);
+
+    }
+
+    pub fn context(&self) -> &Context {
+        &self.context
     }
 
     pub fn center(&mut self, x: f64, y: f64) {

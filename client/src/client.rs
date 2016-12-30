@@ -255,16 +255,15 @@ impl Client {
     ) {
 
         // Get player positions, colors and visibility
-        let t = renderer.get_t();
+        let (t, u) = (renderer.t(), renderer.u());
         let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f64), _>(|_, entity| {
 
+            let p = entity.interpolate(u);
             if entity.is_local() {
-                self.player_position = entity.interpolate(renderer.get_u());
-                (self.player_position.clone(), entity.colors(), 1.0)
+                self.player_position = p.clone();
+                (p, entity.colors(), 1.0)
 
             } else {
-
-                let p = entity.interpolate(renderer.get_u());
                 let visibility = entity.update_visibility(
                     self.player_position.x as f64,
                     self.player_position.y as f64,
@@ -273,7 +272,6 @@ impl Client {
                     t
                 );
                 (p, entity.colors(), visibility)
-
             }
 
         });
@@ -341,6 +339,9 @@ impl Client {
     }
 
     pub fn render_hud(&mut self, renderer: &mut Renderer) {
+
+        renderer.set_color([1.0, 0.0, 0.0, 1.0]);
+        renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
 
         /*
 
