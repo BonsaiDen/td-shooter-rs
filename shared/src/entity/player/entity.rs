@@ -23,7 +23,9 @@ pub struct PlayerEntity<S: NetworkState<PlayerPosition, PlayerInput>> {
     pub owner: Option<ConnectionID>,
     pub state: S,
     pub is_new: bool,
-    pub visibility_state: HashMap<ConnectionID, bool>
+    pub visibility_state: HashMap<ConnectionID, bool>,
+    pub last_visible: u64,
+    pub last_hidden: u64,
 }
 
 impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
@@ -44,7 +46,9 @@ impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
             owner: owner,
             state: S::new(30),
             is_new: true,
-            visibility_state: HashMap::new()
+            visibility_state: HashMap::new(),
+            last_hidden: 0,
+            last_visible: 0
         };
 
         entity.state.set(position);
@@ -145,7 +149,13 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ClientState<PlayerPositi
             self.state.receive(&bytes[1..], Some(bytes[0]));
 
         } else {
-            self.state.receive(bytes, None);
+            self.state.receive_with(bytes, None, |current, state| {
+                if !state.visible {
+                    state.x = current.x;
+                    state.y = current.y;
+                    state.r = current.r;
+                }
+            });
         }
     }
 

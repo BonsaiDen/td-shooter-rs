@@ -58,11 +58,11 @@ impl Effect for LaserBeam {
 
         let exp = t - self.start;
         let u = ((1.0 / self.duration as f64) * exp as f64).min(1.0).max(0.0);
-        let a = (0.5 + u * 0.5) as f32;
+        let a = (0.35 + u * 0.5) as f32;
 
         line(
             [self.color_dark[0], self.color_dark[1], self.color_dark[2], 1.0 - a],
-            u.sin() * 5.0, self.line, c.transform, g
+            u.sin() * 4.0, self.line, c.transform, g
         );
 
         line(

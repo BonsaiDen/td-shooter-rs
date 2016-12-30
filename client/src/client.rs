@@ -13,7 +13,7 @@ use cobalt::ConnectionID;
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
-use shared::level::{LevelCollision, LevelVisibility};
+use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
@@ -256,12 +256,27 @@ impl Client {
         let t = clock_ticks::precise_time_ms();
         let u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
 
-        // Get player positions and colors
-        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2]), _>(|_, entity| {
+        // Get player positions, colors and visibility
+        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f64), _>(|_, entity| {
+
             if entity.is_local() {
                 self.player_position = entity.interpolate(u);
+                (entity.interpolate(u), entity.colors(), 1.0)
+
+            } else {
+
+                let p = entity.interpolate(u);
+                let visibility = entity.update_visibility(
+                    self.player_position.x as f64,
+                    self.player_position.y as f64,
+                    level,
+                    &p,
+                    t
+                );
+                (p, entity.colors(), visibility)
+
             }
-            (entity.interpolate(u), entity.colors())
+
         });
 
         // Camera setup
@@ -302,22 +317,12 @@ impl Client {
             );
 
             // Players
-            for (p, colors) in players {
+            for (p, mut colors, visibility) in players {
 
-                let locally_in_light = level.circle_in_light(
-                    p.x as f64, p.y as f64,
-                    PLAYER_RADIUS,
-                );
+                if visibility > 0.0 {
 
-                // TODO keep velocity for hidden entities and fade them out
-                let locally_visible = locally_in_light || level.circle_visible_from(
-                    p.x as f64, p.y as f64,
-                    PLAYER_RADIUS,
-                    self.player_position.x as f64,
-                    self.player_position.y as f64
-                );
-
-                if p.visible && locally_visible {
+                    colors[0][3] = visibility as f32;
+                    colors[1][3] = visibility as f32;
 
                     // TODO Further optimize circle drawing with pre-generated
                     // textures?
@@ -400,7 +405,7 @@ impl Client {
                     ]];
 
                     let mut color = self.player_colors[0];
-                    if locally_visible {
+                    if visibility > 0.0 && !p.visible {
                         color = [0.0, 1.0, 0.0, 1.0];
                     }
 

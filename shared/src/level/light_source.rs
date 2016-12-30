@@ -28,6 +28,7 @@ impl LightSource {
     }
 
     pub fn circle_intersect(&self, x: f64, y: f64, radius: f64) -> bool {
+        // TODO also perform a collide_line to avoid issues with walls
         let (dx, dy) = (self.x - x, self.y - y);
         let d = (dx * dx + dy * dy).sqrt();
         d < self.radius + radius

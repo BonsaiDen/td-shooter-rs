@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 
 [dependencies]
-piston_window = "0.55.0"
+piston_window = "0.57.0"
+#piston_window = { path = "../../piston_window", version = "0.57.0" }
 clock_ticks = "*"
 glutin = "0.6.2"
 shared = { path = "../shared", version = "0.1.0" }

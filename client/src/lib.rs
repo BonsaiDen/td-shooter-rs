@@ -55,7 +55,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
             "Shooter",
             [BASE_WIDTH as u32, BASE_HEIGHT as u32]
         )
-        .samples(4)
+        .samples(8)
         .vsync(false)
         .exit_on_esc(true)
         .build()

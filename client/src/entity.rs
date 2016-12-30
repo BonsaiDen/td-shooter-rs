@@ -8,7 +8,12 @@ use netsync::{ClientState, NetworkState};
 // Internal Dependencies ------------------------------------------------------
 use ::level::Level;
 use shared::color::ColorName;
-use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
+use shared::level::LevelVisibility;
+use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity, PLAYER_RADIUS};
+
+
+// Statics --------------------------------------------------------------------
+const PLAYER_FADE_DURATION: f64 = 75.0;
 
 
 // Client Entity --------------------------------------------------------------
@@ -17,6 +22,7 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn interpolate(&self, u: f64) -> PlayerPosition;
     fn update_remote(&mut self);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
+    fn update_visibility(&mut self, x: f64, y: f64, level: &Level, position: &PlayerPosition, t: u64) -> f64;
     fn color_name(&self) -> ColorName;
     fn colors(&self) -> [[f32; 4]; 2];
     fn is_new(&mut self) -> bool;
@@ -51,6 +57,34 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
         self.state.update_with(|state, input| {
             PlayerPosition::update(input.dt as f64, state, input, level);
         });
+    }
+
+    fn update_visibility(&mut self, x: f64, y: f64, level: &Level, p: &PlayerPosition, t: u64) -> f64 {
+
+        let is_visible = p.visible && (level.circle_in_light(
+            p.x as f64, p.y as f64,
+            PLAYER_RADIUS
+
+        ) || level.circle_visible_from(
+            p.x as f64, p.y as f64,
+            PLAYER_RADIUS,
+            x,
+            y,
+        ));
+
+        if is_visible {
+            self.last_visible = t;
+            let time_since_hidden = ((t - self.last_hidden) as f64).min(PLAYER_FADE_DURATION);
+            let u = ((1.0 / PLAYER_FADE_DURATION) * time_since_hidden).min(1.0);
+            u
+
+        } else {
+            self.last_hidden = t;
+            let time_since_visible = ((t - self.last_visible) as f64).min(PLAYER_FADE_DURATION);
+            let u = ((1.0 / PLAYER_FADE_DURATION) * time_since_visible).min(1.0);
+            1.0 - u
+        }
+
     }
 
     fn color_name(&self) -> ColorName {

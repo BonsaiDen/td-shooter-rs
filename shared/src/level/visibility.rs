@@ -66,7 +66,15 @@ impl LevelVisibility for Level {
     fn circle_in_light(&self, x: f64, y: f64, radius: f64) -> bool {
         for light in &self.lights {
             if light.circle_intersect(x, y, radius) {
-                return true;
+                if self.circle_visible_from(
+                    x,
+                    y,
+                    radius,
+                    light.x,
+                    light.y
+                ) {
+                    return true;
+                }
             }
         }
         false

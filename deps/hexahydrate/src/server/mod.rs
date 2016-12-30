@@ -147,6 +147,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
 
     }
 
+    // TODO test
     pub fn entity_get(&self, entity_slot: &EntitySlot) -> Option<&Box<E>> {
         if let Some(ref handle) = self.handles[entity_slot.index] {
             if handle.is_alive() {
@@ -161,6 +162,7 @@ impl<E: Entity<U> + ?Sized, U: fmt::Debug> Server<E, U> {
         }
     }
 
+    // TODO test
     pub fn entity_get_mut(&mut self, entity_slot: &EntitySlot) -> Option<&mut Box<E>> {
         if let Some(ref mut handle) = self.handles[entity_slot.index] {
             if handle.is_alive() {
