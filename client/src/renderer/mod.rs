@@ -424,6 +424,29 @@ impl Renderer {
         // TODO flush with line pipeline
     }
 
+    pub fn light_polygon(
+        &mut self,
+        context: &Context,
+        x: f64, y: f64,
+        endpoints: &[(usize, (f64, f64), (f64, f64))]
+    ) {
+
+        let m = context.transform;
+        let mut vertices = Vec::new();
+        for &(_, a, b) in endpoints {
+            vertices.push(tx(m, x, y));
+            vertices.push(ty(m, x, y));
+            vertices.push(tx(m, a.0, a.1));
+            vertices.push(ty(m, a.0, a.1));
+            vertices.push(tx(m, b.0, b.1));
+            vertices.push(ty(m, b.0, b.1));
+        }
+
+        let color = self.color;
+        self.draw_triangle_list(color, &vertices);
+
+    }
+
     pub fn rectangle(&mut self, context: &Context, rect: &[f64; 4]) {
         let m = context.transform;
         let (x, y, w, h) = (rect[0], rect[1], rect[2], rect[3]);

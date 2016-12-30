@@ -1,16 +1,5 @@
-// External Dependencies ------------------------------------------------------
-/*
-use piston_window::{
-    Context, G2d, DrawState, Graphics, Rectangle,
-    line,
-    rectangle,
-    triangulation,
-};
-*/
-
-
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::Renderer;
+use ::renderer::{Renderer, StencilMode};
 use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
@@ -24,24 +13,15 @@ use shared::level::{
 // Client Level ---------------------------------------------------------------
 #[derive(Debug, Default)]
 pub struct Level {
-    level: SharedLevel,
-    light_vertices: Vec<Vec<[f64; 2]>>
+    level: SharedLevel
 }
 
 impl Level {
 
     pub fn new(level: SharedLevel) -> Level {
-
-        let light_vertices = level.lights.iter().map(|l| {
-            l.generate_vertices(&level)
-
-        }).collect();
-
         Level {
-            level: level,
-            light_vertices: light_vertices
+            level: level
         }
-
     }
 
     pub fn bounds(&self) -> &[f64; 4] {
@@ -68,29 +48,39 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        x: f64,
-        y: f64,
         debug: bool
     ) {
 
-        // TODO draw light visibility cones into stencil with replace 254
-
-        // TODO draw light visibility circles into stencil with add 1
-
-        // TODO draw light colors by filling the screen with stencil inside 255
-
-        renderer.set_color([0.7, 0.5, 0.0, 0.3]);
-
+        // TODO pre-render stencil value into a buffer in order to speed up
+        // rendering
         let bounds = camera.b2w();
         let context = camera.context();
-        for (i, light) in self.level.lights.iter().enumerate() {
 
+        // Render light visibility cones into stencil
+        renderer.set_stencil_mode(StencilMode::Replace(254));
+        for light in &self.level.lights {
+            if aabb_intersect(&light.aabb, &bounds) {
+                let endpoints = self.calculate_visibility(light.x, light.y);
+                renderer.light_polygon(&context, light.x, light.y, &endpoints);
+            }
+        }
+
+        // Render light cirlces into stencil combining with the cones
+        renderer.set_stencil_mode(StencilMode::Add(1));
+        for light in &self.level.lights {
             // Only draw visible lights
             if aabb_intersect(&light.aabb, &bounds) {
                 renderer.circle(&context, 12, light.x, light.y, light.radius);
             }
-
         }
+
+        // Render light color circles based on stencil
+        renderer.set_stencil_mode(StencilMode::Inside(255));
+        renderer.set_color([0.7, 0.6, 0.0, 0.2]);
+        renderer.rectangle(
+            camera.context(),
+            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+        );
 
     }
 
@@ -113,6 +103,22 @@ impl Level {
         y: f64,
         debug: bool
     ) {
+
+        let bounds = camera.b2w();
+        let context = camera.context();
+        let endpoints = self.calculate_visibility(x, y);
+
+        // Render player visibility cone
+        renderer.set_stencil_mode(StencilMode::Replace(255));
+        renderer.light_polygon(&context, x, y, &endpoints);
+
+        // Render shadows
+        renderer.set_stencil_mode(StencilMode::Outside(255));
+        renderer.set_color([0.0, 0.0, 0.0, 0.75]);
+        renderer.rectangle(
+            camera.context(),
+            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+        );
 
     }
 

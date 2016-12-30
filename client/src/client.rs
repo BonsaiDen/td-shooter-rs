@@ -289,7 +289,6 @@ impl Client {
         ).atan2(self.world_cursor.0 - self.player_position.x as f64);
 
         // Clear
-        // TODO figure out how to use multisampling
         renderer.clear_stencil(0);
         renderer.clear_color([0.0; 4]);
 
@@ -302,11 +301,21 @@ impl Client {
             self.debug_draw
         );
 
-        // Players
-        for (p, mut colors, visibility) in players {
-            if visibility > 0.0 {
-                colors[0][3] = visibility as f32;
-                colors[1][3] = visibility as f32;
+        {
+            // Players
+            let context = self.camera.context();
+            for (p, mut colors, visibility) in players {
+                if visibility > 0.0 {
+
+                    let q = context.trans(p.x as f64, p.y as f64);
+
+                    colors[0][3] = visibility as f32;
+                    colors[1][3] = visibility as f32;
+
+                    renderer.set_color(colors[0]);
+                    renderer.circle(&q, 12, 0.0, 0.0, PLAYER_RADIUS);
+
+                }
             }
         }
 
@@ -321,8 +330,6 @@ impl Client {
         level.render_lights(
             renderer,
             &self.camera,
-            self.player_position.x as f64,
-            self.player_position.y as f64,
             self.debug_draw
         );
 
