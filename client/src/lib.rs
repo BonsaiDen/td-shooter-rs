@@ -26,8 +26,9 @@ extern crate glutin;
 mod camera;
 mod client;
 mod effect;
-mod level;
 mod entity;
+mod level;
+mod renderer;
 
 
 // Statics --------------------------------------------------------------------
@@ -39,12 +40,10 @@ static BASE_HEIGHT: f64 = 480.0;
 use cobalt::ConnectionID;
 use piston::input::*;
 use piston::event_loop::*;
-use piston::window::{AdvancedWindow, WindowSettings};
-use opengl_graphics::{GlGraphics, OpenGL};
-use glutin_window::GlutinWindow as Window;
 
 
 // Internal Dependencies ------------------------------------------------------
+use renderer::Renderer;
 use ::entity::{Entity, Registry};
 use shared::UPDATES_PER_SECOND;
 use shared::level::Level as SharedLevel;
@@ -58,36 +57,30 @@ pub use self::client::*;
 // Client Runner --------------------------------------------------------------
 pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
 
-    // Create Window
-    let opengl = OpenGL::V3_2;
-    let mut window: Window = WindowSettings::new(
-            "Shooter",
-            [BASE_WIDTH as u32, BASE_HEIGHT as u32]
-        )
-        .opengl(opengl)
-        .samples(8)
-        .vsync(false)
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
-
-    // Hide Cursor
-    window.window.set_cursor_state(glutin::CursorState::Hide).ok();
+    // Create window and renderer
+    let mut renderer = Renderer::new(
+        "Shooter",
+        BASE_WIDTH as u32,
+        BASE_HEIGHT as u32,
+        UPDATES_PER_SECOND
+    );
 
     // Events
-    let mut events = window.events();
+    let mut events = renderer.events();
     events.set_ups(UPDATES_PER_SECOND);
 
-    // Level and Game
+    // Level
     let level = Level::new(SharedLevel::load());
+
+    // Game Client
     let mut client = Client::new(updates_per_second, BASE_WIDTH, BASE_HEIGHT);
     let mut entity_client = hexahydrate::Client::<Entity, ConnectionID, Registry>::new(
         Registry,
         (updates_per_second * 2) as usize
     );
 
-    // Gameloop
-    while let Some(e) = events.next(&mut window) {
+    // Main Loop
+    while let Some(e) = events.next(&mut renderer) {
         match e {
             Event::Input(ref event) => client.input(
                 &mut entity_client, &level, event
@@ -95,7 +88,15 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
             Event::Update(update) => client.update(
                 &mut entity_client, &mut network, &level, update.dt
             ),
-            Event::Render(args) => {}/*client.draw_2d(
+            Event::Render(args) => {
+                renderer.begin(args);
+                client.render(
+                    &mut renderer, &mut entity_client, &level
+                );
+                renderer.end();
+                // TODO render
+
+            }/*client.draw_2d(
                 &mut entity_client, &level, &mut window, &e, &args
             )*/,
             _ => { }

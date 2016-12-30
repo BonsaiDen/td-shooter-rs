@@ -10,9 +10,14 @@ pub mod laser_beam;
 pub use self::laser_beam::LaserBeam;
 
 
+// Internal Dependencies ------------------------------------------------------
+use ::renderer::Renderer;
+use ::camera::Camera;
+
+
 // Effect Trait ---------------------------------------------------------------
 pub trait Effect {
-    fn alive(&self, t: u64) -> bool;
-    fn draw_2d(&self, Context, /*&mut G2d,*/ t: u64);
+    fn alive(&self, u64) -> bool;
+    fn render(&self, &mut Renderer, &Camera);
 }
 

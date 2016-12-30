@@ -11,6 +11,8 @@ use piston_window::{
 
 
 // Internal Dependencies ------------------------------------------------------
+use ::renderer::Renderer;
+use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
@@ -40,6 +42,43 @@ impl Level {
             level: level,
             light_vertices: light_vertices
         }
+
+    }
+
+    pub fn bounds(&self) -> &[f64; 4] {
+        &self.level.bounds
+    }
+
+    pub fn render_background(
+        &self,
+        renderer: &mut Renderer,
+        camera: &Camera,
+        x: f64,
+        y: f64,
+        debug: bool
+    ) {
+
+    }
+
+    pub fn render_overlay(
+        &self,
+        renderer: &mut Renderer,
+        camera: &Camera,
+        x: f64,
+        y: f64,
+        debug: bool
+    ) {
+
+    }
+
+    pub fn render_walls(
+        &self,
+        renderer: &mut Renderer,
+        camera: &Camera,
+        x: f64,
+        y: f64,
+        debug: bool
+    ) {
 
     }
 

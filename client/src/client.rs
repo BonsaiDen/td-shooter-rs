@@ -17,6 +17,7 @@ use shared::action::Action;
 use shared::color::ColorName;
 use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
+use ::renderer::Renderer;
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
@@ -246,29 +247,24 @@ impl Client {
 
     }
 
-    /*
-    pub fn draw_2d(
+    pub fn render(
         &mut self,
+        renderer: &mut Renderer,
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
-        level: &Level,
-        window: &mut PistonWindow,
-        e: &Event,
-        args: &RenderArgs,
+        level: &Level
     ) {
 
-        let t = clock_ticks::precise_time_ms();
-        let u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
-
         // Get player positions, colors and visibility
+        let t = renderer.get_t();
         let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f64), _>(|_, entity| {
 
             if entity.is_local() {
-                self.player_position = entity.interpolate(u);
-                (entity.interpolate(u), entity.colors(), 1.0)
+                self.player_position = entity.interpolate(renderer.get_u());
+                (self.player_position.clone(), entity.colors(), 1.0)
 
             } else {
 
-                let p = entity.interpolate(u);
+                let p = entity.interpolate(renderer.get_u());
                 let visibility = entity.update_visibility(
                     self.player_position.x as f64,
                     self.player_position.y as f64,
@@ -283,9 +279,9 @@ impl Client {
         });
 
         // Camera setup
-        self.camera.x = (self.player_position.x as f64).max(-200.0).min(200.0);
-        self.camera.y = (self.player_position.y as f64).max(-200.0).min(200.0);
-        self.camera.update(args);
+        self.camera.center(self.player_position.x as f64, self.player_position.y as f64);
+        self.camera.limit(level.bounds());
+        self.camera.apply(renderer);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
@@ -294,178 +290,194 @@ impl Client {
 
         ).atan2(self.world_cursor.0 - self.player_position.x as f64);
 
-        // Bounding Rects
-        let world_bounds = self.camera.b2w();
-        let player_bounds = [
-            -PLAYER_RADIUS * 0.5,
-            -PLAYER_RADIUS * 0.5,
-            PLAYER_RADIUS, PLAYER_RADIUS
+        // Clear to black
+        renderer.clear([0.0; 4]);
 
-        ].into();
+        // Level Background
+        level.render_background(
+            renderer ,
+            &self.camera,
+            self.player_position.x as f64,
+            self.player_position.y as f64,
+            self.debug_draw
+        );
 
-        window.draw_2d(e, |c, g| {
-
-            let m = self.camera.apply(c);
-
-            // Clear to black
-            clear([0.0; 4], g);
-
-            // Level Background
-            level.draw_2d_background(
-                m, g, &world_bounds,
-                self.player_position.x as f64,
-                self.player_position.y as f64,
-                PLAYER_RADIUS,
-                self.debug_draw
-            );
-
-            // Players
-            for (p, mut colors, visibility) in players {
-
-                if visibility > 0.0 {
-
-                    colors[0][3] = visibility as f32;
-                    colors[1][3] = visibility as f32;
-
-                    // TODO Further optimize circle drawing with pre-generated
-                    // textures?
-                    let q = m.trans(p.x as f64, p.y as f64);
-
-                    // Outline
-                    g.tri_list(
-                        &DrawState::default(),
-                        &[0.0, 0.0, 0.0, 0.5],
-                        |f| triangulation::with_arc_tri_list(
-                            0.0,
-                            consts::PI * 1.999,
-                            12,
-                            q.transform,
-                            player_bounds,
-                            PLAYER_RADIUS * 0.65,
-                            |vertices| f(vertices)
-                        )
-                    );
-
-                    // Body
-                    let q = q.rot_rad(p.r as f64);
-                    g.tri_list(
-                        &DrawState::default(),
-                        &colors[0],
-                        |f| triangulation::with_arc_tri_list(
-                            0.0,
-                            consts::PI * 1.999,
-                            12,
-                            q.transform,
-                            player_bounds,
-                            PLAYER_RADIUS * 0.5,
-                            |vertices| f(vertices)
-                        )
-                    );
-
-                    // Cone of sight
-                    g.tri_list(
-                        &DrawState::default(),
-                        &colors[1],
-                        |f| triangulation::with_arc_tri_list(
-                            -consts::PI * 0.25,
-                            -consts::PI * 1.75,
-                            12,
-                            q.transform,
-                            player_bounds,
-                            PLAYER_RADIUS * 0.55,
-                            |vertices| f(vertices)
-                        )
-                    );
-
-                }
-
-                // Visibility debug lines
-                if self.debug_draw {
-
-                    let lines = [[
-                         p.x as f64 - PLAYER_RADIUS,
-                         p.y as f64,
-                         self.player_position.x as f64,
-                         self.player_position.y as f64
-
-                    ], [
-                         p.x as f64 + PLAYER_RADIUS,
-                         p.y as f64,
-                         self.player_position.x as f64,
-                         self.player_position.y as f64
-
-                    ], [
-                         p.x as f64,
-                         p.y as f64 - PLAYER_RADIUS,
-                         self.player_position.x as f64,
-                         self.player_position.y as f64
-
-                    ], [
-                         p.x as f64,
-                         p.y as f64 + PLAYER_RADIUS,
-                         self.player_position.x as f64,
-                         self.player_position.y as f64
-                    ]];
-
-                    let mut color = self.player_colors[0];
-                    if visibility > 0.0 && !p.visible {
-                        color = [0.0, 1.0, 0.0, 1.0];
-                    }
-
-                    for i in 0..4 {
-                        if level.collide_line(&lines[i]).is_none() {
-                            line(color, 0.25, lines[i], m.transform, g);
-                        }
-                    }
-
-                }
-
+        // Players
+        for (p, mut colors, visibility) in players {
+            if visibility > 0.0 {
+                colors[0][3] = visibility as f32;
+                colors[1][3] = visibility as f32;
             }
+        }
 
-            // Effects
-            for effect in &self.effects {
-                effect.draw_2d(m, g, t);
-            }
+        // Effects
+        for effect in &self.effects {
+            effect.render(renderer, &self.camera);
+        }
 
-            self.effects.retain(|e| e.alive(t));
+        self.effects.retain(|e| e.alive(t));
 
-            // Visibility overlay
-            level.draw_2d_overlay(
-                m, g, &world_bounds,
-                self.player_position.x as f64,
-                self.player_position.y as f64,
-                self.debug_draw
-            );
+        // Visibility overlay
+        level.render_overlay(
+            renderer,
+            &self.camera,
+            self.player_position.x as f64,
+            self.player_position.y as f64,
+            self.debug_draw
+        );
 
-            // Level Walls
-            level.draw_2d_walls(
-                m, g, &world_bounds,
-                self.player_position.x as f64,
-                self.player_position.y as f64,
-                PLAYER_RADIUS,
-                self.debug_draw
-            );
+        // Level Walls
+        level.render_walls(
+            renderer,
+            &self.camera,
+            self.player_position.x as f64,
+            self.player_position.y as f64,
+            self.debug_draw
+        );
 
-            // Cursor marker
-            rectangle(
-                self.player_colors[0],
-                [
-                    self.world_cursor.0 - 2.0, self.world_cursor.1 - 2.0,
-                    4.0, 4.0
-                ],
-                m.transform, g
-            );
-
-            // Top / Bottom / Left / Right Border
-            let (w, h) = (args.width as f64, args.height as f64);
-            line(self.player_colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
-            line(self.player_colors[0], 2.0, [0.0, h, w, h], c.transform, g);
-            line(self.player_colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
-            line(self.player_colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
-
-        });
+        // HUD
+        self.render_hud(renderer);
 
     }
+
+    pub fn render_hud(&mut self, renderer: &mut Renderer) {
+
+        /*
+
+        // Cursor marker
+        rectangle(
+            self.player_colors[0],
+            [
+                self.world_cursor.0 - 2.0, self.world_cursor.1 - 2.0,
+                4.0, 4.0
+            ],
+            m.transform, g
+        );
+
+        // Top / Bottom / Left / Right Border
+        let (w, h) = (args.width as f64, args.height as f64);
+        line(self.player_colors[0], 2.0, [0.0, 0.0, w, 0.0], c.transform, g);
+        line(self.player_colors[0], 2.0, [0.0, h, w, h], c.transform, g);
+        line(self.player_colors[0], 2.0, [0.0, 0.0, 0.0, h], c.transform, g);
+        line(self.player_colors[0], 2.0, [w, 0.0, w, h], c.transform, g);
+        */
+
+    }
+
+    /*
+        let m = self.camera.apply(c);
+
+        // Level Background
+        level.draw_2d_background(
+            m, g, &world_bounds,
+            self.player_position.x as f64,
+            self.player_position.y as f64,
+            PLAYER_RADIUS,
+            self.debug_draw
+        );
+
+        // Players
+        for (p, mut colors, visibility) in players {
+
+            if visibility > 0.0 {
+
+                colors[0][3] = visibility as f32;
+                colors[1][3] = visibility as f32;
+
+                // TODO Further optimize circle drawing with pre-generated
+                // textures?
+                let q = m.trans(p.x as f64, p.y as f64);
+
+                // Outline
+                g.tri_list(
+                    &DrawState::default(),
+                    &[0.0, 0.0, 0.0, 0.5],
+                    |f| triangulation::with_arc_tri_list(
+                        0.0,
+                        consts::PI * 1.999,
+                        12,
+                        q.transform,
+                        player_bounds,
+                        PLAYER_RADIUS * 0.65,
+                        |vertices| f(vertices)
+                    )
+                );
+
+                // Body
+                let q = q.rot_rad(p.r as f64);
+                g.tri_list(
+                    &DrawState::default(),
+                    &colors[0],
+                    |f| triangulation::with_arc_tri_list(
+                        0.0,
+                        consts::PI * 1.999,
+                        12,
+                        q.transform,
+                        player_bounds,
+                        PLAYER_RADIUS * 0.5,
+                        |vertices| f(vertices)
+                    )
+                );
+
+                // Cone of sight
+                g.tri_list(
+                    &DrawState::default(),
+                    &colors[1],
+                    |f| triangulation::with_arc_tri_list(
+                        -consts::PI * 0.25,
+                        -consts::PI * 1.75,
+                        12,
+                        q.transform,
+                        player_bounds,
+                        PLAYER_RADIUS * 0.55,
+                        |vertices| f(vertices)
+                    )
+                );
+
+            }
+
+            // Visibility debug lines
+            if self.debug_draw {
+
+                let lines = [[
+                     p.x as f64 - PLAYER_RADIUS,
+                     p.y as f64,
+                     self.player_position.x as f64,
+                     self.player_position.y as f64
+
+                ], [
+                     p.x as f64 + PLAYER_RADIUS,
+                     p.y as f64,
+                     self.player_position.x as f64,
+                     self.player_position.y as f64
+
+                ], [
+                     p.x as f64,
+                     p.y as f64 - PLAYER_RADIUS,
+                     self.player_position.x as f64,
+                     self.player_position.y as f64
+
+                ], [
+                     p.x as f64,
+                     p.y as f64 + PLAYER_RADIUS,
+                     self.player_position.x as f64,
+                     self.player_position.y as f64
+                ]];
+
+                let mut color = self.player_colors[0];
+                if visibility > 0.0 && !p.visible {
+                    color = [0.0, 1.0, 0.0, 1.0];
+                }
+
+                for i in 0..4 {
+                    if level.collide_line(&lines[i]).is_none() {
+                        line(color, 0.25, lines[i], m.transform, g);
+                    }
+                }
+
+            }
+
+        }
     */
 
 }

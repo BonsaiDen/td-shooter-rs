@@ -25,7 +25,7 @@ pub const MAX_LEVEL_SIZE: f32 = 512.0;
 pub struct Level {
     pub walls: Vec<LevelWall>,
     pub lights: Vec<LightSource>,
-    bounds: [f64; 4],
+    pub bounds: [f64; 4],
     collision_grid: HashMap<(isize, isize), Vec<usize>>,
     visibility_grid: HashMap<(isize, isize), HashSet<usize>>,
     light_sources: Vec<LightSource>
