@@ -4,10 +4,13 @@ version = "0.1.0"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 
 [dependencies]
-piston_window = "0.57.0"
-#piston_window = { path = "../../piston_window", version = "0.57.0" }
-clock_ticks = "*"
+piston = "0.26.0"
+pistoncore-glutin_window = "0.31.0"
+piston2d-graphics = "0.19.0"
+piston2d-opengl_graphics = "0.36.0"
 glutin = "0.6.2"
+
+clock_ticks = "*"
 shared = { path = "../shared", version = "0.1.0" }
 server = { path = "../server", version = "0.1.0", optional = true }
 netsync = { path = "../deps/netsync", version = "0.1.0" }

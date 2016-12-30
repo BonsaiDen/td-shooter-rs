@@ -1,10 +1,13 @@
 // External Dependencies ------------------------------------------------------
+use graphics::Context;
+/*
 use piston_window::{
     Context, G2d, DrawState, Graphics, Rectangle,
     line,
     rectangle,
     triangulation,
 };
+*/
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -40,6 +43,7 @@ impl Level {
 
     }
 
+    /*
     pub fn draw_2d_background(
         &self,
         c: Context,
@@ -210,6 +214,7 @@ impl Level {
         );
 
     }
+    */
 
 }
 

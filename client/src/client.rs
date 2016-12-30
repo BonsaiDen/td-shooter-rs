@@ -3,11 +3,13 @@ use std::f64::consts;
 
 
 // External Dependencies ------------------------------------------------------
-use piston_window::*;
-use clock_ticks;
-use hexahydrate;
 use cobalt;
 use cobalt::ConnectionID;
+use hexahydrate;
+use clock_ticks;
+
+use piston::input::*;
+use graphics::{Context, Transformed};
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -244,6 +246,7 @@ impl Client {
 
     }
 
+    /*
     pub fn draw_2d(
         &mut self,
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
@@ -463,6 +466,7 @@ impl Client {
         });
 
     }
+    */
 
 }
 

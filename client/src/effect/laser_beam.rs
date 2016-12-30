@@ -4,7 +4,7 @@ use std::f64::consts;
 
 // External Dependencies ------------------------------------------------------
 use clock_ticks;
-use piston_window::*;
+use graphics::Context;
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -52,7 +52,7 @@ impl Effect for LaserBeam {
     fn draw_2d(
         &self,
         c: Context,
-        g: &mut G2d,
+        //g: &mut G2d,
         t: u64
     ) {
 
@@ -60,15 +60,16 @@ impl Effect for LaserBeam {
         let u = ((1.0 / self.duration as f64) * exp as f64).min(1.0).max(0.0);
         let a = (0.35 + u * 0.5) as f32;
 
-        line(
-            [self.color_dark[0], self.color_dark[1], self.color_dark[2], 1.0 - a],
-            u.sin() * 4.0, self.line, c.transform, g
-        );
+        // TODO re-enable
+        //line(
+        //    [self.color_dark[0], self.color_dark[1], self.color_dark[2], 1.0 - a],
+        //    u.sin() * 4.0, self.line, c.transform, g
+        //);
 
-        line(
-            [self.color_light[0], self.color_light[1], self.color_light[2], a],
-            (u * consts::PI).sin() * 0.75, self.line, c.transform, g
-        );
+        //line(
+        //    [self.color_light[0], self.color_light[1], self.color_light[2], a],
+        //    (u * consts::PI).sin() * 0.75, self.line, c.transform, g
+        //);
 
     }
 

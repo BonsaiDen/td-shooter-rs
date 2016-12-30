@@ -9,7 +9,11 @@
 
 
 // Crates ---------------------------------------------------------------------
-extern crate piston_window;
+extern crate piston;
+extern crate graphics;
+extern crate opengl_graphics;
+extern crate glutin_window;
+
 extern crate clock_ticks;
 extern crate hexahydrate;
 extern crate netsync;
@@ -33,7 +37,11 @@ static BASE_HEIGHT: f64 = 480.0;
 
 // External Dependencies ------------------------------------------------------
 use cobalt::ConnectionID;
-use piston_window::{Event, Events, EventLoop, PistonWindow, WindowSettings};
+use piston::input::*;
+use piston::event_loop::*;
+use piston::window::{AdvancedWindow, WindowSettings};
+use opengl_graphics::{GlGraphics, OpenGL};
+use glutin_window::GlutinWindow as Window;
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -51,10 +59,12 @@ pub use self::client::*;
 pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
 
     // Create Window
-    let mut window: PistonWindow = WindowSettings::new(
+    let opengl = OpenGL::V3_2;
+    let mut window: Window = WindowSettings::new(
             "Shooter",
             [BASE_WIDTH as u32, BASE_HEIGHT as u32]
         )
+        .opengl(opengl)
         .samples(8)
         .vsync(false)
         .exit_on_esc(true)
@@ -62,7 +72,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
         .unwrap();
 
     // Hide Cursor
-    window.window.window.set_cursor_state(glutin::CursorState::Hide).ok();
+    window.window.set_cursor_state(glutin::CursorState::Hide).ok();
 
     // Events
     let mut events = window.events();
@@ -85,12 +95,12 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
             Event::Update(update) => client.update(
                 &mut entity_client, &mut network, &level, update.dt
             ),
-            Event::Render(args) => client.draw_2d(
+            Event::Render(args) => {}/*client.draw_2d(
                 &mut entity_client, &level, &mut window, &e, &args
-            ),
+            )*/,
             _ => { }
         }
-        window.event(&e);
+        //window.event(&e);
     }
 
 }

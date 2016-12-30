@@ -1,5 +1,5 @@
 // External Dependencies ------------------------------------------------------
-use piston_window::{Context, G2d};
+use graphics::Context;
 
 
 // Modules --------------------------------------------------------------------
@@ -13,6 +13,6 @@ pub use self::laser_beam::LaserBeam;
 // Effect Trait ---------------------------------------------------------------
 pub trait Effect {
     fn alive(&self, t: u64) -> bool;
-    fn draw_2d(&self, Context, &mut G2d, t: u64);
+    fn draw_2d(&self, Context, /*&mut G2d,*/ t: u64);
 }
 
