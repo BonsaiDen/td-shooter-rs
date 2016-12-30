@@ -1,4 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
+use std::f64::consts;
 use std::time::Duration;
 
 // External Dependencies ------------------------------------------------------
@@ -63,13 +64,21 @@ gfx_pipeline_base!( pipe_colored {
 });
 
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum StencilMode {
-    None
+    None,
+    Add(u8),
+    Replace(u8),
+    Inside(u8),
+    Outside(u8)
 }
 
 struct ColoredStencil<T> {
-    none: T
+    none: T,
+    add: T,
+    replace: T,
+    inside: T,
+    outside: T
 }
 
 impl<T> ColoredStencil<T> {
@@ -83,19 +92,45 @@ impl<T> ColoredStencil<T> {
     ) -> T {
 
         use gfx::preset::blend;
-        use gfx::state::{
-            Blend, BlendChannel, Comparison, Equation, Factor,
-            Stencil, StencilOp
-        };
-
-        let stencil = Stencil::new(
-            Comparison::Always,
-            0,
-            (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
-        );
+        use gfx::state::{Comparison, Stencil, StencilOp};
 
         ColoredStencil {
-            none: f(factory, blend::ALPHA, stencil, gfx::state::MASK_ALL)
+
+            none: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Always,
+                0,
+                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_ALL),
+
+            add: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Never,
+                255,
+                (StencilOp::IncrementClamp, StencilOp::IncrementClamp, StencilOp::IncrementClamp)
+
+            ), gfx::state::MASK_NONE),
+
+            replace: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Never,
+                255,
+                (StencilOp::Replace, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_NONE),
+
+            inside: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Equal,
+                255,
+                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_ALL),
+
+            outside: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::NotEqual,
+                255,
+                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_ALL)
+
         }
 
     }
@@ -103,7 +138,10 @@ impl<T> ColoredStencil<T> {
     fn get(&mut self, mode: StencilMode) -> (&mut T, u8) {
         match mode {
             StencilMode::None => (&mut self.none, 0),
-            //_ => (&mut self.none, 0)
+            StencilMode::Add(v) => (&mut self.add, v),
+            StencilMode::Replace(v) => (&mut self.replace, v),
+            StencilMode::Inside(v) => (&mut self.inside, v),
+            StencilMode::Outside(v) => (&mut self.outside, v)
         }
     }
 
@@ -147,7 +185,7 @@ impl Renderer {
 
         // Create Window
         let opengl = OpenGL::V3_2;
-        let samples = 8;
+        let samples = 4;
         let mut window: GlutinWindow = WindowSettings::new(
                 title,
                 [width, height]
@@ -235,6 +273,7 @@ impl Renderer {
         self.width = args.draw_width as f64;
         self.height = args.draw_height as f64;
         self.window.make_current();
+        self.stencil_mode = StencilMode::None;
         self.context = Context::new_viewport(args.viewport());
     }
 
@@ -281,34 +320,40 @@ impl Renderer {
 
     fn flush_colored(&mut self) {
 
-        use draw_state::target::Rect;
-        use std::u16;
+        if self.colored_offset > 0 {
 
-        let (pso_colored, stencil_val) = self.colored_pso.get(self.stencil_mode);
+            use draw_state::target::Rect;
+            use std::u16;
 
-        let data = pipe_colored::Data {
-            pos: self.buffer_pos.clone(),
-            color: self.buffer_color.clone(),
-            blend_target: self.output_color.clone(),
-            stencil_target: (
-                self.output_stencil.clone(),
-                (stencil_val, stencil_val)
-            ),
-            // Use white color for blend reference to make invert work.
-            blend_ref: [1.0; 4],
-            scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
-        };
+            let (pso_colored, stencil_val) = self.colored_pso.get(
+                self.stencil_mode
+            );
 
-        let slice = gfx::Slice {
-            instances: None,
-            start: 0,
-            end: self.colored_offset as u32,
-            buffer: gfx::IndexBuffer::Auto,
-            base_vertex: 0,
-        };
+            let data = pipe_colored::Data {
+                pos: self.buffer_pos.clone(),
+                color: self.buffer_color.clone(),
+                blend_target: self.output_color.clone(),
+                stencil_target: (
+                    self.output_stencil.clone(),
+                    (stencil_val, stencil_val)
+                ),
+                // Use white color for blend reference to make invert work.
+                blend_ref: [1.0; 4],
+                scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
+            };
 
-        self.encoder.draw(&slice, pso_colored, &data);
-        self.colored_offset = 0;
+            let slice = gfx::Slice {
+                instances: None,
+                start: 0,
+                end: self.colored_offset as u32,
+                buffer: gfx::IndexBuffer::Auto,
+                base_vertex: 0,
+            };
+
+            self.encoder.draw(&slice, pso_colored, &data);
+            self.colored_offset = 0;
+
+        }
 
     }
 
@@ -316,7 +361,6 @@ impl Renderer {
 
         let color = gamma_srgb_to_linear(color);
         let n = vertices.len() / POS_COMPONENTS;
-        let m = self.context.transform;
 
         // Render if there is not enough room.
         if self.colored_offset + n > BUFFER_SIZE * CHUNKS {
@@ -334,6 +378,7 @@ impl Renderer {
                         n
                     ),
                     self.colored_offset
+
                 ).unwrap();
             }
 
@@ -345,6 +390,7 @@ impl Renderer {
                         }
                     ],
                     self.colored_offset + i
+
                 ).unwrap();
             }
 
@@ -360,19 +406,22 @@ impl Renderer {
         self.color = color;
     }
 
-    pub fn set_stencil_mode(&mut self, mode: StencilMode) {
-        // TODO draw state has essentially changed, do we need to
-        // flush here?
-        self.stencil_mode = mode;
-    }
-
-    pub fn clear(&mut self, color: [f32; 4]) {
+    pub fn clear_color(&mut self, color: [f32; 4]) {
         let color = gamma_srgb_to_linear(color);
         self.encoder.clear(&self.output_color, color);
     }
 
-    pub fn line(&mut self) {
+    pub fn set_stencil_mode(&mut self, mode: StencilMode) {
+        self.flush_colored();
+        self.stencil_mode = mode;
+    }
 
+    pub fn clear_stencil(&mut self, value: u8) {
+        self.encoder.clear_stencil(&self.output_stencil, value);
+    }
+
+    pub fn line(&mut self) {
+        // TODO flush with line pipeline
     }
 
     pub fn rectangle(&mut self, context: &Context, rect: &[f64; 4]) {
@@ -391,7 +440,44 @@ impl Renderer {
         self.draw_triangle_list(color, &vertices);
     }
 
-    pub fn circle(&mut self) {
+    pub fn circle(
+        &mut self,
+        context: &Context,
+        segments: usize,
+        x: f64,
+        y: f64,
+        r: f64
+    ) {
+
+        // TODO support circles with openings?
+        // TODO use shaders for circle drawing?
+
+        // TODO pre-calculate base circles?
+        let m = context.transform;
+        let step = consts::PI * 2.0 / segments as f64;
+        let mut vertices = Vec::new();
+        for i in 0..segments {
+
+            // Center
+            vertices.push(tx(m, x, y));
+            vertices.push(ty(m, x, y));
+
+            // First outer point
+            let ar = i as f64 * step;
+            let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
+            vertices.push(tx(m, ax, ay));
+            vertices.push(ty(m, ax, ay));
+
+            // Second outer point
+            let br = ar + step;
+            let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
+            vertices.push(tx(m, bx, by));
+            vertices.push(ty(m, bx, by));
+
+        }
+
+        let color = self.color;
+        self.draw_triangle_list(color, &vertices);
 
     }
 
@@ -432,8 +518,7 @@ fn create_pipeline(
 ) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
 
     use gfx::Primitive;
-    use gfx::state::Rasterizer;
-    use gfx::state::{Blend, Stencil};
+    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, RasterMethod};
     use gfx::traits::*;
     use shaders_graphics2d::colored;
 
@@ -459,10 +544,17 @@ fn create_pipeline(
         color_mask: gfx::state::ColorMask
 
     | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
+
+        let mut r = Rasterizer::new_fill();
+        // TODO create an additional line pipeline
+        //r.method = RasterMethod::Line(3);
+        // TODO have another pipeline without multisampling for UI?
+        r.samples = Some(MultiSample);
+
         factory.create_pipeline_from_program(
             &colored_program,
             Primitive::TriangleList,
-            Rasterizer::new_fill(),
+            r,
             pipe_colored::Init {
                 pos: (),
                 color: (),
@@ -473,6 +565,7 @@ fn create_pipeline(
             }
 
         ).unwrap()
+
     };
 
     ColoredStencil::new(factory, colored_pipeline)

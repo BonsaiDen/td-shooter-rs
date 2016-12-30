@@ -56,10 +56,45 @@ impl Level {
         y: f64,
         debug: bool
     ) {
+        let bounds = self.level.bounds;
+        renderer.set_color([0.3, 0.3, 0.3, 1.0]);
+        renderer.rectangle(
+            camera.context(),
+            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+        );
+    }
+
+    pub fn render_lights(
+        &self,
+        renderer: &mut Renderer,
+        camera: &Camera,
+        x: f64,
+        y: f64,
+        debug: bool
+    ) {
+
+        // TODO draw light visibility cones into stencil with replace 254
+
+        // TODO draw light visibility circles into stencil with add 1
+
+        // TODO draw light colors by filling the screen with stencil inside 255
+
+        renderer.set_color([0.7, 0.5, 0.0, 0.3]);
+
+        let bounds = camera.b2w();
+        let context = camera.context();
+        for (i, light) in self.level.lights.iter().enumerate() {
+
+            // Only draw visible lights
+            if aabb_intersect(&light.aabb, &bounds) {
+                renderer.circle(&context, 12, light.x, light.y, light.radius);
+            }
+
+        }
 
     }
 
-    pub fn render_overlay(
+    pub fn render_shadow(
         &self,
         renderer: &mut Renderer,
         camera: &Camera,

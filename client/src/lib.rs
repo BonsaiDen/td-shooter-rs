@@ -73,7 +73,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Events
     let mut events = renderer.events();
     events.set_ups(UPDATES_PER_SECOND);
-    events.set_max_fps(120);
+    events.set_max_fps(60);
 
     // Level
     let level = Level::new(SharedLevel::load());
@@ -100,14 +100,9 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
                     &mut renderer, &mut entity_client, &level
                 );
                 renderer.end();
-                // TODO render
-
-            }/*client.draw_2d(
-                &mut entity_client, &level, &mut window, &e, &args
-            )*/,
+            },
             _ => { }
         }
-        //window.event(&e);
     }
 
 }

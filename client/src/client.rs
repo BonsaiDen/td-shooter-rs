@@ -17,7 +17,7 @@ use shared::action::Action;
 use shared::color::ColorName;
 use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
-use ::renderer::Renderer;
+use ::renderer::{Renderer, StencilMode};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
@@ -288,8 +288,10 @@ impl Client {
 
         ).atan2(self.world_cursor.0 - self.player_position.x as f64);
 
-        // Clear to black
-        renderer.clear([0.0; 4]);
+        // Clear
+        // TODO figure out how to use multisampling
+        renderer.clear_stencil(0);
+        renderer.clear_color([0.0; 4]);
 
         // Level Background
         level.render_background(
@@ -315,8 +317,17 @@ impl Client {
 
         self.effects.retain(|e| e.alive(t));
 
-        // Visibility overlay
-        level.render_overlay(
+        // Lights
+        level.render_lights(
+            renderer,
+            &self.camera,
+            self.player_position.x as f64,
+            self.player_position.y as f64,
+            self.debug_draw
+        );
+
+        // Visibility / shadows
+        level.render_shadow(
             renderer,
             &self.camera,
             self.player_position.x as f64,
@@ -340,8 +351,17 @@ impl Client {
 
     pub fn render_hud(&mut self, renderer: &mut Renderer) {
 
-        renderer.set_color([1.0, 0.0, 0.0, 1.0]);
-        renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
+        // TODO this does somehow work!
+        // renderer.set_stencil_mode(StencilMode::Replace(128));
+        // renderer.set_color([0.5, 0.5, 0.5, 1.0]);
+        // renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
+
+        // renderer.set_stencil_mode(StencilMode::Add(1));
+        // renderer.rectangle(self.camera.context(), &[-100.0, -100.0, 100.0, 100.0]);
+
+        // renderer.set_stencil_mode(StencilMode::Inside(129));
+        // renderer.set_color([1.0, 1.0, 0.0, 1.0]);
+        // renderer.circle(self.camera.context(), 12, 0.0, 0.0, 50.0);
 
         /*
 
