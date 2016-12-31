@@ -1,6 +1,6 @@
 // STD Dependencies -----------------------------------------------------------
-use std::f32::consts;
 use std::time::Duration;
+
 
 // External Dependencies ------------------------------------------------------
 use clock_ticks;
@@ -14,6 +14,7 @@ use shader_version::glsl::GLSL;
 
 
 // GFX Dependencies -----------------------------------------------------------
+use gfx_device_gl;
 use gfx;
 use gfx::Device;
 use gfx::Factory;
@@ -21,7 +22,6 @@ use gfx::traits::FactoryExt;
 use gfx::memory::Typed;
 use gfx::format::{DepthStencil, Format, Formatted, Srgba8};
 use gfx::pso::PipelineState;
-use gfx_device_gl;
 
 
 // Piston Dependencies --------------------------------------------------------
@@ -29,10 +29,20 @@ use piston::window::{Size, Window, WindowSettings, OpenGLWindow};
 use piston::input::RenderArgs;
 use piston::event_loop::{Events, WindowEvents};
 
+
+// Graphics Dependencies ------------------------------------------------------
 use graphics::Context;
 use graphics::math::Matrix2d;
 use graphics::color::gamma_srgb_to_linear;
 use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
+
+
+// Modules --------------------------------------------------------------------
+mod shapes;
+pub use self::shapes::*;
+
+mod stencil;
+pub use self::stencil::*;
 
 
 // Statics --------------------------------------------------------------------
@@ -101,93 +111,8 @@ gfx_pipeline_base!( pipe_colored {
 });
 
 
-#[derive(Debug, Copy, Clone)]
-pub enum StencilMode {
-    None,
-    Add(u8),
-    Replace(u8),
-    Inside(u8),
-    Outside(u8)
-}
-
-struct ColoredStencil<T> {
-    none: T,
-    add: T,
-    replace: T,
-    inside: T,
-    outside: T
-}
-
-impl<T> ColoredStencil<T> {
-
-    fn new<F>(factory: &mut gfx_device_gl::Factory, f: F) -> ColoredStencil<T> where F: Fn(
-        &mut gfx_device_gl::Factory,
-        gfx::state::Blend,
-        gfx::state::Stencil,
-        gfx::state::ColorMask
-
-    ) -> T {
-
-        use gfx::preset::blend;
-        use gfx::state::{Comparison, Stencil, StencilOp};
-
-        ColoredStencil {
-
-            none: f(factory, blend::ALPHA, Stencil::new(
-                Comparison::Always,
-                0,
-                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
-
-            ), gfx::state::MASK_ALL),
-
-            add: f(factory, blend::ALPHA, Stencil::new(
-                Comparison::Never,
-                255,
-                (StencilOp::IncrementClamp, StencilOp::IncrementClamp, StencilOp::IncrementClamp)
-
-            ), gfx::state::MASK_NONE),
-
-            replace: f(factory, blend::ALPHA, Stencil::new(
-                Comparison::Never,
-                255,
-                (StencilOp::Replace, StencilOp::Keep, StencilOp::Keep)
-
-            ), gfx::state::MASK_NONE),
-
-            inside: f(factory, blend::ALPHA, Stencil::new(
-                Comparison::Equal,
-                255,
-                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
-
-            ), gfx::state::MASK_ALL),
-
-            outside: f(factory, blend::ALPHA, Stencil::new(
-                Comparison::NotEqual,
-                255,
-                (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
-
-            ), gfx::state::MASK_ALL)
-
-        }
-
-    }
-
-    fn get(&mut self, mode: StencilMode) -> (&mut T, u8) {
-        match mode {
-            StencilMode::None => (&mut self.none, 0),
-            StencilMode::Add(v) => (&mut self.add, v),
-            StencilMode::Replace(v) => (&mut self.replace, v),
-            StencilMode::Inside(v) => (&mut self.inside, v),
-            StencilMode::Outside(v) => (&mut self.outside, v)
-        }
-    }
-
-}
-
-
-// Renderer Abstraction -------------------------------------------------------
+// Renderer Implementation ----------------------------------------------------
 pub struct Renderer {
-
     window: GlutinWindow,
     updates_per_second: u64,
     width: f32,
@@ -344,7 +269,6 @@ impl Renderer {
 
     pub fn end(&mut self) {
 
-        //self.flush_colored();
         self.encoder.flush(&mut self.device);
         self.device.cleanup();
 
@@ -359,47 +283,59 @@ impl Renderer {
 
     }
 
-    fn flush(&mut self) {
-
-        if self.colored_offset > 0 {
-
-            use draw_state::target::Rect;
-            use std::u16;
-
-            let (pso_colored, stencil_val) = self.colored_pso.get(
-                self.stencil_mode
-            );
-
-            let data = pipe_colored::Data {
-                pos: self.buffer_pos.clone(),
-                color: self.buffer_color.clone(),
-                locals: self.buffer_locals.clone(),
-                blend_target: self.output_color.clone(),
-                stencil_target: (
-                    self.output_stencil.clone(),
-                    (stencil_val, stencil_val)
-                ),
-                // Use white color for blend reference to make invert work.
-                blend_ref: [1.0; 4],
-                scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
-            };
-
-            let slice = gfx::Slice {
-                instances: None,
-                start: 0,
-                end: self.colored_offset as u32,
-                buffer: gfx::IndexBuffer::Auto,
-                base_vertex: 0,
-            };
-
-            self.encoder.draw(&slice, pso_colored, &data);
-            self.colored_offset = 0;
-
-        }
-
+    // Rendering Operations ---------------------------------------------------
+    pub fn set_color(&mut self, color: [f32; 4]) {
+        self.color = color;
     }
 
-    pub fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
+    pub fn clear_color(&mut self, color: [f32; 4]) {
+        let color = gamma_srgb_to_linear(color);
+        self.encoder.clear(&self.output_color, color);
+    }
+
+    pub fn set_stencil_mode(&mut self, mode: StencilMode) {
+        self.stencil_mode = mode;
+    }
+
+    pub fn clear_stencil(&mut self, value: u8) {
+        self.encoder.clear_stencil(&self.output_stencil, value);
+    }
+
+
+    // Direct Shape Drawing ---------------------------------------------------
+    pub fn light_polygon(
+        &mut self,
+        context: &Context,
+        x: f32, y: f32,
+        endpoints: &[(usize, (f32, f32), (f32, f32))]
+    ) {
+        self.draw_triangle_list(
+            &context.transform,
+            &LightPoylgon::vertices(x, y, endpoints)
+        );
+    }
+
+    pub fn rectangle(&mut self, context: &Context, rect: &[f32; 4]) {
+        let (x, y, w, h) = (rect[0], rect[1], rect[2], rect[3]);
+        let (x2, y2) = (x + w, y + h);
+        let vertices = [
+             x,  y,
+            x2,  y,
+             x, y2,
+            x2,  y,
+            x2, y2,
+             x, y2
+        ];
+        self.draw_triangle_list(&context.transform, &vertices);
+    }
+
+    pub fn line(&mut self, context: &Context, p: &[f32; 4], width: f32) {
+        self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
+    }
+
+
+    // Internal ---------------------------------------------------------------
+    fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
 
         let color = gamma_srgb_to_linear(self.color);
         let n = vertices.len() / POS_COMPONENTS;
@@ -454,303 +390,72 @@ impl Renderer {
 
     }
 
+    fn flush(&mut self) {
 
-    // Rendering Operations ---------------------------------------------------
-    pub fn set_color(&mut self, color: [f32; 4]) {
-        self.color = color;
-    }
+        if self.colored_offset > 0 {
 
-    pub fn clear_color(&mut self, color: [f32; 4]) {
-        let color = gamma_srgb_to_linear(color);
-        self.encoder.clear(&self.output_color, color);
-    }
+            use draw_state::target::Rect;
+            use std::u16;
 
-    pub fn set_stencil_mode(&mut self, mode: StencilMode) {
-        self.stencil_mode = mode;
-    }
+            let (pso_colored, stencil_val) = self.colored_pso.get(
+                self.stencil_mode
+            );
 
-    pub fn clear_stencil(&mut self, value: u8) {
-        self.encoder.clear_stencil(&self.output_stencil, value);
-    }
+            let data = pipe_colored::Data {
+                pos: self.buffer_pos.clone(),
+                color: self.buffer_color.clone(),
+                locals: self.buffer_locals.clone(),
+                blend_target: self.output_color.clone(),
+                stencil_target: (
+                    self.output_stencil.clone(),
+                    (stencil_val, stencil_val)
+                ),
+                // Use white color for blend reference to make invert work.
+                blend_ref: [1.0; 4],
+                scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
+            };
 
-    pub fn light_polygon(
-        &mut self,
-        context: &Context,
-        x: f32, y: f32,
-        endpoints: &[(usize, (f32, f32), (f32, f32))]
-    ) {
-        self.draw_triangle_list(
-            &context.transform,
-            &LightPoylgon::vertices(x, y, endpoints)
-        );
-    }
+            let slice = gfx::Slice {
+                instances: None,
+                start: 0,
+                end: self.colored_offset as u32,
+                buffer: gfx::IndexBuffer::Auto,
+                base_vertex: 0,
+            };
 
-    pub fn rectangle(&mut self, context: &Context, rect: &[f32; 4]) {
-        let (x, y, w, h) = (rect[0], rect[1], rect[2], rect[3]);
-        let (x2, y2) = (x + w, y + h);
-        let vertices = [
-             x,  y,
-            x2,  y,
-             x, y2,
-            x2,  y,
-            x2, y2,
-             x, y2
-        ];
-        self.draw_triangle_list(&context.transform, &vertices);
-    }
-
-    pub fn line(&mut self, context: &Context, p: &[f32; 4], width: f32) {
-        self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
-    }
-
-}
-
-
-// Cached Vertices ------------------------------------------------------------
-#[derive(Debug)]
-pub struct LightPoylgon {
-    vertices: Vec<f32>
-}
-
-impl LightPoylgon {
-
-    pub fn new(
-        x: f32,
-        y: f32,
-        endpoints: &[(usize, (f32, f32), (f32, f32))]
-
-    ) -> LightPoylgon {
-        LightPoylgon {
-            vertices: LightPoylgon::vertices(x, y, endpoints)
-        }
-    }
-
-    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
-        renderer.draw_triangle_list(&context.transform, &self.vertices);
-    }
-
-    pub fn vertices(
-        x: f32,
-        y: f32,
-        endpoints: &[(usize, (f32, f32), (f32, f32))]
-
-    ) -> Vec<f32> {
-        let mut vertices = Vec::new();
-        for &(_, a, b) in endpoints {
-            vertices.push(x);
-            vertices.push(y);
-            vertices.push(a.0);
-            vertices.push(a.1);
-            vertices.push(b.0);
-            vertices.push(b.1);
-        }
-        vertices
-    }
-
-}
-
-#[derive(Debug)]
-pub struct Line {
-    vertices: [f32; 12]
-}
-
-impl Line {
-
-    pub fn new(points: &[f32; 4], width: f32) -> Line {
-        Line {
-            vertices: Line::vertices(points, width)
-        }
-    }
-
-    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
-        renderer.draw_triangle_list(&context.transform, &self.vertices);
-    }
-
-    pub fn vertices(p: &[f32; 4], width: f32) -> [f32; 12] {
-
-        // TODO support line caching via pre-calculation
-        let (dx, dy) = (p[0] - p[2], p[1] - p[3]);
-        let pr = dy.atan2(dx) - consts::PI * 0.5;
-
-        // |^
-        let (ax, ay) = (p[0] + pr.cos() * width, p[1] + pr.sin() * width);
-
-        // ^|
-        let (bx, by) = (p[0] - pr.cos() * width, p[1] - pr.sin() * width);
-
-        // _|
-        let (cx, cy) = (p[2] + pr.cos() * width, p[3] + pr.sin() * width);
-
-        // |_
-        let (dx, dy) = (p[2] - pr.cos() * width, p[3] - pr.sin() * width);
-
-        [
-
-            // A B C
-            ax, ay,
-            bx, by,
-            cx, cy,
-
-            // A C D
-            cx, cy,
-            dx, dy,
-            bx, by
-
-        ]
-
-    }
-
-}
-
-
-#[derive(Debug)]
-pub struct Circle {
-    vertices: Vec<f32>
-}
-
-impl Circle {
-
-    pub fn new(
-        segments: usize,
-        x: f32,
-        y: f32,
-        r: f32
-
-    ) -> Circle {
-        Circle {
-            vertices: Circle::vertices(segments, x, y, r)
-        }
-    }
-
-    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
-        renderer.draw_triangle_list(&context.transform, &self.vertices);
-    }
-
-    pub fn vertices(
-        segments: usize,
-        x: f32,
-        y: f32,
-        r: f32
-
-    ) -> Vec<f32> {
-
-        let step = consts::PI * 2.0 / segments as f32;
-        let mut vertices = Vec::new();
-        for i in 0..segments {
-
-            // Center
-            vertices.push(x);
-            vertices.push(y);
-
-            // First outer point
-            let ar = i as f32 * step;
-            let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-            vertices.push(ax);
-            vertices.push(ay);
-
-            // Second outer point
-            let br = ar + step;
-            let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-            vertices.push(bx);
-            vertices.push(by);
+            self.encoder.draw(&slice, pso_colored, &data);
+            self.colored_offset = 0;
 
         }
 
-        vertices
-
     }
 
 }
 
 
-#[derive(Debug)]
-pub struct CircleArc {
-    vertices: Vec<f32>
-}
+// Traits ---------------------------------------------------------------------
+impl Window for Renderer {
 
-impl CircleArc {
+    type Event = <GlutinWindow as Window>::Event;
 
-    pub fn new(
-        segments: usize,
-        x: f32,
-        y: f32,
-        r: f32,
-        angle: f32,
-        half_cone: f32
-
-    ) -> CircleArc {
-        CircleArc {
-            vertices: CircleArc::vertices(segments, x, y, r, angle, half_cone)
-        }
+    fn should_close(&self) -> bool { self.window.should_close() }
+    fn set_should_close(&mut self, value: bool) {
+        self.window.set_should_close(value)
     }
-
-    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
-        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    fn size(&self) -> Size { self.window.size() }
+    fn draw_size(&self) -> Size { self.window.draw_size() }
+    fn swap_buffers(&mut self) { self.window.swap_buffers() }
+    fn wait_event(&mut self) -> Self::Event {
+        GlutinWindow::wait_event(&mut self.window)
     }
-
-    pub fn vertices(
-        segments: usize,
-        x: f32,
-        y: f32,
-        r: f32,
-        angle: f32,
-        half_cone: f32
-
-    ) -> Vec<f32> {
-
-        let step = consts::PI * 2.0 / segments as f32;
-        let mut vertices = Vec::new();
-        for i in 0..segments {
-
-            let mut ar = i as f32 * step;
-            let mut br = ar + step;
-
-            // Distance from center
-            let adr = ar - angle;
-            let adr = adr.sin().atan2(adr.cos()).abs();
-
-            let bdr = br - angle;
-            let bdr = bdr.sin().atan2(bdr.cos()).abs();
-
-            // See if segments falls within cone
-            if bdr < half_cone || adr < half_cone {
-
-                // Limit angle of a
-                if adr > half_cone {
-                    ar = angle - half_cone;
-                }
-
-                // Limit angle of b
-                if bdr > half_cone {
-                    br = angle - half_cone;
-                }
-
-                // Center
-                vertices.push(x);
-                vertices.push(y);
-
-                // First outer point
-                let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-                vertices.push(ax);
-                vertices.push(ay);
-
-                // Second outer point
-                let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-                vertices.push(bx);
-                vertices.push(by);
-
-            }
-
-        }
-
-        vertices
-
+    fn wait_event_timeout(&mut self, timeout: Duration) -> Option<Self::Event> {
+        GlutinWindow::wait_event_timeout(&mut self.window, timeout)
+    }
+    fn poll_event(&mut self) -> Option<Self::Event> {
+        GlutinWindow::poll_event(&mut self.window)
     }
 
 }
-
-
-// Vertices generation --------------------------------------------------------
 
 
 // Helpers --------------------------------------------------------------------
@@ -829,28 +534,4 @@ fn create_pipeline(
 
 }
 
-
-// Traits ---------------------------------------------------------------------
-impl Window for Renderer {
-
-    type Event = <GlutinWindow as Window>::Event;
-
-    fn should_close(&self) -> bool { self.window.should_close() }
-    fn set_should_close(&mut self, value: bool) {
-        self.window.set_should_close(value)
-    }
-    fn size(&self) -> Size { self.window.size() }
-    fn draw_size(&self) -> Size { self.window.draw_size() }
-    fn swap_buffers(&mut self) { self.window.swap_buffers() }
-    fn wait_event(&mut self) -> Self::Event {
-        GlutinWindow::wait_event(&mut self.window)
-    }
-    fn wait_event_timeout(&mut self, timeout: Duration) -> Option<Self::Event> {
-        GlutinWindow::wait_event_timeout(&mut self.window, timeout)
-    }
-    fn poll_event(&mut self) -> Option<Self::Event> {
-        GlutinWindow::poll_event(&mut self.window)
-    }
-
-}
 

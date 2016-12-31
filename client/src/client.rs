@@ -220,12 +220,7 @@ impl Client {
                     // TODO have a small sparkle / rotation / start effect at the source of the beam
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::from_u8(color),
-                        x,
-                        y,
-                        r,
-                        0.0,
-                        l,
-                        400
+                        x, y, r, 0.0, l, 400
                     )));
                 },
                 _ => {}
