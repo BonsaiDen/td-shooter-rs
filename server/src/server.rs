@@ -13,7 +13,13 @@ use netsync::ServerState;
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
 use shared::util;
-use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP, PLAYER_SERVER_VISIBILITY_SCALING};
+use shared::entity::{
+    PLAYER_RADIUS,
+    PLAYER_MAX_HP,
+    PLAYER_SERVER_VISIBILITY_SCALING,
+    PLAYER_VISBILITY_CONE,
+    PLAYER_VISBILITY_CONE_OFFSET
+};
 use shared::action::Action;
 use shared::level::{
     Level, LevelCollision, LevelVisibility,
@@ -229,6 +235,7 @@ impl Server {
                         // Ignore self-visibility
                         if entity_conn_id != conn_id {
 
+                            // TODO merge with client side visibility check
                             let distance = util::distance(
                                 data.x, data.y,
                                 player_data.x, player_data.y
@@ -243,18 +250,31 @@ impl Server {
                                 false
 
                             // Entities outside the maximum visibility radius are never visible
-                            } else if distance > LEVEL_MAX_VISIBILITY_DISTANCE {
+                            } else if distance > LEVEL_MAX_VISIBILITY_DISTANCE - PLAYER_VISBILITY_CONE_OFFSET + PLAYER_RADIUS * 0.5 {
                                 false
 
-                            // Entities within the visibility cone are only visible if sight is not blocked by a wall
                             } else {
-                                level.circle_visible_from(
-                                    player_data.x,
-                                    player_data.y,
-                                    PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING,
-                                    data.x,
-                                    data.y
-                                )
+
+                                // Entities outside the visibility cone are never visible
+                                if !util::angle_within_cone(
+                                    data.x, data.y, data.r,
+                                    player_data.x, player_data.y,
+                                    PLAYER_VISBILITY_CONE_OFFSET,
+                                    PLAYER_VISBILITY_CONE
+                                ) {
+                                    false
+
+                                } else {
+                                    // Entities within the visibility cone are only visible if sight is not blocked by a wall
+                                    level.circle_visible_from(
+                                        player_data.x,
+                                        player_data.y,
+                                        PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING,
+                                        data.x,
+                                        data.y
+                                    )
+                                }
+
                             };
 
                             player_entity.set_visibility(*entity_conn_id, visible);

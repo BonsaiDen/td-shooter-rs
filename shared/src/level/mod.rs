@@ -115,6 +115,11 @@ impl Level {
         ]);
 
         level.add_walls_from_rect(&[
+            -35.0, 40.0,
+            -15.0, 60.0
+        ]);
+
+        level.add_walls_from_rect(&[
             50.0, -10.0,
             60.0, 10.0
         ]);
@@ -136,6 +141,7 @@ impl Level {
 
         level.lights.push(LightSource::new(140.0, 20.0, 50.0));
         level.lights.push(LightSource::new(-120.0, -120.0, 50.0));
+        level.lights.push(LightSource::new(0.0, 120.0, 50.0));
 
         level.pre_calculate_visibility();
         level

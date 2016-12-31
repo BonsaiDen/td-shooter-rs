@@ -3,8 +3,9 @@ use graphics::Transformed;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::{Renderer, Circle, Line, StencilMode};
+use ::renderer::{Renderer, CircleArc, Line, StencilMode};
 use ::camera::Camera;
+use shared::entity::{PlayerData, PLAYER_VISBILITY_CONE, PLAYER_VISBILITY_CONE_OFFSET};
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
@@ -22,7 +23,7 @@ use self::cached_light_source::CachedLightSource;
 #[derive(Debug)]
 pub struct Level {
     level: SharedLevel,
-    visibility_circle: Circle,
+    visibility_circle: CircleArc,
     lights: Vec<CachedLightSource>,
     walls: Vec<Line>
 }
@@ -43,7 +44,10 @@ impl Level {
 
         Level {
             level: level,
-            visibility_circle: Circle::new(16, 0.0, 0.0, LEVEL_MAX_VISIBILITY_DISTANCE),
+            visibility_circle: CircleArc::new(
+                36, 0.0, 0.0, LEVEL_MAX_VISIBILITY_DISTANCE,
+                0.0, PLAYER_VISBILITY_CONE
+            ),
             lights: cached_lights,
             walls: cached_walls
         }
@@ -117,25 +121,26 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        x: f32,
-        y: f32,
-        hp: u8,
+        data: &PlayerData,
         _: bool
     ) {
 
         let bounds = camera.b2w();
         let context = camera.context();
-        let endpoints = self.calculate_visibility(x, y);
+        let endpoints = self.calculate_visibility(data.x, data.y);
 
         // Only render visibility cone if local player is alive
-        if hp > 0 {
+        if data.hp > 0 {
 
             // Render player visibility cone but only where there
             renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
-            renderer.light_polygon(&context, x, y, &endpoints);
+            renderer.light_polygon(&context, data.x, data.y, &endpoints);
 
             // Render player visibility circle
-            let q = context.trans(x as f64, y as f64);
+            let q = context.trans(data.x as f64, data.y as f64).rot_rad(data.r as f64).trans(
+                -PLAYER_VISBILITY_CONE_OFFSET as f64,
+                0.0
+            );
             renderer.set_stencil_mode(StencilMode::Add);
             self.visibility_circle.render(renderer, &q);
 

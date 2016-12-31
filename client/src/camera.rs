@@ -27,7 +27,7 @@ impl Camera {
         Camera {
             x: 0.0,
             y: 0.0,
-            z: 1.5,
+            z: 1.5, // default is 1.5
             ratio: 1.0,
             center: (0.0, 0.0),
             context: Context::new(),
@@ -47,7 +47,6 @@ impl Camera {
         let h_ratio = 1.0 / self.base_width * self.draw_width;
         let v_ratio = 1.0 / self.base_height * self.draw_height;
 
-        // TODO stepped pertange zoom here? (25%, 50%, 100%, 200%)
         self.ratio = h_ratio.min(v_ratio) * (1.0 + self.z);
         self.center = (
             renderer.width() * 0.5,
@@ -86,11 +85,8 @@ impl Camera {
     }
 
     pub fn limit(&mut self, bounds: &[f32; 4]) {
-        let divisor = 1.0 / self.ratio;
-        let w = (self.draw_width * divisor * 0.5) - 5.0;
-        let h = (self.draw_height * divisor * 0.5) - 5.0;
-        self.x = self.x.max(bounds[0] + w).min(bounds[2] - w);
-        self.y = self.y.max(bounds[1] + h).min(bounds[3] - h);
+        self.x = self.x.max(bounds[0]).min(bounds[2]);
+        self.y = self.y.max(bounds[1]).min(bounds[3]);
     }
 
     pub fn s2w(&self, x: f32, y: f32) -> (f32, f32) {

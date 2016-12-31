@@ -116,7 +116,9 @@ impl Client {
         }
 
         if let Some(value) = e.mouse_scroll_args() {
-            self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
+            if self.debug_draw {
+                self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
+            }
         }
 
         if let Some(Button::Keyboard(key)) = e.press_args() {
@@ -260,10 +262,8 @@ impl Client {
 
             } else {
                 let visibility = entity.update_visibility(
-                    self.player_data.x,
-                    self.player_data.y,
-                    self.player_data.hp,
                     level,
+                    &self.player_data,
                     &p,
                     t
                 );
@@ -338,9 +338,7 @@ impl Client {
         level.render_shadow(
             renderer,
             &self.camera,
-            self.player_data.x,
-            self.player_data.y,
-            self.player_data.hp,
+            &self.player_data,
             self.debug_draw
         );
 

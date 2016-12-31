@@ -40,7 +40,7 @@ mod renderer;
 
 // Statics --------------------------------------------------------------------
 static BASE_WIDTH: u32 = 640;
-static BASE_HEIGHT: u32 = 480;
+static BASE_HEIGHT: u32 = 640;
 
 
 // External Dependencies ------------------------------------------------------
