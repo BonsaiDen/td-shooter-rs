@@ -308,7 +308,6 @@ impl Client {
                     let q = context.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
                     renderer.set_color([0.0, 0.0, 0.0, 0.5]);
                     self.player_circle.render(renderer, &q.scale(1.1, 1.1));
-                    //renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS + 1.0);
 
                     renderer.set_color(colors[0]);
                     self.player_circle.render(renderer, &q);

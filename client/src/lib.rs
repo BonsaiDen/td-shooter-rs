@@ -18,13 +18,15 @@ extern crate shader_version;
 extern crate draw_state;
 extern crate graphics;
 extern crate piston;
+extern crate glutin;
 
+extern crate rand;
 extern crate clock_ticks;
+
 extern crate hexahydrate;
 extern crate netsync;
 extern crate cobalt;
 extern crate shared;
-extern crate glutin;
 
 
 // Modules --------------------------------------------------------------------
