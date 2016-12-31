@@ -18,16 +18,17 @@ use ::level::LevelCollision;
 const TAU: f32 = consts::PI * 2.0;
 
 
-// Player Network Position ----------------------------------------------------
+// Player Network Data --------------------------------------------------------
 #[derive(Debug, Clone, Default, RustcEncodable, RustcDecodable)]
-pub struct PlayerPosition {
+pub struct PlayerData {
     pub x: f32,
     pub y: f32,
     pub r: f32,
+    pub hp: u8,
     pub visible: bool
 }
 
-impl NetworkProperty for PlayerPosition {
+impl NetworkProperty for PlayerData {
 
     fn interpolate_from(&self, last: &Self, u: f32) -> Self {
 
@@ -42,10 +43,11 @@ impl NetworkProperty for PlayerPosition {
             let r = self.r - last.r;
             let dr = r.sin().atan2(r.cos());
 
-            PlayerPosition {
+            PlayerData {
                 x: last.x + dx * u,
                 y: last.y + dy * u,
                 r: last.r + dr * u,
+                hp: self.hp,
                 visible: self.visible
             }
         }
@@ -57,26 +59,28 @@ impl NetworkProperty for PlayerPosition {
             self.visible,
             self.x,
             self.y,
-            rad_to_u16(self.r)
+            rad_to_u16(self.r),
+            self.hp
 
         ), SizeLimit::Infinite).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Self where Self: Sized {
         let position = decode::<PlayerNetworkPosition>(bytes).unwrap();
-        PlayerPosition {
+        PlayerData {
             x: position.1,
             y: position.2,
             r: u16_to_rad(position.3),
-            visible: position.0
+            visible: position.0,
+            hp: position.4
         }
     }
 
 }
 
-impl PlayerPosition {
+impl PlayerData {
 
-    pub fn update<L: LevelCollision>(dt: f32, state: &mut PlayerPosition, input: &PlayerInput, level: &L) {
+    pub fn update<L: LevelCollision>(dt: f32, state: &mut PlayerData, input: &PlayerInput, level: &L) {
 
         let (mut dx, mut dy) = (0.0, 0.0);
         if input.buttons & 1 == 1 {
@@ -128,5 +132,5 @@ impl PlayerPosition {
 }
 
 #[derive(RustcEncodable, RustcDecodable)]
-struct PlayerNetworkPosition(bool, f32, f32, u16);
+struct PlayerNetworkPosition(bool, f32, f32, u16, u8);
 

@@ -9,13 +9,13 @@ use netsync::{NetworkState, ClientState, ServerState, NetworkProperty};
 
 
 // Internal Dependencies ------------------------------------------------------
-use super::{PlayerPosition, PlayerInput};
+use super::{PlayerData, PlayerInput};
 use ::color::{Color, ColorName};
 
 
 // Entities -------------------------------------------------------------------
 #[derive(Debug)]
-pub struct PlayerEntity<S: NetworkState<PlayerPosition, PlayerInput>> {
+pub struct PlayerEntity<S: NetworkState<PlayerData, PlayerInput>> {
     pub color: ColorName,
     pub color_light: [f32; 4],
     pub color_dark: [f32; 4],
@@ -28,13 +28,13 @@ pub struct PlayerEntity<S: NetworkState<PlayerPosition, PlayerInput>> {
     pub last_hidden: u64,
 }
 
-impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
+impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
 
     pub fn new(
         owner: Option<ConnectionID>,
         local: bool,
         color: ColorName,
-        position: PlayerPosition
+        position: PlayerData
 
     ) -> PlayerEntity<S> {
 
@@ -87,7 +87,7 @@ impl<S: NetworkState<PlayerPosition, PlayerInput>> PlayerEntity<S> {
 }
 
 // Server Side Entity ---------------------------------------------------------
-impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerPosition, PlayerInput>> {
+impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, PlayerInput>> {
 
     fn part_bytes(&mut self, connection_slot: Option<&hexahydrate::ConnectionSlot<ConnectionID>>) -> Option<Vec<u8>> {
         if self.is_owned_by(connection_slot) {
@@ -96,7 +96,14 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerPositi
         } else {
             // TODO make ticks_ago configurable
             let bytes = self.state.send_with(Some(4), |state| {
-                if self.is_visible_to(connection_slot) {
+
+                // Hide dead entities
+                let dead = state.hp == 0;
+
+                // Never expose hp to other players
+                state.hp = 0;
+
+                if !dead && self.is_visible_to(connection_slot) {
                     state.visible = true;
 
                 } else {
@@ -133,7 +140,7 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerPositi
 }
 
 // Client Side Entity ---------------------------------------------------------
-impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
+impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
 
     fn part_bytes(&mut self, _: Option<&hexahydrate::ConnectionSlot<ConnectionID>>) -> Option<Vec<u8>> {
         if self.local {
@@ -163,12 +170,12 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ClientState<PlayerPositi
         1
     }
 
-    fn from_bytes(bytes: &[u8]) -> Option<PlayerEntity<ClientState<PlayerPosition, PlayerInput>>> {
+    fn from_bytes(bytes: &[u8]) -> Option<PlayerEntity<ClientState<PlayerData, PlayerInput>>> {
         Some(PlayerEntity::new(
             None,
             bytes[0] == 1,
             ColorName::from_u8(bytes[1]),
-            PlayerPosition::from_bytes(&bytes[2..])
+            PlayerData::from_bytes(&bytes[2..])
         ))
     }
 

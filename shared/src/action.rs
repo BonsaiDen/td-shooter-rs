@@ -10,7 +10,8 @@ pub enum Action {
     FiredLaserBeam(u8, f32),
     // TODO use smaller values
     // TODO create helper for f32 <> u16
-    CreateLaserBeam(u8, f32, f32, f32, f32)
+    CreateLaserBeam(u8, f32, f32, f32, f32),
+    LaserBeamHit(u8, f32, f32)
 }
 
 impl Action {

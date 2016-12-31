@@ -14,7 +14,7 @@ use graphics::Transformed;
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
-use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
+use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS};
 use ::renderer::{Circle, CircleArc, Renderer};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
@@ -38,7 +38,7 @@ pub struct Client {
 
     // Player Colors
     player_colors: [[f32; 4]; 2],
-    player_position: PlayerPosition,
+    player_data: PlayerData,
     player_circle: Circle,
     player_cone: CircleArc,
 
@@ -66,7 +66,7 @@ impl Client {
 
             // Colors
             player_colors: [[0f32; 4]; 2],
-            player_position: PlayerPosition::default(),
+            player_data: PlayerData::default(),
             player_circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
             player_cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
 
@@ -87,7 +87,7 @@ impl Client {
         if let Some(Button::Mouse(button)) = e.press_args() {
             // Limit shot rate
             if button == MouseButton::Left {
-                self.actions.push(Action::FiredLaserBeam(self.tick, self.player_position.r));
+                self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
 
                 // TODO create laser on server but already play sfx
                 // TODO play laser SFX
@@ -95,9 +95,9 @@ impl Client {
                 if self.debug_draw {
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::Grey,
-                        self.player_position.x,
-                        self.player_position.y,
-                        self.player_position.r,
+                        self.player_data.x,
+                        self.player_data.y,
+                        self.player_data.r,
                         PLAYER_RADIUS + 0.5,
                         100.0,
                         400
@@ -251,17 +251,17 @@ impl Client {
 
         // Get player positions, colors and visibility
         let (t, u) = (renderer.t(), renderer.u());
-        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f32), _>(|_, entity| {
+        let players = entity_client.map_entities::<(PlayerData, [[f32; 4]; 2], f32), _>(|_, entity| {
 
             let p = entity.interpolate(u);
             if entity.is_local() {
-                self.player_position = p.clone();
+                self.player_data = p.clone();
                 (p, entity.colors(), 1.0)
 
             } else {
                 let visibility = entity.update_visibility(
-                    self.player_position.x,
-                    self.player_position.y,
+                    self.player_data.x,
+                    self.player_data.y,
                     level,
                     &p,
                     t
@@ -272,16 +272,16 @@ impl Client {
         });
 
         // Camera setup
-        self.camera.center(self.player_position.x, self.player_position.y);
+        self.camera.center(self.player_data.x, self.player_data.y);
         self.camera.limit(level.bounds());
         self.camera.apply(renderer);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
         self.input_angle = (
-            self.world_cursor.1 - self.player_position.y
+            self.world_cursor.1 - self.player_data.y
 
-        ).atan2(self.world_cursor.0 - self.player_position.x);
+        ).atan2(self.world_cursor.0 - self.player_data.x);
 
         // Clear
         renderer.clear_stencil(0);
@@ -291,8 +291,8 @@ impl Client {
         level.render_background(
             renderer ,
             &self.camera,
-            self.player_position.x,
-            self.player_position.y,
+            self.player_data.x,
+            self.player_data.y,
             self.debug_draw
         );
 
@@ -337,8 +337,8 @@ impl Client {
         level.render_shadow(
             renderer,
             &self.camera,
-            self.player_position.x,
-            self.player_position.y,
+            self.player_data.x,
+            self.player_data.y,
             self.debug_draw
         );
 
@@ -346,8 +346,8 @@ impl Client {
         level.render_walls(
             renderer,
             &self.camera,
-            self.player_position.x,
-            self.player_position.y,
+            self.player_data.x,
+            self.player_data.y,
             self.debug_draw
         );
 

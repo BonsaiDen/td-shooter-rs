@@ -14,7 +14,7 @@ use super::{Level, LevelCollision};
 
 
 // Statics --------------------------------------------------------------------
-pub const VISIBILITY_GRID_SPACING: f32 = PLAYER_RADIUS * 2.0;
+pub const VISIBILITY_GRID_SPACING: f32 = PLAYER_RADIUS * 4.0;
 pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 150.0;
 
 
@@ -397,10 +397,10 @@ fn get_triangle_points(
 
     // Fallback for open level bounds
     } else {
-        p3.0 = x + r1.cos() * LEVEL_MAX_VISIBILITY_DISTANCE;
-        p3.1 = y + r1.sin() * LEVEL_MAX_VISIBILITY_DISTANCE;
-        p4.0 = x + r2.cos() * LEVEL_MAX_VISIBILITY_DISTANCE;
-        p4.1 = y + r2.sin() * LEVEL_MAX_VISIBILITY_DISTANCE;
+        p3.0 = x + r1.cos() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
+        p3.1 = y + r1.sin() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
+        p4.0 = x + r2.cos() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
+        p4.1 = y + r2.sin() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
     }
 
     let p_begin = line_intersection(p3, p4, p1, p2);

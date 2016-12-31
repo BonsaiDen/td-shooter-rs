@@ -14,8 +14,8 @@ use super::{Level, MAX_LEVEL_SIZE};
 pub trait LevelCollision {
     fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32);
-    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]>;
-    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]>;
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])>;
+    fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])>;
 }
 
 impl LevelCollision for Level {
@@ -82,7 +82,7 @@ impl LevelCollision for Level {
 
     }
 
-    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]> {
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])> {
 
         let line = [
             x,
@@ -95,7 +95,7 @@ impl LevelCollision for Level {
 
     }
 
-    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]> {
+    fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])> {
         self.collide_beam_with_walls(&line, &self.get_walls_in_bounds(&line))
     }
 
@@ -110,23 +110,23 @@ impl Level {
         (gx as isize, gy as isize)
     }
 
-    fn collide_beam_with_walls(&self, line: &[f32; 4], walls: &HashSet<usize>) -> Option<[f32; 5]> {
+    fn collide_beam_with_walls(&self, line: &[f32; 4], walls: &HashSet<usize>) -> Option<(usize, [f32; 3])> {
 
-        let mut intersection: Option<[f32; 5]> = None;
+        let mut intersection: Option<(usize, [f32; 3])> = None;
         for i in walls {
 
             let wall = &self.walls[*i];
             if let Some(new) = line_intersect_line(&line, &wall.points) {
 
                 let is_closer = if let Some(existing) = intersection {
-                    new[4] < existing[4]
+                    new[2] < existing.1[2]
 
                 } else {
                     true
                 };
 
                 if is_closer {
-                    intersection = Some(new);
+                    intersection = Some((*i, new));
                 }
 
             }
@@ -219,7 +219,7 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
 
 }
 
-pub fn line_intersect_line(line: &[f32; 4], other: &[f32; 4]) -> Option<[f32; 5]> {
+pub fn line_intersect_line(line: &[f32; 4], other: &[f32; 4]) -> Option<[f32; 3]> {
 
     let (ax, ay) = ( line[2] -  line[0],  line[3] -  line[1]);
     let (bx, by) = (other[2] - other[0], other[3] - other[1]);
@@ -239,7 +239,7 @@ pub fn line_intersect_line(line: &[f32; 4], other: &[f32; 4]) -> Option<[f32; 5]
                 let dy = line[1] + t * ay;
                 let (ex, ey) = (line[0] - dx, line[1] - dy);
 
-                return Some([line[0], line[1], dx, dy, (ex * ex + ey * ey).sqrt()]);
+                return Some([dx, dy, (ex * ex + ey * ey).sqrt()]);
 
             }
 

@@ -202,11 +202,11 @@ impl LevelCollision for Level {
         self.level.collide(x, y, radius);
     }
 
-    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]> {
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])> {
         self.level.collide_beam(x, y, r, l)
     }
 
-    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]> {
+    fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])> {
         self.level.collide_line(line)
     }
 
