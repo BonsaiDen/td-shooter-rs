@@ -17,6 +17,7 @@ use shader_version::glsl::GLSL;
 use gfx;
 use gfx::Device;
 use gfx::Factory;
+use gfx::traits::FactoryExt;
 use gfx::memory::Typed;
 use gfx::format::{DepthStencil, Format, Formatted, Srgba8};
 use gfx::pso::PipelineState;
@@ -29,7 +30,7 @@ use piston::input::RenderArgs;
 use piston::event_loop::{Events, WindowEvents};
 
 use graphics::Context;
-use graphics::math::{Matrix2d, Scalar};
+use graphics::math::Matrix2d;
 use graphics::color::gamma_srgb_to_linear;
 use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
 
@@ -38,11 +39,46 @@ use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
 const POS_COMPONENTS: usize = 2;
 const CHUNKS: usize = 100;
 
+static VERTEX_SHADER_120: &'static [u8] = br#"
+    #version 120
+    attribute vec4 color;
+    attribute vec2 pos;
+
+    varying vec4 v_Color;
+    uniform mat4 u_View;
+
+    void main() {
+        v_Color = color;
+        gl_Position = u_View * vec4(pos, 0.0, 1.0);
+    }
+"#;
+
+static VERTEX_SHADER_150: &'static [u8] = br#"
+    #version 150 core
+    in vec4 color;
+    in vec2 pos;
+
+    out vec4 v_Color;
+
+    uniform Locals {
+        mat4 u_View;
+    };
+
+    void main() {
+        v_Color = color;
+        gl_Position = u_View * vec4(pos, 0.0, 1.0);
+    }
+"#;
+
 
 // Rendering Pipeline ---------------------------------------------------------
 gfx_defines! {
     vertex PositionFormat {
         pos: [f32; 2] = "pos",
+    }
+
+    constant Locals {
+        view: [[f32; 4]; 4] = "u_View",
     }
 
     vertex ColorFormat {
@@ -56,6 +92,7 @@ gfx_defines! {
 
 gfx_pipeline_base!( pipe_colored {
     pos: gfx::VertexBuffer<PositionFormat>,
+    locals: gfx::ConstantBuffer<Locals>,
     color: gfx::VertexBuffer<ColorFormat>,
     blend_target: gfx::BlendTarget<gfx::format::Srgba8>,
     stencil_target: gfx::StencilTarget<gfx::format::DepthStencil>,
@@ -168,6 +205,7 @@ pub struct Renderer {
 
     buffer_pos: gfx::handle::Buffer<gfx_device_gl::Resources, PositionFormat>,
     buffer_color: gfx::handle::Buffer<gfx_device_gl::Resources, ColorFormat>,
+    buffer_locals: gfx::handle::Buffer<gfx_device_gl::Resources, Locals>,
 
     colored_pso: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
     colored_offset: usize
@@ -231,6 +269,8 @@ impl Renderer {
 
         ).expect("Could not create `buffer_color`");
 
+        let buffer_locals = factory.create_constant_buffer(1);
+
         // GFX Encoder
         let encoder = factory.create_command_buffer().into();
 
@@ -253,6 +293,7 @@ impl Renderer {
 
             buffer_pos: buffer_pos,
             buffer_color: buffer_color,
+            buffer_locals: buffer_locals,
             colored_pso: colored_pso,
             colored_offset: 0
 
@@ -303,7 +344,7 @@ impl Renderer {
 
     pub fn end(&mut self) {
 
-        self.flush_colored();
+        //self.flush_colored();
         self.encoder.flush(&mut self.device);
         self.device.cleanup();
 
@@ -318,7 +359,7 @@ impl Renderer {
 
     }
 
-    fn flush_colored(&mut self) {
+    fn flush(&mut self) {
 
         if self.colored_offset > 0 {
 
@@ -332,6 +373,7 @@ impl Renderer {
             let data = pipe_colored::Data {
                 pos: self.buffer_pos.clone(),
                 color: self.buffer_color.clone(),
+                locals: self.buffer_locals.clone(),
                 blend_target: self.output_color.clone(),
                 stencil_target: (
                     self.output_stencil.clone(),
@@ -357,15 +399,10 @@ impl Renderer {
 
     }
 
-    pub fn draw_triangle_list(&mut self, color: [f32; 4], vertices: &[f32]) {
+    pub fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
 
-        let color = gamma_srgb_to_linear(color);
+        let color = gamma_srgb_to_linear(self.color);
         let n = vertices.len() / POS_COMPONENTS;
-
-        // Render if there is not enough room.
-        if self.colored_offset + n > BUFFER_SIZE * CHUNKS {
-            self.flush_colored();
-        }
 
         {
             use std::slice::from_raw_parts;
@@ -398,6 +435,23 @@ impl Renderer {
 
         }
 
+        self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
+            view: [
+                // Rotation
+                [m[0][0] as f32, m[1][0] as f32, 0.0, 0.0],
+                [m[0][1] as f32, m[1][1] as f32, 0.0, 0.0],
+
+                // Identity
+                [0.0, 0.0, 1.0, 0.0],
+
+                // Translation
+                [m[0][2] as f32, m[1][2] as f32, 0.0, 1.0]
+
+            ]
+        });
+
+        self.flush();
+
     }
 
 
@@ -412,7 +466,6 @@ impl Renderer {
     }
 
     pub fn set_stencil_mode(&mut self, mode: StencilMode) {
-        self.flush_colored();
         self.stencil_mode = mode;
     }
 
@@ -426,46 +479,96 @@ impl Renderer {
         x: f64, y: f64,
         endpoints: &[(usize, (f64, f64), (f64, f64))]
     ) {
-
-        // TODO support polygon caching via pre-calculation
-
-        let m = context.transform;
-        let mut vertices = Vec::new();
-        for &(_, a, b) in endpoints {
-            vertices.push(tx(m, x, y));
-            vertices.push(ty(m, x, y));
-            vertices.push(tx(m, a.0, a.1));
-            vertices.push(ty(m, a.0, a.1));
-            vertices.push(tx(m, b.0, b.1));
-            vertices.push(ty(m, b.0, b.1));
-        }
-
-        let color = self.color;
-        self.draw_triangle_list(color, &vertices);
-
+        self.draw_triangle_list(
+            &context.transform,
+            &LightPoylgon::vertices(x, y, endpoints)
+        );
     }
 
     pub fn rectangle(&mut self, context: &Context, rect: &[f64; 4]) {
-        let m = context.transform;
         let (x, y, w, h) = (rect[0], rect[1], rect[2], rect[3]);
         let (x2, y2) = (x + w, y + h);
         let vertices = [
-            tx(m,  x,  y), ty(m,  x,  y),
-            tx(m, x2,  y), ty(m, x2,  y),
-            tx(m,  x, y2), ty(m,  x, y2),
-            tx(m, x2,  y), ty(m, x2,  y),
-            tx(m, x2, y2), ty(m, x2, y2),
-            tx(m,  x, y2), ty(m,  x, y2)
+             x as f32,  y as f32,
+            x2 as f32,  y as f32,
+             x as f32, y2 as f32,
+            x2 as f32,  y as f32,
+            x2 as f32, y2 as f32,
+             x as f32, y2 as f32
         ];
-        let color = self.color;
-        self.draw_triangle_list(color, &vertices);
+        self.draw_triangle_list(&context.transform, &vertices);
     }
 
     pub fn line(&mut self, context: &Context, p: &[f64; 4], width: f64) {
+        self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
+    }
+
+}
+
+
+// Cached Vertices ------------------------------------------------------------
+#[derive(Debug)]
+pub struct LightPoylgon {
+    vertices: Vec<f32>
+}
+
+impl LightPoylgon {
+
+    pub fn new(
+        x: f64,
+        y: f64,
+        endpoints: &[(usize, (f64, f64), (f64, f64))]
+
+    ) -> LightPoylgon {
+        LightPoylgon {
+            vertices: LightPoylgon::vertices(x, y, endpoints)
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
+        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    }
+
+    pub fn vertices(
+        x: f64,
+        y: f64,
+        endpoints: &[(usize, (f64, f64), (f64, f64))]
+
+    ) -> Vec<f32> {
+        let mut vertices = Vec::new();
+        for &(_, a, b) in endpoints {
+            vertices.push(x as f32);
+            vertices.push(y as f32);
+            vertices.push(a.0 as f32);
+            vertices.push(a.1 as f32);
+            vertices.push(b.0 as f32);
+            vertices.push(b.1 as f32);
+        }
+        vertices
+    }
+
+}
+
+#[derive(Debug)]
+pub struct Line {
+    vertices: [f32; 12]
+}
+
+impl Line {
+
+    pub fn new(points: &[f64; 4], width: f64) -> Line {
+        Line {
+            vertices: Line::vertices(points, width)
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
+        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    }
+
+    pub fn vertices(p: &[f64; 4], width: f64) -> [f32; 12] {
 
         // TODO support line caching via pre-calculation
-
-        let m = context.transform;
         let (dx, dy) = (p[0] - p[2], p[1] - p[3]);
         let pr = dy.atan2(dx) - consts::PI * 0.5;
 
@@ -481,78 +584,120 @@ impl Renderer {
         // |_
         let (dx, dy) = (p[2] - pr.cos() * width, p[3] - pr.sin() * width);
 
-        let vertices = [
+        [
 
             // A B C
-            tx(m,  ax,  ay), ty(m,  ax,  ay),
-            tx(m,  bx,  by), ty(m,  bx,  by),
-            tx(m,  cx,  cy), ty(m,  cx,  cy),
+            ax as f32, ay as f32,
+            bx as f32, by as f32,
+            cx as f32, cy as f32,
 
             // A C D
-            tx(m,  cx,  cy), ty(m,  cx,  cy),
-            tx(m,  dx,  dy), ty(m,  dx,  dy),
-            tx(m,  bx,  by), ty(m,  bx,  by)
+            cx as f32, cy as f32,
+            dx as f32, dy as f32,
+            bx as f32, by as f32
 
-        ];
-
-        let color = self.color;
-        self.draw_triangle_list(color, &vertices);
+        ]
 
     }
 
-    pub fn circle(
-        &mut self,
-        context: &Context,
+}
+
+
+#[derive(Debug)]
+pub struct Circle {
+    vertices: Vec<f32>
+}
+
+impl Circle {
+
+    pub fn new(
         segments: usize,
         x: f64,
         y: f64,
         r: f64
-    ) {
 
-        // TODO support circle caching via pre-calculation and only translate
-        // the points
-        let m = context.transform;
+    ) -> Circle {
+        Circle {
+            vertices: Circle::vertices(segments, x, y, r)
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
+        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    }
+
+    pub fn vertices(
+        segments: usize,
+        x: f64,
+        y: f64,
+        r: f64
+
+    ) -> Vec<f32> {
+
         let step = consts::PI * 2.0 / segments as f64;
         let mut vertices = Vec::new();
         for i in 0..segments {
 
             // Center
-            vertices.push(tx(m, x, y));
-            vertices.push(ty(m, x, y));
+            vertices.push(x as f32);
+            vertices.push(y as f32);
 
             // First outer point
             let ar = i as f64 * step;
             let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-            vertices.push(tx(m, ax, ay));
-            vertices.push(ty(m, ax, ay));
+            vertices.push(ax as f32);
+            vertices.push(ay as f32);
 
             // Second outer point
             let br = ar + step;
             let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-            vertices.push(tx(m, bx, by));
-            vertices.push(ty(m, bx, by));
+            vertices.push(bx as f32);
+            vertices.push(by as f32);
 
         }
 
-        let color = self.color;
-        self.draw_triangle_list(color, &vertices);
+        vertices
 
     }
 
-    pub fn circle_arc(
-        &mut self,
-        context: &Context,
+}
+
+
+#[derive(Debug)]
+pub struct CircleArc {
+    vertices: Vec<f32>
+}
+
+impl CircleArc {
+
+    pub fn new(
         segments: usize,
         x: f64,
         y: f64,
         r: f64,
         angle: f64,
         half_cone: f64
-    ) {
 
-        // TODO support circle caching via pre-calculation and only translate
-        // the points
-        let m = context.transform;
+    ) -> CircleArc {
+        CircleArc {
+            vertices: CircleArc::vertices(segments, x, y, r, angle, half_cone)
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
+        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    }
+
+    pub fn vertices(
+        segments: usize,
+        x: f64,
+        y: f64,
+        r: f64,
+        angle: f64,
+        half_cone: f64
+
+    ) -> Vec<f32> {
+
         let step = consts::PI * 2.0 / segments as f64;
         let mut vertices = Vec::new();
         for i in 0..segments {
@@ -581,42 +726,34 @@ impl Renderer {
                 }
 
                 // Center
-                vertices.push(tx(m, x, y));
-                vertices.push(ty(m, x, y));
+                vertices.push(x as f32);
+                vertices.push(y as f32);
 
                 // First outer point
                 let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-                vertices.push(tx(m, ax, ay));
-                vertices.push(ty(m, ax, ay));
+                vertices.push(ax as f32);
+                vertices.push(ay as f32);
 
                 // Second outer point
                 let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-                vertices.push(tx(m, bx, by));
-                vertices.push(ty(m, bx, by));
+                vertices.push(bx as f32);
+                vertices.push(by as f32);
 
             }
 
         }
 
-        let color = self.color;
-        self.draw_triangle_list(color, &vertices);
+        vertices
 
     }
 
 }
 
 
+// Vertices generation --------------------------------------------------------
+
+
 // Helpers --------------------------------------------------------------------
-#[inline(always)]
-fn tx(m: Matrix2d, x: Scalar, y: Scalar) -> f32 {
-    (m[0][0] * x + m[0][1] * y + m[0][2]) as f32
-}
-
-#[inline(always)]
-fn ty(m: Matrix2d, x: Scalar, y: Scalar) -> f32 {
-    (m[1][0] * x + m[1][1] * y + m[1][2]) as f32
-}
-
 fn create_main_targets(dim: gfx::texture::Dimensions) -> (
     gfx::handle::RenderTargetView<gfx_device_gl::Resources, gfx::format::Srgba8>,
     gfx::handle::DepthStencilView<gfx_device_gl::Resources, gfx::format::DepthStencil>
@@ -648,8 +785,8 @@ fn create_pipeline(
 
     let colored_program = factory.link_program(
         Shaders::new()
-            .set(GLSL::V1_20, colored::VERTEX_GLSL_120)
-            .set(GLSL::V1_50, colored::VERTEX_GLSL_150_CORE)
+            .set(GLSL::V1_20, VERTEX_SHADER_120)
+            .set(GLSL::V1_50, VERTEX_SHADER_150)
             .get(glsl).unwrap(),
 
         Shaders::new()
@@ -676,6 +813,7 @@ fn create_pipeline(
             r,
             pipe_colored::Init {
                 pos: (),
+                locals: "Locals",
                 color: (),
                 blend_target: ("o_Color", color_mask, blend_preset),
                 stencil_target: stencil,

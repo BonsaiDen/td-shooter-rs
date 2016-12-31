@@ -1,5 +1,5 @@
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::{Renderer, StencilMode};
+use ::renderer::{Renderer, Line, StencilMode};
 use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
@@ -17,7 +17,8 @@ use self::cached_light_source::CachedLightSource;
 #[derive(Debug, Default)]
 pub struct Level {
     level: SharedLevel,
-    lights: Vec<CachedLightSource>
+    lights: Vec<CachedLightSource>,
+    walls: Vec<Line>
 }
 
 impl Level {
@@ -29,9 +30,15 @@ impl Level {
 
         }).collect();
 
+        let cached_walls = level.walls.iter().map(|w| {
+            Line::new(&w.points, 1.0)
+
+        }).collect();
+
         Level {
             level: level,
-            lights: cached_lights
+            lights: cached_lights,
+            walls: cached_walls
         }
 
     }
@@ -134,8 +141,8 @@ impl Level {
         let walls = self.level.get_walls_in_bounds(&bounds);
 
         for i in &walls {
-            let wall = &self.level.walls[*i];
-            renderer.line(&context, &wall.points, 1.0);
+            let wall = &self.walls[*i];
+            wall.render(renderer, &context);
         }
 
     }

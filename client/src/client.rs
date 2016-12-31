@@ -15,7 +15,7 @@ use graphics::Transformed;
 use shared::action::Action;
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PLAYER_RADIUS};
-use ::renderer::Renderer;
+use ::renderer::{Circle, CircleArc, Renderer};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
@@ -39,6 +39,8 @@ pub struct Client {
     // Player Colors
     player_colors: [[f32; 4]; 2],
     player_position: PlayerPosition,
+    player_circle: Circle,
+    player_cone: CircleArc,
 
     // Network
     actions: Vec<Action>,
@@ -65,6 +67,8 @@ impl Client {
             // Colors
             player_colors: [[0f32; 4]; 2],
             player_position: PlayerPosition::default(),
+            player_circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
+            player_cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
 
             // Network
             actions: Vec::new(),
@@ -303,24 +307,19 @@ impl Client {
             for (p, mut colors, visibility) in players {
                 if visibility > 0.0 {
 
-                    let q = context.trans(p.x as f64, p.y as f64);
-
                     colors[0][3] = visibility as f32;
                     colors[1][3] = visibility as f32;
 
-                    let q = q.rot_rad(p.r as f64);
+                    let q = context.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
                     renderer.set_color([0.0, 0.0, 0.0, 0.5]);
-                    renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS + 1.0);
+                    self.player_circle.render(renderer, &q.scale(1.1, 1.1));
+                    //renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS + 1.0);
 
                     renderer.set_color(colors[0]);
-                    renderer.circle(&q, 10, 0.0, 0.0, PLAYER_RADIUS);
+                    self.player_circle.render(renderer, &q);
 
                     renderer.set_color(colors[1]);
-                    renderer.circle_arc(
-                        &q, 10, 0.0, 0.0, PLAYER_RADIUS,
-                        0.0,
-                        consts::PI * 0.25
-                    );
+                    self.player_cone.render(renderer, &q);
 
                 }
             }
@@ -379,23 +378,6 @@ impl Client {
         renderer.line(&context, &[w,   0.0,   w,   h], 2.0);
 
     }
-
-    /*
-        // Cone of sight
-        g.tri_list(
-            &DrawState::default(),
-            &colors[1],
-            |f| triangulation::with_arc_tri_list(
-                -consts::PI * 0.25,
-                -consts::PI * 1.75,
-                12,
-                q.transform,
-                player_bounds,
-                PLAYER_RADIUS * 0.55,
-                |vertices| f(vertices)
-            )
-        );
-    */
 
 }
 

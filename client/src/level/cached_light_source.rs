@@ -1,28 +1,28 @@
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
-use ::renderer::Renderer;
+use ::renderer::{Renderer, LightPoylgon, Circle};
 use ::shared::level::{Level, LightSource, LevelVisibility};
 
 
 // Cached Light Source for Fast Rendering -------------------------------------
 #[derive(Debug)]
 pub struct CachedLightSource {
-    x: f64,
-    y: f64,
-    radius: f64,
     aabb: [f64; 4],
-    light_polygon: Vec<(usize, (f64, f64), (f64, f64))>
+    light_polygon: LightPoylgon,
+    light_circle: Circle
 }
 
 impl CachedLightSource {
 
     pub fn from_light(level: &Level, light: &LightSource) -> CachedLightSource {
         CachedLightSource {
-            x: light.x,
-            y: light.y,
-            radius: light.radius,
             aabb: light.aabb,
-            light_polygon: level.calculate_visibility(light.x, light.y)
+            light_polygon: LightPoylgon::new(
+                light.x,
+                light.y,
+                &level.calculate_visibility(light.x, light.y)
+            ),
+            light_circle: Circle::new(12, light.x, light.y, light.radius)
         }
     }
 
@@ -34,7 +34,7 @@ impl CachedLightSource {
         let bounds = camera.b2w();
         if aabb_intersect(&self.aabb, &bounds) {
             let context = camera.context();
-            renderer.light_polygon(&context, self.x, self.y, &self.light_polygon);
+            self.light_polygon.render(renderer, &context);
         }
     }
 
@@ -46,7 +46,7 @@ impl CachedLightSource {
         let bounds = camera.b2w();
         if aabb_intersect(&self.aabb, &bounds) {
             let context = camera.context();
-            renderer.circle(&context, 12, self.x, self.y, self.radius);
+            self.light_circle.render(renderer, &context);
         }
     }
 
