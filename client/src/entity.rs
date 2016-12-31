@@ -23,7 +23,7 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn interpolate(&self, u: f32) -> PlayerData;
     fn update_remote(&mut self);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
-    fn update_visibility(&mut self, x: f32, y: f32, level: &Level, position: &PlayerData, t: u64) -> f32;
+    fn update_visibility(&mut self, x: f32, y: f32, hp: u8, level: &Level, position: &PlayerData, t: u64) -> f32;
     fn color_name(&self) -> ColorName;
     fn colors(&self) -> [[f32; 4]; 2];
     fn is_new(&mut self) -> bool;
@@ -60,7 +60,16 @@ impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
         });
     }
 
-    fn update_visibility(&mut self, x: f32, y: f32, level: &Level, p: &PlayerData, t: u64) -> f32 {
+    fn update_visibility(
+        &mut self,
+        x: f32,
+        y: f32,
+        hp: u8,
+        level: &Level,
+        p: &PlayerData,
+        t: u64
+
+    ) -> f32 {
 
         // Players not visible on the server are never visible on the client either
         let is_visible = if !p.visible {
@@ -69,6 +78,10 @@ impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
         // Players standing in a light circle are always visible
         } else if level.circle_in_light(p.x, p.y, PLAYER_RADIUS) {
             true
+
+        // Dead players cannot see any other players
+        } else if hp == 0 {
+            false
 
         // Players outside the maximum visibility distance are never visible
         } else if util::distance( p.x, p.y, x, y) > LEVEL_MAX_VISIBILITY_DISTANCE {

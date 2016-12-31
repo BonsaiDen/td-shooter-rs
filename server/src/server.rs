@@ -238,6 +238,10 @@ impl Server {
                             let visible = if player_in_light {
                                 true
 
+                            // Dead entities can see no other entities
+                            } else if player_data.hp == 0 {
+                                false
+
                             // Entities outside the maximum visibility radius are never visible
                             } else if distance > LEVEL_MAX_VISIBILITY_DISTANCE {
                                 false

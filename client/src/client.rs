@@ -262,6 +262,7 @@ impl Client {
                 let visibility = entity.update_visibility(
                     self.player_data.x,
                     self.player_data.y,
+                    self.player_data.hp,
                     level,
                     &p,
                     t
@@ -339,6 +340,7 @@ impl Client {
             &self.camera,
             self.player_data.x,
             self.player_data.y,
+            self.player_data.hp,
             self.debug_draw
         );
 

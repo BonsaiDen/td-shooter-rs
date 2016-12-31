@@ -27,7 +27,7 @@ impl Camera {
         Camera {
             x: 0.0,
             y: 0.0,
-            z: 0.5, // 2.0 default
+            z: 1.5,
             ratio: 1.0,
             center: (0.0, 0.0),
             context: Context::new(),

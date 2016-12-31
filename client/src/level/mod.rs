@@ -119,6 +119,7 @@ impl Level {
         camera: &Camera,
         x: f32,
         y: f32,
+        hp: u8,
         _: bool
     ) {
 
@@ -126,14 +127,19 @@ impl Level {
         let context = camera.context();
         let endpoints = self.calculate_visibility(x, y);
 
-        // Render player visibility cone but only where there
-        renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
-        renderer.light_polygon(&context, x, y, &endpoints);
+        // Only render visibility cone if local player is alive
+        if hp > 0 {
 
-        // Render player visibility circle
-        let q = context.trans(x as f64, y as f64);
-        renderer.set_stencil_mode(StencilMode::Add);
-        self.visibility_circle.render(renderer, &q);
+            // Render player visibility cone but only where there
+            renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
+            renderer.light_polygon(&context, x, y, &endpoints);
+
+            // Render player visibility circle
+            let q = context.trans(x as f64, y as f64);
+            renderer.set_stencil_mode(StencilMode::Add);
+            self.visibility_circle.render(renderer, &q);
+
+        }
 
         // Render shadows
         renderer.set_stencil_mode(StencilMode::OutsideVisibleArea);
