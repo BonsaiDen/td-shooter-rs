@@ -29,8 +29,8 @@ impl Entity for ServerPlayerEntity {
     }
 
     fn update(&mut self, dt: f32, level: &Level) {
-        self.state.update_with(|state, input| {
-            PlayerData::update(dt, state, input, level);
+        self.state.update_with(|state, _, input| {
+            PlayerData::update(dt, state, input.unwrap(), level);
         });
     }
 

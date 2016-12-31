@@ -25,7 +25,25 @@ pub struct PlayerData {
     pub y: f32,
     pub r: f32,
     pub hp: u8,
-    pub visible: bool
+    pub visible: bool,
+    pub vx: f32,
+    pub vy: f32
+}
+
+impl PlayerData {
+
+    pub fn new(x: f32, y: f32, r: f32, hp: u8) -> PlayerData {
+        PlayerData {
+            x: x,
+            y: y,
+            r: r,
+            hp: hp,
+            visible: false,
+            vx: 0.0,
+            vy: 0.0
+        }
+    }
+
 }
 
 impl NetworkProperty for PlayerData {
@@ -48,7 +66,9 @@ impl NetworkProperty for PlayerData {
                 y: last.y + dy * u,
                 r: last.r + dr * u,
                 hp: self.hp,
-                visible: self.visible
+                visible: self.visible,
+                vx: self.vx,
+                vy: self.vy
             }
         }
 
@@ -72,7 +92,9 @@ impl NetworkProperty for PlayerData {
             y: position.2,
             r: u16_to_rad(position.3),
             visible: position.0,
-            hp: position.4
+            hp: position.4,
+            vx: 0.0,
+            vy: 0.0
         }
     }
 
@@ -102,8 +124,10 @@ impl PlayerData {
         // Limit diagonal speed
         let r = dy.atan2(dx);
         let dist = ((dx * dx) + (dy * dy)).sqrt();
-        state.x += r.cos() * dist.min(PLAYER_SPEED * dt);
-        state.y += r.sin() * dist.min(PLAYER_SPEED * dt);
+        state.vx = r.cos() * dist.min(PLAYER_SPEED * dt);
+        state.vy = r.sin() * dist.min(PLAYER_SPEED * dt);
+        state.x += state.vx;
+        state.y += state.vy;
 
         // Limit rotation speed
         let r = input.r - state.r;
@@ -121,6 +145,12 @@ impl PlayerData {
         // Collision
         level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS);
 
+    }
+
+    pub fn update_extrapolated<L: LevelCollision>(state: &mut PlayerData, level: &L) {
+        state.x += state.vx;
+        state.y += state.vy;
+        level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS);
     }
 
     pub fn merge_client_angle(&mut self, client_r: f32) {

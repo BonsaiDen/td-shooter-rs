@@ -6,6 +6,7 @@ use std::f32::consts;
 use cobalt;
 use cobalt::ConnectionID;
 use hexahydrate;
+use clock_ticks;
 
 use piston::input::*;
 use graphics::Transformed;
@@ -202,6 +203,7 @@ impl Client {
         }
 
         // Update entities
+        let t = clock_ticks::precise_time_ms();
         entity_client.update_with(|_, entity| {
             if entity.is_local() {
                 if entity.is_new() {
@@ -210,7 +212,7 @@ impl Client {
                 entity.update_local(level, input.clone());
 
             } else {
-                entity.update_remote();
+                entity.update_remote(level, t);
             }
         });
 

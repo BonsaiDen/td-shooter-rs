@@ -226,7 +226,7 @@ impl CircleArc {
 
                 // Limit angle of b
                 if bdr > half_cone {
-                    br = angle - half_cone;
+                    br = angle + half_cone;
                 }
 
                 // Center

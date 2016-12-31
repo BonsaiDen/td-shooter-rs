@@ -161,6 +161,8 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ClientState<PlayerData, 
                     state.x = current.x;
                     state.y = current.y;
                     state.r = current.r;
+                    state.vx = current.vx;
+                    state.vy = current.vy;
                 }
             });
         }

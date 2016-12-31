@@ -31,7 +31,7 @@ pub trait NetworkProperty: Clone + Default + fmt::Debug {
 pub trait NetworkState<P: NetworkProperty, I: NetworkInput>: fmt::Debug + Default {
     fn new(usize) -> Self where Self: Sized;
     fn set(&mut self, base: P);
-    fn update_with<F: FnMut(&mut P, &I)>(
+    fn update_with<F: FnMut(&mut P, Option<&P>, Option<&I>)>(
         &mut self,
         callback: F
 
@@ -47,6 +47,7 @@ pub struct ClientState<P: NetworkProperty, I: NetworkInput> {
     base: P,
     confirmed_tick: u8,
     confirmed_state: Option<P>,
+    received_remote: bool,
     buffered_inputs: VecDeque<I>,
     input_buffer_size: usize
 }
@@ -111,9 +112,28 @@ impl<P: NetworkProperty, I: NetworkInput> ClientState<P, I> {
 
         // Remote controlled state
         } else {
+            self.received_remote = true;
             self.confirmed_state = Some(state);
             self.confirmed_tick = 0;
         }
+
+    }
+
+    pub fn force_update_with<F: FnMut(&mut P)>(
+        &mut self,
+        mut callback: F
+    ) {
+
+        self.last = self.current.clone();
+        self.current = self.base.clone();
+
+        // Apply unconfirmed inputs on top of last state confirmed by the server
+        let mut new_state = self.base.clone();
+
+        callback(&mut new_state);
+
+        // Assign calculated state
+        self.current = new_state;
 
     }
 
@@ -128,6 +148,7 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ClientState<P, 
             base: P::default(),
             confirmed_tick: 0,
             confirmed_state: None,
+            received_remote: false,
             buffered_inputs: VecDeque::new(),
             input_buffer_size: buffer_size
         }
@@ -139,7 +160,7 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ClientState<P, 
         self.last = self.current.clone();
     }
 
-    fn update_with<F: FnMut(&mut P, &I)>(
+    fn update_with<F: FnMut(&mut P, Option<&P>, Option<&I>)>(
         &mut self,
         mut callback: F
     ) {
@@ -166,13 +187,17 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ClientState<P, 
             self.current = self.base.clone();
         }
 
-        // Apply unconfirmed inputs on top of last state confirmed by the server
         let mut new_state = self.base.clone();
 
-        // TODO this will never run if we don't have any buffered inputs
-        // TODO make input optional?
-        for input in &self.buffered_inputs {
-            callback(&mut new_state, input);
+        // Update remote entities
+        if self.received_remote {
+            callback(&mut new_state, Some(&self.last), None);
+
+        // Apply unconfirmed inputs on top of last state confirmed by the server
+        } else {
+            for input in &self.buffered_inputs {
+                callback(&mut new_state, Some(&self.last), Some(input));
+            }
         }
 
         // Assign calculated state
@@ -282,7 +307,7 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ServerState<P, 
         self.current = state;
     }
 
-    fn update_with<F: FnMut(&mut P, &I)>(
+    fn update_with<F: FnMut(&mut P, Option<&P>, Option<&I>)>(
         &mut self,
         mut callback: F
     ) {
@@ -291,7 +316,7 @@ impl<P: NetworkProperty, I: NetworkInput> NetworkState<P, I> for ServerState<P, 
         // TODO make input optional?
         while let Some(input) = self.buffered_inputs.pop_front() {
             self.confirmed_tick = input.tick();
-            callback(&mut self.current, &input);
+            callback(&mut self.current, None, Some(&input));
         }
 
         self.buffered_states.push_back(self.current.clone());

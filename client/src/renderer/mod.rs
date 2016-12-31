@@ -153,6 +153,7 @@ impl Renderer {
                 title,
                 [width, height]
             )
+            //.fullscreen(true)
             .opengl(opengl)
             .samples(samples)
             .vsync(false)

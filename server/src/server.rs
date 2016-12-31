@@ -334,13 +334,12 @@ impl Server {
                 // Create a new player entity for the connected client
                 if let Ok(entity_slot) = entity_server.entity_create_with(|| {
 
-                    Box::new(PlayerEntity::<ServerState<PlayerData, PlayerInput>>::new(Some(conn.id()), false, color, PlayerData {
-                        x: -60.0,
-                        y: 20.0,
-                        r: 0.0,
-                        visible: true,
-                        hp: PLAYER_MAX_HP
-                    }))
+                    Box::new(PlayerEntity::<ServerState<PlayerData, PlayerInput>>::new(
+                        Some(conn.id()),
+                        false,
+                        color,
+                        PlayerData::new(-60.0, 20.0, 0.0, PLAYER_MAX_HP)
+                    ))
 
                 }) {
                     println!("[Server] New client connection.");

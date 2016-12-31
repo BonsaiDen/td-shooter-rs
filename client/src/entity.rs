@@ -19,14 +19,15 @@ use shared::entity::{
 
 
 // Statics --------------------------------------------------------------------
-const PLAYER_FADE_DURATION: f32 = 75.0;
+const PLAYER_FADE_DURATION: f32 = 150.0;
+const PLAYER_EXTRAPOLATE_DURATION: f32 = PLAYER_FADE_DURATION * 4.0;
 
 
 // Client Entity --------------------------------------------------------------
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn is_local(&self) -> bool;
     fn interpolate(&self, u: f32) -> PlayerData;
-    fn update_remote(&mut self);
+    fn update_remote(&mut self, level: &Level, t: u64);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
     fn update_visibility(&mut self, level: &Level, data: &PlayerData, p: &PlayerData, t: u64) -> f32;
     fn color_name(&self) -> ColorName;
@@ -54,14 +55,29 @@ impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
         self.state.interpolate(u)
     }
 
-    fn update_remote(&mut self) {
-        self.state.update_with(|_, _| {});
+    fn update_remote(&mut self, level: &Level, t: u64) {
+
+        let time_since_visible = ((t - self.last_visible) as f32).min(PLAYER_EXTRAPOLATE_DURATION);
+        self.state.update_with(|state, last, _| {
+
+            // Keep hidden entities moving at their last known velocity
+            if !state.visible && time_since_visible < PLAYER_EXTRAPOLATE_DURATION {
+                PlayerData::update_extrapolated(state, level);
+
+            // Calculate velocity of remote entities
+            } else if let Some(last) = last {
+                state.vx = state.x - last.x;
+                state.vy = state.y - last.y;
+            }
+
+        });
+
     }
 
     fn update_local(&mut self, level: &Level, input: PlayerInput) {
         self.state.input(input);
-        self.state.update_with(|state, input| {
-            PlayerData::update(input.dt, state, input, level);
+        self.state.update_with(|state, _, input| {
+            PlayerData::update(input.unwrap().dt, state, input.unwrap(), level);
         });
     }
 

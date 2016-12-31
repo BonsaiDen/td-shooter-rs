@@ -75,7 +75,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Events
     let mut events = renderer.events();
     events.set_ups(UPDATES_PER_SECOND);
-    events.set_max_fps(60);
+    events.set_max_fps(90);
 
     // Level
     let level = Level::new(SharedLevel::load());
