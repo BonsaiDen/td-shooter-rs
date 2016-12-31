@@ -15,7 +15,7 @@ use super::{Level, LevelCollision};
 
 // Statics --------------------------------------------------------------------
 pub const VISIBILITY_GRID_SPACING: f32 = PLAYER_RADIUS * 2.0;
-pub const VISIBILITY_MAX_DISTANCE: f32 = 150.0;
+pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 150.0;
 
 
 // Traits ---------------------------------------------------------------------
@@ -51,7 +51,7 @@ impl LevelVisibility for Level {
 
         let (dx, dy) = (x - ox, y - oy);
         let l = (dx * dx + dy * dy).sqrt();
-        if l > VISIBILITY_MAX_DISTANCE * 1.4 {
+        if l > LEVEL_MAX_VISIBILITY_DISTANCE * 1.4 {
             false
 
         } else {
@@ -114,10 +114,10 @@ impl Level {
                 );
 
                 let walls = self.get_walls_in_bounds(&[
-                    cx - VISIBILITY_MAX_DISTANCE,
-                    cy - VISIBILITY_MAX_DISTANCE,
-                    cx + VISIBILITY_MAX_DISTANCE,
-                    cy + VISIBILITY_MAX_DISTANCE
+                    cx - LEVEL_MAX_VISIBILITY_DISTANCE,
+                    cy - LEVEL_MAX_VISIBILITY_DISTANCE,
+                    cx + LEVEL_MAX_VISIBILITY_DISTANCE,
+                    cy + LEVEL_MAX_VISIBILITY_DISTANCE
                 ]);
 
                 visibility_grid.insert(
@@ -397,10 +397,10 @@ fn get_triangle_points(
 
     // Fallback for open level bounds
     } else {
-        p3.0 = x + r1.cos() * VISIBILITY_MAX_DISTANCE;
-        p3.1 = y + r1.sin() * VISIBILITY_MAX_DISTANCE;
-        p4.0 = x + r2.cos() * VISIBILITY_MAX_DISTANCE;
-        p4.1 = y + r2.sin() * VISIBILITY_MAX_DISTANCE;
+        p3.0 = x + r1.cos() * LEVEL_MAX_VISIBILITY_DISTANCE;
+        p3.1 = y + r1.sin() * LEVEL_MAX_VISIBILITY_DISTANCE;
+        p4.0 = x + r2.cos() * LEVEL_MAX_VISIBILITY_DISTANCE;
+        p4.1 = y + r2.sin() * LEVEL_MAX_VISIBILITY_DISTANCE;
     }
 
     let p_begin = line_intersection(p3, p4, p1, p2);

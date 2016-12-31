@@ -7,10 +7,12 @@ use gfx_device_gl;
 #[derive(Debug, Copy, Clone)]
 pub enum StencilMode {
     None,
-    Add(u8),
+    Add,
     Replace(u8),
-    Inside(u8),
-    Outside(u8)
+    ClearLightCones,
+    ReplaceNonLightCircle,
+    InsideLightCircle,
+    OutsideVisibleArea
 }
 
 
@@ -18,9 +20,11 @@ pub enum StencilMode {
 pub struct ColoredStencil<T> {
     none: T,
     add: T,
+    clear_light_cones: T,
     replace: T,
-    inside: T,
-    outside: T
+    replace_non_light: T,
+    inside_visible: T,
+    outside_visible: T,
 }
 
 impl<T> ColoredStencil<T> {
@@ -45,13 +49,15 @@ impl<T> ColoredStencil<T> {
 
             ), gfx::state::MASK_ALL),
 
+            // Adds 1 to the stencil buffer clamping at 255
             add: f(factory, blend::ALPHA, Stencil::new(
                 Comparison::Never,
                 255,
-                (StencilOp::IncrementClamp, StencilOp::IncrementClamp, StencilOp::IncrementClamp)
+                (StencilOp::IncrementClamp, StencilOp::Keep, StencilOp::Keep)
 
             ), gfx::state::MASK_NONE),
 
+            // Always replaces the stencil buffer with a specified value
             replace: f(factory, blend::ALPHA, Stencil::new(
                 Comparison::Never,
                 255,
@@ -59,14 +65,32 @@ impl<T> ColoredStencil<T> {
 
             ), gfx::state::MASK_NONE),
 
-            inside: f(factory, blend::ALPHA, Stencil::new(
+            // Replaces all non-255 values in the stencil buffer with 254
+            replace_non_light: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Equal,
+                254,
+                (StencilOp::Replace, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_NONE),
+
+            // Clears all remaining values of 254 in the stencil buffer to 0
+            clear_light_cones: f(factory, blend::ALPHA, Stencil::new(
+                Comparison::Equal,
+                255,
+                (StencilOp::Zero, StencilOp::Keep, StencilOp::Keep)
+
+            ), gfx::state::MASK_NONE),
+
+            // Only renders where the stencil buffer is 255
+            inside_visible: f(factory, blend::ALPHA, Stencil::new(
                 Comparison::Equal,
                 255,
                 (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
 
             ), gfx::state::MASK_ALL),
 
-            outside: f(factory, blend::ALPHA, Stencil::new(
+            // Renders everywhere the stencil buffer ist NOT 255
+            outside_visible: f(factory, blend::ALPHA, Stencil::new(
                 Comparison::NotEqual,
                 255,
                 (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
@@ -80,10 +104,12 @@ impl<T> ColoredStencil<T> {
     pub fn get(&mut self, mode: StencilMode) -> (&mut T, u8) {
         match mode {
             StencilMode::None => (&mut self.none, 0),
-            StencilMode::Add(v) => (&mut self.add, v),
+            StencilMode::Add => (&mut self.add, 1),
             StencilMode::Replace(v) => (&mut self.replace, v),
-            StencilMode::Inside(v) => (&mut self.inside, v),
-            StencilMode::Outside(v) => (&mut self.outside, v)
+            StencilMode::ClearLightCones => (&mut self.clear_light_cones, 255),
+            StencilMode::ReplaceNonLightCircle => (&mut self.replace_non_light, 254),
+            StencilMode::InsideLightCircle => (&mut self.inside_visible, 255),
+            StencilMode::OutsideVisibleArea => (&mut self.outside_visible, 255)
         }
     }
 

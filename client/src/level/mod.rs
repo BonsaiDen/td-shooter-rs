@@ -1,10 +1,15 @@
+// External Dependencies ------------------------------------------------------
+use graphics::Transformed;
+
+
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::{Renderer, Line, StencilMode};
+use ::renderer::{Renderer, Circle, Line, StencilMode};
 use ::camera::Camera;
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
-    LevelVisibility
+    LevelVisibility,
+    LEVEL_MAX_VISIBILITY_DISTANCE
 };
 
 
@@ -14,9 +19,10 @@ use self::cached_light_source::CachedLightSource;
 
 
 // Client Level ---------------------------------------------------------------
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Level {
     level: SharedLevel,
+    visibility_circle: Circle,
     lights: Vec<CachedLightSource>,
     walls: Vec<Line>
 }
@@ -31,12 +37,13 @@ impl Level {
         }).collect();
 
         let cached_walls = level.walls.iter().map(|w| {
-            Line::new(&w.points, 1.0)
+            Line::new(&w.points, 0.5)
 
         }).collect();
 
         Level {
             level: level,
+            visibility_circle: Circle::new(16, 0.0, 0.0, LEVEL_MAX_VISIBILITY_DISTANCE),
             lights: cached_lights,
             walls: cached_walls
         }
@@ -74,14 +81,14 @@ impl Level {
         // TODO pre-render stencil value into a buffer in order to speed up
         // rendering
 
-        // Render light visibility cones into stencil
+        // Render light clipping visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
         for light in &self.lights {
             light.render_visibility_stencil(renderer, camera);
         }
 
-        // Render light cirlces into stencil combining with the cones
-        renderer.set_stencil_mode(StencilMode::Add(1));
+        // Render light circles into stencil combining with the cones
+        renderer.set_stencil_mode(StencilMode::Add);
         for light in &self.lights {
             light.render_light_stencil(renderer, camera);
         }
@@ -89,8 +96,16 @@ impl Level {
         // Render light color circles based on stencil
         let bounds = camera.b2w();
         let s = 1.0 - ((renderer.t() as f32 * 0.003).cos() * 0.03).abs();
-        renderer.set_stencil_mode(StencilMode::Inside(255));
+        renderer.set_stencil_mode(StencilMode::InsideLightCircle);
         renderer.set_color([0.9 * s, 0.7, 0.0, 0.2]);
+        renderer.rectangle(
+            camera.context(),
+            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+        );
+
+        // Remove all light clipping cones and leave only the clipped light
+        // circles in the stencil with a value of 255
+        renderer.set_stencil_mode(StencilMode::ClearLightCones);
         renderer.rectangle(
             camera.context(),
             &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
@@ -111,12 +126,17 @@ impl Level {
         let context = camera.context();
         let endpoints = self.calculate_visibility(x, y);
 
-        // Render player visibility cone
-        renderer.set_stencil_mode(StencilMode::Replace(255));
+        // Render player visibility cone but only where there
+        renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
         renderer.light_polygon(&context, x, y, &endpoints);
 
+        // Render player visibility circle
+        let q = context.trans(x as f64, y as f64);
+        renderer.set_stencil_mode(StencilMode::Add);
+        self.visibility_circle.render(renderer, &q);
+
         // Render shadows
-        renderer.set_stencil_mode(StencilMode::Outside(255));
+        renderer.set_stencil_mode(StencilMode::OutsideVisibleArea);
         renderer.set_color([0.0, 0.0, 0.0, 0.75]);
         renderer.rectangle(
             camera.context(),

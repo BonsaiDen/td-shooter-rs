@@ -11,9 +11,10 @@ use netsync::ServerState;
 
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
-use shared::entity::PLAYER_RADIUS;
+use shared::util;
+use shared::entity::{PLAYER_RADIUS, PLAYER_SERVER_VISIBILITY_SCALING};
 use shared::action::Action;
-use shared::level::{Level, LevelCollision, LevelVisibility};
+use shared::level::{Level, LevelCollision, LevelVisibility, LEVEL_MAX_VISIBILITY_DISTANCE};
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity};
 
@@ -161,7 +162,7 @@ impl Server {
                 let player_in_light = level.circle_in_light(
                     player_position.x,
                     player_position.y,
-                    PLAYER_RADIUS * 1.5
+                    PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING
                 );
 
                 // Check and set visibility to other entities
@@ -170,14 +171,33 @@ impl Server {
 
                         // Ignore self-visibility
                         if entity_conn_id != conn_id {
-                            let visible = player_in_light || level.circle_visible_from(
-                                player_position.x,
-                                player_position.y,
-                                PLAYER_RADIUS * 1.5,
-                                position.x,
-                                position.y
+
+                            let distance = util::distance(
+                                position.x, position.y,
+                                player_position.x, player_position.y
                             );
+
+                            // Entities standing in lights are always visible
+                            let visible = if player_in_light {
+                                true
+
+                            // Entities outside the maximum visibility radius are never visible
+                            } else if distance > LEVEL_MAX_VISIBILITY_DISTANCE {
+                                false
+
+                            // Entities within the visibility cone are only visible if sight is not blocked by a wall
+                            } else {
+                                level.circle_visible_from(
+                                    player_position.x,
+                                    player_position.y,
+                                    PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING,
+                                    position.x,
+                                    position.y
+                                )
+                            };
+
                             player_entity.set_visibility(*entity_conn_id, visible);
+
                         }
 
                     }
@@ -221,8 +241,8 @@ impl Server {
                 if let Ok(entity_slot) = entity_server.entity_create_with(|| {
 
                     Box::new(PlayerEntity::<ServerState<PlayerPosition, PlayerInput>>::new(Some(conn.id()), false, color, PlayerPosition {
-                        x: 0.0,
-                        y: 0.0,
+                        x: -60.0,
+                        y: 20.0,
                         r: 0.0,
                         visible: true
                     }))

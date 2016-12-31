@@ -110,8 +110,8 @@ impl Level {
         level.add_wall(LevelWall::new(0.0, 0.0, 100.0, 100.0));
 
         level.add_walls_from_rect(&[
-            -VISIBILITY_MAX_DISTANCE, -VISIBILITY_MAX_DISTANCE,
-            VISIBILITY_MAX_DISTANCE, VISIBILITY_MAX_DISTANCE
+            -LEVEL_MAX_VISIBILITY_DISTANCE, -LEVEL_MAX_VISIBILITY_DISTANCE,
+            LEVEL_MAX_VISIBILITY_DISTANCE, LEVEL_MAX_VISIBILITY_DISTANCE
         ]);
 
         level.add_walls_from_rect(&[

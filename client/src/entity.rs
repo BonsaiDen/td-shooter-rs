@@ -7,8 +7,9 @@ use netsync::{ClientState, NetworkState};
 
 // Internal Dependencies ------------------------------------------------------
 use ::level::Level;
+use shared::util;
 use shared::color::ColorName;
-use shared::level::LevelVisibility;
+use shared::level::{LevelVisibility, LEVEL_MAX_VISIBILITY_DISTANCE};
 use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity, PLAYER_RADIUS};
 
 
@@ -61,16 +62,22 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
 
     fn update_visibility(&mut self, x: f32, y: f32, level: &Level, p: &PlayerPosition, t: u64) -> f32 {
 
-        let is_visible = p.visible && (level.circle_in_light(
-            p.x, p.y,
-            PLAYER_RADIUS
+        // Players not visible on the server are never visible on the client either
+        let is_visible = if !p.visible {
+            false
 
-        ) || level.circle_visible_from(
-            p.x, p.y,
-            PLAYER_RADIUS,
-            x,
-            y,
-        ));
+        // Players standing in a light circle are always visible
+        } else if level.circle_in_light(p.x, p.y, PLAYER_RADIUS) {
+            true
+
+        // Players outside the maximum visibility distance are never visible
+        } else if util::distance( p.x, p.y, x, y) > LEVEL_MAX_VISIBILITY_DISTANCE {
+            false
+
+        // Players within the visibility cone are only visible if sight is not blocked by a wall
+        } else {
+            level.circle_visible_from(p.x, p.y, PLAYER_RADIUS, x, y)
+        };
 
         if is_visible {
             self.last_visible = t;

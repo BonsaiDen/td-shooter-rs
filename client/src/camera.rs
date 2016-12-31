@@ -27,7 +27,7 @@ impl Camera {
         Camera {
             x: 0.0,
             y: 0.0,
-            z: 1.0,
+            z: 0.5, // 2.0 default
             ratio: 1.0,
             center: (0.0, 0.0),
             context: Context::new(),
@@ -86,8 +86,11 @@ impl Camera {
     }
 
     pub fn limit(&mut self, bounds: &[f32; 4]) {
-        self.x = self.x.max(bounds[0]).min(bounds[2]);
-        self.y = self.y.max(bounds[1]).min(bounds[3]);
+        let divisor = 1.0 / self.ratio;
+        let w = (self.draw_width * divisor * 0.5) - 5.0;
+        let h = (self.draw_height * divisor * 0.5) - 5.0;
+        self.x = self.x.max(bounds[0] + w).min(bounds[2] - w);
+        self.y = self.y.max(bounds[1] + h).min(bounds[3] - h);
     }
 
     pub fn s2w(&self, x: f32, y: f32) -> (f32, f32) {
