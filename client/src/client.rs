@@ -1,5 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
-use std::f64::consts;
+use std::f32::consts;
 
 
 // External Dependencies ------------------------------------------------------
@@ -27,9 +27,9 @@ pub struct Client {
 
     // Inputs
     buttons: u8,
-    input_angle: f64,
-    screen_cursor: (f64, f64),
-    world_cursor: (f64, f64),
+    input_angle: f32,
+    screen_cursor: (f32, f32),
+    world_cursor: (f32, f32),
 
     // Rendering
     camera: Camera,
@@ -49,7 +49,7 @@ pub struct Client {
 
 impl Client {
 
-    pub fn new( width: f64, height: f64) -> Client {
+    pub fn new(width: u32, height: u32) -> Client {
 
         Client {
 
@@ -95,9 +95,9 @@ impl Client {
                 if self.debug_draw {
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::Grey,
-                        self.player_position.x as f64,
-                        self.player_position.y as f64,
-                        self.player_position.r as f64,
+                        self.player_position.x,
+                        self.player_position.y,
+                        self.player_position.r,
                         PLAYER_RADIUS + 0.5,
                         100.0,
                         400
@@ -116,7 +116,7 @@ impl Client {
         }
 
         if let Some(value) = e.mouse_scroll_args() {
-            self.camera.z = (self.camera.z + value[1] * 0.1).min(10.0).max(0.0);
+            self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
         }
 
         if let Some(Button::Keyboard(key)) = e.press_args() {
@@ -147,7 +147,7 @@ impl Client {
         }
 
         e.mouse_cursor(|x, y| {
-            self.screen_cursor = (x, y);
+            self.screen_cursor = (x as f32, y as f32);
         });
 
     }
@@ -157,11 +157,11 @@ impl Client {
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         client: &mut cobalt::ClientStream,
         level: &Level,
-        dt: f64
+        dt: f32
     ) {
 
         let input = PlayerInput::new(
-            self.tick, self.buttons, self.input_angle as f32, dt as f32
+            self.tick, self.buttons, self.input_angle, dt
         );
 
         // Receive messages
@@ -220,11 +220,11 @@ impl Client {
                     // TODO have a small sparkle / rotation / start effect at the source of the beam
                     self.effects.push(Box::new(LaserBeam::from_point(
                         ColorName::from_u8(color),
-                        x as f64,
-                        y as f64,
-                        r as f64,
+                        x,
+                        y,
+                        r,
                         0.0,
-                        l as f64,
+                        l,
                         400
                     )));
                 },
@@ -256,7 +256,7 @@ impl Client {
 
         // Get player positions, colors and visibility
         let (t, u) = (renderer.t(), renderer.u());
-        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f64), _>(|_, entity| {
+        let players = entity_client.map_entities::<(PlayerPosition, [[f32; 4]; 2], f32), _>(|_, entity| {
 
             let p = entity.interpolate(u);
             if entity.is_local() {
@@ -265,8 +265,8 @@ impl Client {
 
             } else {
                 let visibility = entity.update_visibility(
-                    self.player_position.x as f64,
-                    self.player_position.y as f64,
+                    self.player_position.x,
+                    self.player_position.y,
                     level,
                     &p,
                     t
@@ -277,16 +277,16 @@ impl Client {
         });
 
         // Camera setup
-        self.camera.center(self.player_position.x as f64, self.player_position.y as f64);
+        self.camera.center(self.player_position.x, self.player_position.y);
         self.camera.limit(level.bounds());
         self.camera.apply(renderer);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
         self.input_angle = (
-            self.world_cursor.1 - self.player_position.y as f64
+            self.world_cursor.1 - self.player_position.y
 
-        ).atan2(self.world_cursor.0 - self.player_position.x as f64);
+        ).atan2(self.world_cursor.0 - self.player_position.x);
 
         // Clear
         renderer.clear_stencil(0);
@@ -296,8 +296,8 @@ impl Client {
         level.render_background(
             renderer ,
             &self.camera,
-            self.player_position.x as f64,
-            self.player_position.y as f64,
+            self.player_position.x,
+            self.player_position.y,
             self.debug_draw
         );
 
@@ -307,8 +307,8 @@ impl Client {
             for (p, mut colors, visibility) in players {
                 if visibility > 0.0 {
 
-                    colors[0][3] = visibility as f32;
-                    colors[1][3] = visibility as f32;
+                    colors[0][3] = visibility;
+                    colors[1][3] = visibility;
 
                     let q = context.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
                     renderer.set_color([0.0, 0.0, 0.0, 0.5]);
@@ -343,8 +343,8 @@ impl Client {
         level.render_shadow(
             renderer,
             &self.camera,
-            self.player_position.x as f64,
-            self.player_position.y as f64,
+            self.player_position.x,
+            self.player_position.y,
             self.debug_draw
         );
 
@@ -352,8 +352,8 @@ impl Client {
         level.render_walls(
             renderer,
             &self.camera,
-            self.player_position.x as f64,
-            self.player_position.y as f64,
+            self.player_position.x,
+            self.player_position.y,
             self.debug_draw
         );
 

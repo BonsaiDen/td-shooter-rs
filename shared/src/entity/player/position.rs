@@ -29,7 +29,7 @@ pub struct PlayerPosition {
 
 impl NetworkProperty for PlayerPosition {
 
-    fn interpolate_from(&self, last: &Self, u: f64) -> Self {
+    fn interpolate_from(&self, last: &Self, u: f32) -> Self {
 
         // Prevent interpolation glitches when a player entity becomes visible
         // again
@@ -43,9 +43,9 @@ impl NetworkProperty for PlayerPosition {
             let dr = r.sin().atan2(r.cos());
 
             PlayerPosition {
-                x: last.x + (dx * u as f32),
-                y: last.y + (dy * u as f32),
-                r: last.r + (dr * u as f32),
+                x: last.x + dx * u,
+                y: last.y + dy * u,
+                r: last.r + dr * u,
                 visible: self.visible
             }
         }
@@ -76,7 +76,7 @@ impl NetworkProperty for PlayerPosition {
 
 impl PlayerPosition {
 
-    pub fn update<L: LevelCollision>(dt: f64, state: &mut PlayerPosition, input: &PlayerInput, level: &L) {
+    pub fn update<L: LevelCollision>(dt: f32, state: &mut PlayerPosition, input: &PlayerInput, level: &L) {
 
         let (mut dx, mut dy) = (0.0, 0.0);
         if input.buttons & 1 == 1 {
@@ -98,8 +98,8 @@ impl PlayerPosition {
         // Limit diagonal speed
         let r = dy.atan2(dx);
         let dist = ((dx * dx) + (dy * dy)).sqrt();
-        state.x += (r.cos() * dist.min(PLAYER_SPEED * dt)) as f32;
-        state.y += (r.sin() * dist.min(PLAYER_SPEED * dt)) as f32;
+        state.x += r.cos() * dist.min(PLAYER_SPEED * dt);
+        state.y += r.sin() * dist.min(PLAYER_SPEED * dt);
 
         // Limit rotation speed
         let r = input.r - state.r;

@@ -23,7 +23,7 @@ pub trait NetworkInput: Default + fmt::Debug {
 }
 
 pub trait NetworkProperty: Clone + Default + fmt::Debug {
-    fn interpolate_from(&self, &Self, f64) -> Self;
+    fn interpolate_from(&self, &Self, f32) -> Self;
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(&[u8]) -> Self where Self: Sized;
 }
@@ -53,7 +53,7 @@ pub struct ClientState<P: NetworkProperty, I: NetworkInput> {
 
 impl<P: NetworkProperty, I: NetworkInput> ClientState<P, I> {
 
-    pub fn interpolate(&self, u: f64) -> P {
+    pub fn interpolate(&self, u: f32) -> P {
         self.current.interpolate_from(&self.last, u)
     }
 

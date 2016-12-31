@@ -8,22 +8,22 @@ use ::renderer::Renderer;
 
 // Client Camera Abstraction --------------------------------------------------
 pub struct Camera {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    ratio: f64,
-    center: (f64, f64),
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    ratio: f32,
+    center: (f32, f32),
     context: Context,
-    base_width: f64,
-    base_height: f64,
-    draw_width: f64,
-    draw_height: f64,
-    world_bounds: [f64; 4]
+    base_width: f32,
+    base_height: f32,
+    draw_width: f32,
+    draw_height: f32,
+    world_bounds: [f32; 4]
 }
 
 impl Camera {
 
-    pub fn new(base_width: f64, base_height: f64) -> Camera {
+    pub fn new(base_width: u32, base_height: u32) -> Camera {
         Camera {
             x: 0.0,
             y: 0.0,
@@ -31,11 +31,11 @@ impl Camera {
             ratio: 1.0,
             center: (0.0, 0.0),
             context: Context::new(),
-            base_width: base_width,
-            base_height: base_height,
-            draw_width: base_width,
-            draw_height: base_height,
-            world_bounds: [0f64; 4]
+            base_width: base_width as f32,
+            base_height: base_height as f32,
+            draw_width: base_width as f32,
+            draw_height: base_height as f32,
+            world_bounds: [0f32; 4]
         }
     }
 
@@ -65,14 +65,14 @@ impl Camera {
         ];
 
         self.context = renderer.context().trans(
-            self.center.0,
-            self.center.1
+            self.center.0 as f64,
+            self.center.1 as f64
 
         ).scale(
-            self.ratio,
-            self.ratio
+            self.ratio as f64,
+            self.ratio as f64
 
-        ).trans(-self.x, -self.y);
+        ).trans(-self.x as f64, -self.y as f64);
 
     }
 
@@ -80,17 +80,17 @@ impl Camera {
         &self.context
     }
 
-    pub fn center(&mut self, x: f64, y: f64) {
+    pub fn center(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
     }
 
-    pub fn limit(&mut self, bounds: &[f64; 4]) {
+    pub fn limit(&mut self, bounds: &[f32; 4]) {
         self.x = self.x.max(bounds[0]).min(bounds[2]);
         self.y = self.y.max(bounds[1]).min(bounds[3]);
     }
 
-    pub fn s2w(&self, x: f64, y: f64) -> (f64, f64) {
+    pub fn s2w(&self, x: f32, y: f32) -> (f32, f32) {
         let divisor = 1.0 / self.ratio;
         (
             (x - self.center.0) * divisor + self.x,
@@ -98,7 +98,7 @@ impl Camera {
         )
     }
 
-    pub fn b2w(&self) -> &[f64; 4] {
+    pub fn b2w(&self) -> &[f32; 4] {
         &self.world_bounds
     }
 

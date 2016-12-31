@@ -43,7 +43,7 @@ impl Level {
 
     }
 
-    pub fn bounds(&self) -> &[f64; 4] {
+    pub fn bounds(&self) -> &[f32; 4] {
         &self.level.bounds
     }
 
@@ -51,8 +51,8 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        _: f64,
-        _: f64,
+        _: f32,
+        _: f32,
         _: bool
     ) {
         let bounds = self.level.bounds;
@@ -101,8 +101,8 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        x: f64,
-        y: f64,
+        x: f32,
+        y: f32,
         _: bool
     ) {
 
@@ -128,8 +128,8 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        _: f64,
-        _: f64,
+        _: f32,
+        _: f32,
         _: bool
     ) {
 
@@ -153,19 +153,19 @@ impl Level {
 // Traits ---------------------------------------------------------------------
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))> {
+    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
         self.level.calculate_visibility(x, y)
     }
 
-    fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {
         self.level.visibility_bounds(x, y)
     }
 
-    fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool {
+    fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool {
         self.level.circle_visible_from(cx, cy, radius, x, y)
     }
 
-    fn circle_in_light(&self, x: f64, y: f64, radius: f64) -> bool {
+    fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool {
         self.level.circle_in_light(x, y, radius)
     }
 
@@ -173,19 +173,19 @@ impl LevelVisibility for Level {
 
 impl LevelCollision for Level {
 
-    fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4] {
         self.level.collision_bounds(x, y)
     }
 
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f64) {
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32) {
         self.level.collide(x, y, radius);
     }
 
-    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]> {
         self.level.collide_beam(x, y, r, l)
     }
 
-    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]> {
+    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]> {
         self.level.collide_line(line)
     }
 

@@ -1,16 +1,16 @@
 #[derive(Debug)]
 pub struct LevelWall {
-    pub points: [f64; 4],
-    pub collision: [f64; 4],
-    pub aabb: [f64; 4],
+    pub points: [f32; 4],
+    pub collision: [f32; 4],
+    pub aabb: [f32; 4],
     pub is_vertical: bool,
     pub is_horizontal: bool,
-    length: f64
+    length: f32
 }
 
 impl LevelWall {
 
-    pub fn new(a: f64, b: f64, c: f64, d: f64) -> LevelWall {
+    pub fn new(a: f32, b: f32, c: f32, d: f32) -> LevelWall {
 
         // Shorten edges for less collision glitches
         let (dx, dy) = (a - c, b - d);
@@ -32,7 +32,7 @@ impl LevelWall {
 
     }
 
-    pub fn distance_from_point(&self, x: f64, y: f64) -> f64 {
+    pub fn distance_from_point(&self, x: f32, y: f32) -> f32 {
 
         let (vx, vy) = (self.points[0], self.points[1]);
         let (wx, wy) = (self.points[2], self.points[3]);

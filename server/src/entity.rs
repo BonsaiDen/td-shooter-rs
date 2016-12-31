@@ -15,7 +15,7 @@ type ServerPlayerEntity = PlayerEntity<ServerState<PlayerPosition, PlayerInput>>
 
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn owner(&self) -> Option<ConnectionID>;
-    fn update(&mut self, dt: f64, level: &Level);
+    fn update(&mut self, dt: f32, level: &Level);
     fn position(&self, tick: u8) -> PlayerPosition;
     fn current_position(&self) -> PlayerPosition;
     fn color_name(&self) -> ColorName;
@@ -28,7 +28,7 @@ impl Entity for ServerPlayerEntity {
         self.owner
     }
 
-    fn update(&mut self, dt: f64, level: &Level) {
+    fn update(&mut self, dt: f32, level: &Level) {
         self.state.update_with(|state, input| {
             PlayerPosition::update(dt, state, input, level);
         });

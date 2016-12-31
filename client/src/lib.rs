@@ -37,8 +37,8 @@ mod renderer;
 
 
 // Statics --------------------------------------------------------------------
-static BASE_WIDTH: f64 = 640.0;
-static BASE_HEIGHT: f64 = 480.0;
+static BASE_WIDTH: u32 = 640;
+static BASE_HEIGHT: u32 = 480;
 
 
 // External Dependencies ------------------------------------------------------
@@ -65,8 +65,8 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Create window and renderer
     let mut renderer = Renderer::new(
         "Shooter",
-        BASE_WIDTH as u32,
-        BASE_HEIGHT as u32,
+        BASE_WIDTH,
+        BASE_HEIGHT,
         UPDATES_PER_SECOND
     );
 
@@ -92,7 +92,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
                 &mut entity_client, &level, event
             ),
             Event::Update(update) => client.update(
-                &mut entity_client, &mut network, &level, update.dt
+                &mut entity_client, &mut network, &level, update.dt as f32
             ),
             Event::Render(args) => {
                 renderer.begin(args);

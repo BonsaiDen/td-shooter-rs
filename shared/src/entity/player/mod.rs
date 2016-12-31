@@ -5,8 +5,8 @@ mod position;
 
 
 // Statics --------------------------------------------------------------------
-pub const PLAYER_SPEED: f64 = 120.0;
-pub const PLAYER_RADIUS: f64 = 6.0;
+pub const PLAYER_SPEED: f32 = 120.0;
+pub const PLAYER_RADIUS: f32 = 6.0;
 
 
 // Re-Exports -----------------------------------------------------------------

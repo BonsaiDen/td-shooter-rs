@@ -1,5 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
-use std::f64::consts;
+use std::f32::consts;
 use std::time::Duration;
 
 // External Dependencies ------------------------------------------------------
@@ -190,13 +190,13 @@ pub struct Renderer {
 
     window: GlutinWindow,
     updates_per_second: u64,
-    width: f64,
-    height: f64,
+    width: f32,
+    height: f32,
     context: Context,
     color: [f32; 4],
     stencil_mode: StencilMode,
     t: u64,
-    u: f64,
+    u: f32,
 
     device: gfx_device_gl::Device,
     encoder: gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
@@ -278,8 +278,8 @@ impl Renderer {
 
             window: window,
             updates_per_second: updates_per_second,
-            width: width as f64,
-            height: height as f64,
+            width: width as f32,
+            height: height as f32,
             color: [0.0; 4],
             context: Context::new(),
             stencil_mode: StencilMode::None,
@@ -310,9 +310,9 @@ impl Renderer {
     // Rendering --------------------------------------------------------------
     pub fn begin(&mut self, args: RenderArgs) {
         self.t = clock_ticks::precise_time_ms();
-        self.u = 1.0 / (1.0 / self.updates_per_second as f64) * (args.ext_dt * 1000000000.0);
-        self.width = args.draw_width as f64;
-        self.height = args.draw_height as f64;
+        self.u = 1.0 / (1.0 / self.updates_per_second as f32) * (args.ext_dt as f32 * 1000000000.0);
+        self.width = args.draw_width as f32;
+        self.height = args.draw_height as f32;
         self.window.make_current();
         self.stencil_mode = StencilMode::None;
         self.context = Context::new_viewport(args.viewport());
@@ -328,17 +328,17 @@ impl Renderer {
     }
 
     #[inline]
-    pub fn u(&self) -> f64 {
+    pub fn u(&self) -> f32 {
         self.u
     }
 
     #[inline]
-    pub fn width(&self) -> f64 {
+    pub fn width(&self) -> f32 {
         self.width
     }
 
     #[inline]
-    pub fn height(&self) -> f64 {
+    pub fn height(&self) -> f32 {
         self.height
     }
 
@@ -476,8 +476,8 @@ impl Renderer {
     pub fn light_polygon(
         &mut self,
         context: &Context,
-        x: f64, y: f64,
-        endpoints: &[(usize, (f64, f64), (f64, f64))]
+        x: f32, y: f32,
+        endpoints: &[(usize, (f32, f32), (f32, f32))]
     ) {
         self.draw_triangle_list(
             &context.transform,
@@ -485,21 +485,21 @@ impl Renderer {
         );
     }
 
-    pub fn rectangle(&mut self, context: &Context, rect: &[f64; 4]) {
+    pub fn rectangle(&mut self, context: &Context, rect: &[f32; 4]) {
         let (x, y, w, h) = (rect[0], rect[1], rect[2], rect[3]);
         let (x2, y2) = (x + w, y + h);
         let vertices = [
-             x as f32,  y as f32,
-            x2 as f32,  y as f32,
-             x as f32, y2 as f32,
-            x2 as f32,  y as f32,
-            x2 as f32, y2 as f32,
-             x as f32, y2 as f32
+             x,  y,
+            x2,  y,
+             x, y2,
+            x2,  y,
+            x2, y2,
+             x, y2
         ];
         self.draw_triangle_list(&context.transform, &vertices);
     }
 
-    pub fn line(&mut self, context: &Context, p: &[f64; 4], width: f64) {
+    pub fn line(&mut self, context: &Context, p: &[f32; 4], width: f32) {
         self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
     }
 
@@ -515,9 +515,9 @@ pub struct LightPoylgon {
 impl LightPoylgon {
 
     pub fn new(
-        x: f64,
-        y: f64,
-        endpoints: &[(usize, (f64, f64), (f64, f64))]
+        x: f32,
+        y: f32,
+        endpoints: &[(usize, (f32, f32), (f32, f32))]
 
     ) -> LightPoylgon {
         LightPoylgon {
@@ -530,19 +530,19 @@ impl LightPoylgon {
     }
 
     pub fn vertices(
-        x: f64,
-        y: f64,
-        endpoints: &[(usize, (f64, f64), (f64, f64))]
+        x: f32,
+        y: f32,
+        endpoints: &[(usize, (f32, f32), (f32, f32))]
 
     ) -> Vec<f32> {
         let mut vertices = Vec::new();
         for &(_, a, b) in endpoints {
-            vertices.push(x as f32);
-            vertices.push(y as f32);
-            vertices.push(a.0 as f32);
-            vertices.push(a.1 as f32);
-            vertices.push(b.0 as f32);
-            vertices.push(b.1 as f32);
+            vertices.push(x);
+            vertices.push(y);
+            vertices.push(a.0);
+            vertices.push(a.1);
+            vertices.push(b.0);
+            vertices.push(b.1);
         }
         vertices
     }
@@ -556,7 +556,7 @@ pub struct Line {
 
 impl Line {
 
-    pub fn new(points: &[f64; 4], width: f64) -> Line {
+    pub fn new(points: &[f32; 4], width: f32) -> Line {
         Line {
             vertices: Line::vertices(points, width)
         }
@@ -566,7 +566,7 @@ impl Line {
         renderer.draw_triangle_list(&context.transform, &self.vertices);
     }
 
-    pub fn vertices(p: &[f64; 4], width: f64) -> [f32; 12] {
+    pub fn vertices(p: &[f32; 4], width: f32) -> [f32; 12] {
 
         // TODO support line caching via pre-calculation
         let (dx, dy) = (p[0] - p[2], p[1] - p[3]);
@@ -587,14 +587,14 @@ impl Line {
         [
 
             // A B C
-            ax as f32, ay as f32,
-            bx as f32, by as f32,
-            cx as f32, cy as f32,
+            ax, ay,
+            bx, by,
+            cx, cy,
 
             // A C D
-            cx as f32, cy as f32,
-            dx as f32, dy as f32,
-            bx as f32, by as f32
+            cx, cy,
+            dx, dy,
+            bx, by
 
         ]
 
@@ -612,9 +612,9 @@ impl Circle {
 
     pub fn new(
         segments: usize,
-        x: f64,
-        y: f64,
-        r: f64
+        x: f32,
+        y: f32,
+        r: f32
 
     ) -> Circle {
         Circle {
@@ -628,31 +628,31 @@ impl Circle {
 
     pub fn vertices(
         segments: usize,
-        x: f64,
-        y: f64,
-        r: f64
+        x: f32,
+        y: f32,
+        r: f32
 
     ) -> Vec<f32> {
 
-        let step = consts::PI * 2.0 / segments as f64;
+        let step = consts::PI * 2.0 / segments as f32;
         let mut vertices = Vec::new();
         for i in 0..segments {
 
             // Center
-            vertices.push(x as f32);
-            vertices.push(y as f32);
+            vertices.push(x);
+            vertices.push(y);
 
             // First outer point
-            let ar = i as f64 * step;
+            let ar = i as f32 * step;
             let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-            vertices.push(ax as f32);
-            vertices.push(ay as f32);
+            vertices.push(ax);
+            vertices.push(ay);
 
             // Second outer point
             let br = ar + step;
             let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-            vertices.push(bx as f32);
-            vertices.push(by as f32);
+            vertices.push(bx);
+            vertices.push(by);
 
         }
 
@@ -672,11 +672,11 @@ impl CircleArc {
 
     pub fn new(
         segments: usize,
-        x: f64,
-        y: f64,
-        r: f64,
-        angle: f64,
-        half_cone: f64
+        x: f32,
+        y: f32,
+        r: f32,
+        angle: f32,
+        half_cone: f32
 
     ) -> CircleArc {
         CircleArc {
@@ -690,19 +690,19 @@ impl CircleArc {
 
     pub fn vertices(
         segments: usize,
-        x: f64,
-        y: f64,
-        r: f64,
-        angle: f64,
-        half_cone: f64
+        x: f32,
+        y: f32,
+        r: f32,
+        angle: f32,
+        half_cone: f32
 
     ) -> Vec<f32> {
 
-        let step = consts::PI * 2.0 / segments as f64;
+        let step = consts::PI * 2.0 / segments as f32;
         let mut vertices = Vec::new();
         for i in 0..segments {
 
-            let mut ar = i as f64 * step;
+            let mut ar = i as f32 * step;
             let mut br = ar + step;
 
             // Distance from center
@@ -726,18 +726,18 @@ impl CircleArc {
                 }
 
                 // Center
-                vertices.push(x as f32);
-                vertices.push(y as f32);
+                vertices.push(x);
+                vertices.push(y);
 
                 // First outer point
                 let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-                vertices.push(ax as f32);
-                vertices.push(ay as f32);
+                vertices.push(ax);
+                vertices.push(ay);
 
                 // Second outer point
                 let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-                vertices.push(bx as f32);
-                vertices.push(by as f32);
+                vertices.push(bx);
+                vertices.push(by);
 
             }
 

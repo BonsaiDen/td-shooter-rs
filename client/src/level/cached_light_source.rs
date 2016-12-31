@@ -7,7 +7,7 @@ use ::shared::level::{Level, LightSource, LevelVisibility};
 // Cached Light Source for Fast Rendering -------------------------------------
 #[derive(Debug)]
 pub struct CachedLightSource {
-    aabb: [f64; 4],
+    aabb: [f32; 4],
     light_polygon: LightPoylgon,
     light_circle: Circle
 }
@@ -54,7 +54,7 @@ impl CachedLightSource {
 
 
 // Helpers --------------------------------------------------------------------
-fn aabb_intersect(a: &[f64; 4], b: &[f64; 4]) -> bool {
+fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
     !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
 }
 

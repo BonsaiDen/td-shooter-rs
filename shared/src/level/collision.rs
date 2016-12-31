@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 
 // Statics --------------------------------------------------------------------
-pub const COLLISION_GRID_SPACING: f64 = 100.0;
+pub const COLLISION_GRID_SPACING: f32 = 100.0;
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -12,31 +12,31 @@ use super::{Level, MAX_LEVEL_SIZE};
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelCollision {
-    fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4];
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f64);
-    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]>;
-    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]>;
+    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4];
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32);
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]>;
+    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]>;
 }
 
 impl LevelCollision for Level {
 
-    fn collision_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4] {
         let (gx, gy) = self.w2g(x, y);
         [
-            (gx as f64) * COLLISION_GRID_SPACING,
-            (gy as f64) * COLLISION_GRID_SPACING,
+            (gx as f32) * COLLISION_GRID_SPACING,
+            (gy as f32) * COLLISION_GRID_SPACING,
             COLLISION_GRID_SPACING,
             COLLISION_GRID_SPACING
         ]
     }
 
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f64) {
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32) {
 
         let walls = self.get_walls_in_bounds(&[
-            *x as f64 - radius,
-            *y as f64 - radius,
-            *x as f64 + radius,
-            *y as f64 + radius
+            *x - radius,
+            *y - radius,
+            *x + radius,
+            *y + radius
         ]);
 
         let mut iterations = 0;
@@ -52,18 +52,18 @@ impl LevelCollision for Level {
 
                 if aabb_intersect_circle(
                     &wall.aabb,
-                    *x as f64,
-                    *y as f64,
+                    *x,
+                    *y,
                     radius + 1.0
                 ) {
                     if let Some(collision) = line_intersect_circle(
                         &wall.collision,
-                        *x as f64,
-                        *y as f64,
+                        *x,
+                        *y,
                         radius + 1.0
                     ) {
-                        overlap.0 += (collision[7].cos() * collision[6]) as f32;
-                        overlap.1 += (collision[7].sin() * collision[6]) as f32;
+                        overlap.0 += collision[7].cos() * collision[6];
+                        overlap.1 += collision[7].sin() * collision[6];
                         collisions += 1;
                     }
                 }
@@ -82,7 +82,7 @@ impl LevelCollision for Level {
 
     }
 
-    fn collide_beam(&self, x: f64, y: f64, r: f64, l: f64) -> Option<[f64; 5]> {
+    fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<[f32; 5]> {
 
         let line = [
             x,
@@ -95,7 +95,7 @@ impl LevelCollision for Level {
 
     }
 
-    fn collide_line(&self, line: &[f64; 4]) -> Option<[f64; 5]> {
+    fn collide_line(&self, line: &[f32; 4]) -> Option<[f32; 5]> {
         self.collide_beam_with_walls(&line, &self.get_walls_in_bounds(&line))
     }
 
@@ -104,15 +104,15 @@ impl LevelCollision for Level {
 // Internal Helpers -----------------------------------------------------------
 impl Level {
 
-    pub fn w2g(&self, x: f64, y: f64) -> (isize, isize) {
+    pub fn w2g(&self, x: f32, y: f32) -> (isize, isize) {
         let gx = ((x - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
         let gy = ((y - COLLISION_GRID_SPACING * 0.5) / COLLISION_GRID_SPACING).round();
         (gx as isize, gy as isize)
     }
 
-    fn collide_beam_with_walls(&self, line: &[f64; 4], walls: &HashSet<usize>) -> Option<[f64; 5]> {
+    fn collide_beam_with_walls(&self, line: &[f32; 4], walls: &HashSet<usize>) -> Option<[f32; 5]> {
 
-        let mut intersection: Option<[f64; 5]> = None;
+        let mut intersection: Option<[f32; 5]> = None;
         for i in walls {
 
             let wall = &self.walls[*i];
@@ -140,7 +140,7 @@ impl Level {
 
 
 // Collision Helpers ----------------------------------------------------------
-pub fn aabb_intersect_circle(aabb: &[f64; 4], x: f64, y: f64, r: f64) -> bool {
+pub fn aabb_intersect_circle(aabb: &[f32; 4], x: f32, y: f32, r: f32) -> bool {
 
     let px = if x > aabb[2] {
         aabb[2]
@@ -168,7 +168,7 @@ pub fn aabb_intersect_circle(aabb: &[f64; 4], x: f64, y: f64, r: f64) -> bool {
 
 }
 
-pub fn line_intersect_circle(line: &[f64; 4], cx: f64, cy: f64, r: f64) -> Option<[f64; 8]> {
+pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Option<[f32; 8]> {
 
     let (ax, ay) = (line[0], line[1]);
     let (bx, by) = (line[2], line[3]);
@@ -219,7 +219,7 @@ pub fn line_intersect_circle(line: &[f64; 4], cx: f64, cy: f64, r: f64) -> Optio
 
 }
 
-pub fn line_intersect_line(line: &[f64; 4], other: &[f64; 4]) -> Option<[f64; 5]> {
+pub fn line_intersect_line(line: &[f32; 4], other: &[f32; 4]) -> Option<[f32; 5]> {
 
     let (ax, ay) = ( line[2] -  line[0],  line[3] -  line[1]);
     let (bx, by) = (other[2] - other[0], other[3] - other[1]);

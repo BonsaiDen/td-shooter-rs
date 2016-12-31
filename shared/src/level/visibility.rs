@@ -1,5 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
-use std::f64::consts;
+use std::f32::consts;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
@@ -14,21 +14,21 @@ use super::{Level, LevelCollision};
 
 
 // Statics --------------------------------------------------------------------
-pub const VISIBILITY_GRID_SPACING: f64 = PLAYER_RADIUS * 2.0;
-pub const VISIBILITY_MAX_DISTANCE: f64 = 150.0;
+pub const VISIBILITY_GRID_SPACING: f32 = PLAYER_RADIUS * 2.0;
+pub const VISIBILITY_MAX_DISTANCE: f32 = 150.0;
 
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelVisibility {
-    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))>;
-    fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4];
-    fn circle_visible_from(&self, cx: f64, cy: f64, radius: f64, x: f64, y: f64) -> bool;
-    fn circle_in_light(&self, x: f64, y: f64, radius: f64) -> bool;
+    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))>;
+    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4];
+    fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool;
+    fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool;
 }
 
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f64, y: f64) -> Vec<(usize, (f64, f64), (f64, f64))> {
+    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
         if let Some(walls) = self.visibility_grid.get(&self.w2v(x, y)) {
             self.get_visibility_for_walls(x, y, &walls)
 
@@ -37,17 +37,17 @@ impl LevelVisibility for Level {
         }
     }
 
-    fn visibility_bounds(&self, x: f64, y: f64) -> [f64; 4] {
+    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {
         let (gx, gy) = self.w2v(x, y);
         [
-            (gx as f64) * VISIBILITY_GRID_SPACING,
-            (gy as f64) * VISIBILITY_GRID_SPACING,
+            (gx as f32) * VISIBILITY_GRID_SPACING,
+            (gy as f32) * VISIBILITY_GRID_SPACING,
             VISIBILITY_GRID_SPACING,
             VISIBILITY_GRID_SPACING
         ]
     }
 
-    fn circle_visible_from(&self, ox: f64, oy: f64, radius: f64, x: f64, y: f64) -> bool {
+    fn circle_visible_from(&self, ox: f32, oy: f32, radius: f32, x: f32, y: f32) -> bool {
 
         let (dx, dy) = (x - ox, y - oy);
         let l = (dx * dx + dy * dy).sqrt();
@@ -63,7 +63,7 @@ impl LevelVisibility for Level {
 
     }
 
-    fn circle_in_light(&self, x: f64, y: f64, radius: f64) -> bool {
+    fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool {
         for light in &self.lights {
             if light.circle_intersect(x, y, radius) {
                 if self.circle_visible_from(
@@ -85,7 +85,7 @@ impl LevelVisibility for Level {
 // Internal -------------------------------------------------------------------
 impl Level {
 
-    pub fn w2v(&self, x: f64, y: f64) -> (isize, isize) {
+    pub fn w2v(&self, x: f32, y: f32) -> (isize, isize) {
         let gx = ((x - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
         let gy = ((y - VISIBILITY_GRID_SPACING * 0.5) / VISIBILITY_GRID_SPACING).round();
         (gx as isize, gy as isize)
@@ -109,8 +109,8 @@ impl Level {
 
                 // Calculate cell center
                 let (cx, cy) = (
-                    (x as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
-                    (y as f64) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
+                    (x as f32) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
+                    (y as f32) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
                 );
 
                 let walls = self.get_walls_in_bounds(&[
@@ -160,7 +160,7 @@ impl Level {
 
     }
 
-    fn get_visibility_segments(&self, x: f64, y: f64, walls: &HashSet<usize>) -> (Vec<Segment>, Vec<Endpoint>) {
+    fn get_visibility_segments(&self, x: f32, y: f32, walls: &HashSet<usize>) -> (Vec<Segment>, Vec<Endpoint>) {
 
         // Go through all walls in range
         let mut endpoints = Vec::new();
@@ -236,11 +236,11 @@ impl Level {
 
     fn get_visibility_for_walls(
         &self,
-        x: f64,
-        y: f64,
+        x: f32,
+        y: f32,
         walls: &HashSet<usize>
 
-    ) -> Vec<(usize, (f64, f64), (f64, f64))> {
+    ) -> Vec<(usize, (f32, f32), (f32, f32))> {
 
         let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
 
@@ -320,9 +320,9 @@ struct Endpoint {
     wall_index: usize,
     segment_index: usize,
     begins_segment: bool,
-    r: f64,
-    x: f64,
-    y: f64
+    r: f32,
+    x: f32,
+    y: f32
 }
 
 struct Segment {
@@ -331,26 +331,26 @@ struct Segment {
     p2: Endpoint
 }
 
-fn endpoint_angle(ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
+fn endpoint_angle(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
     let (dx, dy) = (ax - bx, ay - by);
     dy.atan2(dx)
 }
 
-fn point_left_of(segment: &Segment, point: (f64, f64)) -> bool {
+fn point_left_of(segment: &Segment, point: (f32, f32)) -> bool {
     let cross = (segment.p2.x - segment.p1.x) * (point.1 - segment.p1.y)
               - (segment.p2.y - segment.p1.y) * (point.0 - segment.p1.x);
 
     cross < 0.0
 }
 
-fn interpolate_point(ax: f64, ay: f64, bx: f64, by: f64, f: f64) -> (f64, f64) {
+fn interpolate_point(ax: f32, ay: f32, bx: f32, by: f32, f: f32) -> (f32, f32) {
     (
         ax * (1.0 - f) + bx * f,
         ay * (1.0 - f) + by * f
     )
 }
 
-fn segment_in_front_of(x: f64, y: f64, a: &Segment, b: &Segment) -> bool {
+fn segment_in_front_of(x: f32, y: f32, a: &Segment, b: &Segment) -> bool {
 
     let a1 = point_left_of(a, interpolate_point(b.p1.x, b.p1.y, b.p2.x, b.p2.y, 0.01));
     let a2 = point_left_of(a, interpolate_point(b.p2.x, b.p2.y, b.p1.x, b.p1.y, 0.01));
@@ -378,11 +378,11 @@ fn segment_in_front_of(x: f64, y: f64, a: &Segment, b: &Segment) -> bool {
 }
 
 fn get_triangle_points(
-    x: f64, y: f64,
-    r1: f64, r2: f64,
+    x: f32, y: f32,
+    r1: f32, r2: f32,
     segment: Option<&Segment>,
 
-) -> ((f64, f64), (f64, f64)) {
+) -> ((f32, f32), (f32, f32)) {
 
     let p1 = (x, y);
     let mut p2 = (x + r1.cos(), y + r1.sin());
@@ -414,7 +414,7 @@ fn get_triangle_points(
 }
 
 
-fn line_intersection(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64)) -> (f64, f64) {
+fn line_intersection(a: (f32, f32), b: (f32, f32), c: (f32, f32), d: (f32, f32)) -> (f32, f32) {
 
     let s = (
         (d.0 - c.0) * (a.1 - c.1) - (d.1 - c.1) * (a.0 - c.0)

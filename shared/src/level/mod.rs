@@ -25,7 +25,7 @@ pub const MAX_LEVEL_SIZE: f32 = 512.0;
 pub struct Level {
     pub walls: Vec<LevelWall>,
     pub lights: Vec<LightSource>,
-    pub bounds: [f64; 4],
+    pub bounds: [f32; 4],
     collision_grid: HashMap<(isize, isize), Vec<usize>>,
     visibility_grid: HashMap<(isize, isize), HashSet<usize>>,
     light_sources: Vec<LightSource>
@@ -72,7 +72,7 @@ impl Level {
 
     pub fn get_walls_in_bounds(
         &self,
-        bounds: &[f64; 4]
+        bounds: &[f32; 4]
 
     ) -> HashSet<usize> {
 
@@ -142,7 +142,7 @@ impl Level {
     }
 
     // Internal ---------------------------------------------------------------
-    fn add_walls_from_rect(&mut self, bounds: &[f64; 4]) {
+    fn add_walls_from_rect(&mut self, bounds: &[f32; 4]) {
 
         // Top
         self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[2], bounds[1]));

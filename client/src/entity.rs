@@ -13,16 +13,16 @@ use shared::entity::{PlayerInput, PlayerPosition, PlayerEntity, PLAYER_RADIUS};
 
 
 // Statics --------------------------------------------------------------------
-const PLAYER_FADE_DURATION: f64 = 75.0;
+const PLAYER_FADE_DURATION: f32 = 75.0;
 
 
 // Client Entity --------------------------------------------------------------
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn is_local(&self) -> bool;
-    fn interpolate(&self, u: f64) -> PlayerPosition;
+    fn interpolate(&self, u: f32) -> PlayerPosition;
     fn update_remote(&mut self);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
-    fn update_visibility(&mut self, x: f64, y: f64, level: &Level, position: &PlayerPosition, t: u64) -> f64;
+    fn update_visibility(&mut self, x: f32, y: f32, level: &Level, position: &PlayerPosition, t: u64) -> f32;
     fn color_name(&self) -> ColorName;
     fn colors(&self) -> [[f32; 4]; 2];
     fn is_new(&mut self) -> bool;
@@ -44,7 +44,7 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
         self.local
     }
 
-    fn interpolate(&self, u: f64) -> PlayerPosition {
+    fn interpolate(&self, u: f32) -> PlayerPosition {
         self.state.interpolate(u)
     }
 
@@ -55,18 +55,18 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
     fn update_local(&mut self, level: &Level, input: PlayerInput) {
         self.state.input(input);
         self.state.update_with(|state, input| {
-            PlayerPosition::update(input.dt as f64, state, input, level);
+            PlayerPosition::update(input.dt, state, input, level);
         });
     }
 
-    fn update_visibility(&mut self, x: f64, y: f64, level: &Level, p: &PlayerPosition, t: u64) -> f64 {
+    fn update_visibility(&mut self, x: f32, y: f32, level: &Level, p: &PlayerPosition, t: u64) -> f32 {
 
         let is_visible = p.visible && (level.circle_in_light(
-            p.x as f64, p.y as f64,
+            p.x, p.y,
             PLAYER_RADIUS
 
         ) || level.circle_visible_from(
-            p.x as f64, p.y as f64,
+            p.x, p.y,
             PLAYER_RADIUS,
             x,
             y,
@@ -74,13 +74,13 @@ impl Entity for PlayerEntity<ClientState<PlayerPosition, PlayerInput>> {
 
         if is_visible {
             self.last_visible = t;
-            let time_since_hidden = ((t - self.last_hidden) as f64).min(PLAYER_FADE_DURATION);
+            let time_since_hidden = ((t - self.last_hidden) as f32).min(PLAYER_FADE_DURATION);
             let u = ((1.0 / PLAYER_FADE_DURATION) * time_since_hidden).min(1.0);
             u
 
         } else {
             self.last_hidden = t;
-            let time_since_visible = ((t - self.last_visible) as f64).min(PLAYER_FADE_DURATION);
+            let time_since_visible = ((t - self.last_visible) as f32).min(PLAYER_FADE_DURATION);
             let u = ((1.0 / PLAYER_FADE_DURATION) * time_since_visible).min(1.0);
             1.0 - u
         }

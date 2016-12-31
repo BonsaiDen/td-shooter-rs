@@ -24,7 +24,7 @@ const LASER_BEAM_LENGTH: f32 = 100.0;
 
 // Server Implementation ------------------------------------------------------
 pub struct Server {
-    dt: f64,
+    dt: f32,
     addr: String,
     connections: HashMap<ConnectionID, (
         hexahydrate::ConnectionSlot<ConnectionID>,
@@ -39,7 +39,7 @@ impl Server {
 
     pub fn new(addr: String, updates_per_second: u64) -> Server {
         Server {
-            dt: 1.0 / updates_per_second as f64,
+            dt: 1.0 / updates_per_second as f32,
             addr: addr,
             connections: HashMap::new(),
             available_colors: ColorName::all_colored().into_iter().rev().collect()
@@ -120,19 +120,19 @@ impl Server {
                             let (mut x, mut y, r, mut l) = (
                                 // We move the origin of the beam into the player
                                 // in order to avoid wall clipping
-                                p.x + p.r.cos() * (PLAYER_RADIUS as f32 - 0.5),
-                                p.y + p.r.sin() * (PLAYER_RADIUS as f32 - 0.5),
+                                p.x + p.r.cos() * (PLAYER_RADIUS - 0.5),
+                                p.y + p.r.sin() * (PLAYER_RADIUS - 0.5),
                                 p.r,
                                 LASER_BEAM_LENGTH
                             );
 
                             if let Some(intersection) = level.collide_beam(
-                                x as f64,
-                                y as f64,
-                                r as f64,
-                                l as f64
+                                x,
+                                y,
+                                r,
+                                l
                             ) {
-                                l = intersection[4] as f32;
+                                l = intersection[4];
                             }
 
                             // We now move the beam out of the player again and
@@ -159,8 +159,8 @@ impl Server {
 
                 // Check if player is in one of the level lights
                 let player_in_light = level.circle_in_light(
-                    player_position.x as f64,
-                    player_position.y as f64,
+                    player_position.x,
+                    player_position.y,
                     PLAYER_RADIUS * 1.5
                 );
 
@@ -171,11 +171,11 @@ impl Server {
                         // Ignore self-visibility
                         if entity_conn_id != conn_id {
                             let visible = player_in_light || level.circle_visible_from(
-                                player_position.x as f64,
-                                player_position.y as f64,
+                                player_position.x,
+                                player_position.y,
                                 PLAYER_RADIUS * 1.5,
-                                position.x as f64,
-                                position.y as f64
+                                position.x,
+                                position.y
                             );
                             player_entity.set_visibility(*entity_conn_id, visible);
                         }
