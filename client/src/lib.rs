@@ -36,6 +36,7 @@ mod effect;
 mod entity;
 mod level;
 mod renderer;
+mod particle_system;
 
 
 // Statics --------------------------------------------------------------------

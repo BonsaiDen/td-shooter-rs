@@ -3,20 +3,23 @@ use std::f32::consts;
 
 
 // External Dependencies ------------------------------------------------------
+use rand;
+use rand::Rng;
+use clock_ticks;
+use piston::input::*;
+use graphics::Transformed;
+
 use cobalt;
 use cobalt::ConnectionID;
 use hexahydrate;
-use clock_ticks;
-
-use piston::input::*;
-use graphics::Transformed;
 
 
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL};
-use ::renderer::{Circle, CircleArc, Renderer};
+use ::particle_system::ParticleSystem;
+use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
 use ::camera::Camera;
@@ -35,6 +38,7 @@ pub struct Client {
     // Rendering
     camera: Camera,
     effects: Vec<Box<Effect>>,
+    particle_system: ParticleSystem,
     debug_draw: bool,
 
     // Player Colors
@@ -65,6 +69,7 @@ impl Client {
             // Rendering
             camera: Camera::new(width, height),
             effects: Vec::new(),
+            particle_system: ParticleSystem::new(MAX_PARTICLES),
             debug_draw: false,
 
             // Colors
@@ -101,13 +106,13 @@ impl Client {
 
                     if self.debug_draw {
                         self.effects.push(Box::new(LaserBeam::from_point(
+                            &mut self.particle_system,
                             ColorName::Grey,
                             self.player_data.x,
                             self.player_data.y,
                             self.player_data.r,
                             PLAYER_RADIUS + 0.5,
-                            100.0,
-                            400
+                            100.0
                         )));
                     }
 
@@ -227,10 +232,11 @@ impl Client {
             println!("[Client] Received action from server: {:?}", action);
             match action {
                 Action::CreateLaserBeam(color, x, y, r, l) => {
-                    // TODO have a small sparkle / rotation / start effect at the source of the beam
                     self.effects.push(Box::new(LaserBeam::from_point(
+                        &mut self.particle_system,
                         ColorName::from_u8(color),
-                        x, y, r, 0.0, l, 400
+                        x, y, r,
+                        0.0, l
                     )));
                 },
                 _ => {}
@@ -249,6 +255,24 @@ impl Client {
 
         client.flush().ok();
         self.tick = self.tick.wrapping_add(1);
+
+        // Test Particles
+        if rand::thread_rng().gen::<u8>() > 50 && self.debug_draw {
+            if let Some(p) = self.particle_system.get() {
+
+                let r = rand::thread_rng().gen::<u8>() as f32;
+                let s = rand::thread_rng().gen::<f32>() + 0.5;
+
+                p.color = [1.0, 1.0, 0.0, 1.0];
+                p.x = 0.0;
+                p.y = 0.0;
+                p.size = 15.0 * s;
+                p.size_ms = -10.0 * s;
+                p.direction = (r / 255.0) * consts::PI * 2.0;
+                p.velocity = 15.0 * s;
+
+            }
+        }
 
     }
 
@@ -334,6 +358,12 @@ impl Client {
         }
 
         self.effects.retain(|e| e.alive(t));
+
+        // Particles
+        {
+            let context = self.camera.context();
+            self.particle_system.render(&context.transform, renderer);
+        }
 
         // Lights
         level.render_lights(

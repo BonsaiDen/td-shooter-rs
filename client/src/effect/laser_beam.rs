@@ -3,6 +3,8 @@ use std::f32::consts;
 
 
 // External Dependencies ------------------------------------------------------
+use rand;
+use rand::Rng;
 use clock_ticks;
 
 
@@ -10,6 +12,7 @@ use clock_ticks;
 use ::effect::Effect;
 use ::camera::Camera;
 use ::renderer::Renderer;
+use ::particle_system::ParticleSystem;
 use shared::color::{Color, ColorName};
 
 
@@ -24,22 +27,59 @@ pub struct LaserBeam {
 
 impl LaserBeam {
 
-    pub fn new(color: ColorName, line: [f32; 4], duration: u64) -> LaserBeam {
+    pub fn new(color: ColorName, line: [f32; 4]) -> LaserBeam {
         LaserBeam {
             line: line,
             color_dark: Color::from_name(color).darken(0.5).into_f32(),
             color_light: Color::from_name(color).into_f32(),
             start: clock_ticks::precise_time_ms(),
-            duration: duration
+            duration: 300
         }
     }
 
-    pub fn from_point(color: ColorName, x: f32, y: f32, r: f32, d: f32, l: f32, duration: u64) -> LaserBeam {
-        LaserBeam::new(color, [
+    pub fn from_point(
+        particle_system: &mut ParticleSystem,
+        color_name: ColorName,
+        x: f32, y: f32,
+        r: f32, d: f32,
+        l: f32
+
+    ) -> LaserBeam {
+
+        // TODO have a small sparkle / rotation / start effect at the source of the beam
+
+        // Spawn particles along beam path
+        let step = 4.0;
+        let count = (l / step).floor() as usize;
+        let particle_color = Color::from_name(color_name).into_f32();
+
+        for i in 0..count {
+            if let Some(p) = particle_system.get() {
+
+                let a = rand::thread_rng().gen::<f32>();
+                let b = rand::thread_rng().gen::<f32>() + 0.5;
+                let c = rand::thread_rng().gen::<f32>() - 0.5;
+
+                let o = i as f32 * step + step * 0.5;
+                p.color = particle_color;
+                p.x = x + r.cos() * o + c * 2.5;
+                p.y = y + r.sin() * o + c * 2.5;
+                p.direction = a * consts::PI * 2.0;
+                p.size = 3.0 * b;
+                p.size_ms = -1.0 * b;
+                p.velocity = 3.0 * b;
+                p.lifetime = (0.75 + 1.5 * a) * 0.8;
+                p.remaining = p.lifetime;
+
+            }
+        }
+
+        LaserBeam::new(color_name, [
             x + r.cos() * d, y + r.sin() * d,
             x + r.cos() * (d + l), y + r.sin() * (d + l)
 
-        ], duration)
+        ])
+
     }
 
 }
