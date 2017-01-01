@@ -19,7 +19,7 @@ use shared::util;
 use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP};
 use shared::action::Action;
 use shared::level::{
-    Level, LevelCollision, LevelVisibility,
+    Level, LevelCollision, LevelVisibility, LevelSpawn,
     line_intersect_circle
 };
 use shared::color::ColorName;
@@ -63,7 +63,7 @@ impl Server {
         level: &Level
     ) {
 
-        self.receive(entity_server, server);
+        self.receive(entity_server, server, level);
         self.update_entities_before(entity_server, level);
 
         let actions = self.apply_actions(entity_server, level);
@@ -78,7 +78,8 @@ impl Server {
     fn receive(
         &mut self,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
-        server: &mut cobalt::ServerStream
+        server: &mut cobalt::ServerStream,
+        level: &Level
     ) {
 
         while let Ok(event) = server.accept_receive() {
@@ -89,7 +90,7 @@ impl Server {
                 },
                 cobalt::ServerEvent::Connection(id) => {
                     if let Some(conn) = server.connection_mut(&id) {
-                        self.connect(entity_server, conn);
+                        self.connect(entity_server, level, conn);
                     }
                 },
                 cobalt::ServerEvent::Message(id, packet) => {
@@ -320,12 +321,29 @@ impl Server {
     }
 
 
+    // Spawn Handling ---------------------------------------------------------
+    fn find_player_spawn(
+        &mut self,
+        _: &mut hexahydrate::Server<Entity, ConnectionID>,
+        level: &Level
+
+    ) -> LevelSpawn {
+        let spawns = level.randomized_spawns();
+        // TODO find the spawn with the lowest number of players nearby
+        spawns.get(0).unwrap().clone()
+    }
+
+
     // Connection Handling ----------------------------------------------------
     fn connect(
         &mut self,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        level: &Level,
         conn: &mut cobalt::Connection
     ) {
+
+        // Find a potential spawn point
+        let spawn = self.find_player_spawn(entity_server, level);
 
         // TODO do not directly create a entity but rather add the connection and then wait for a
         // "JoinGame" Action and create the entity based on that
@@ -340,7 +358,7 @@ impl Server {
                         Some(conn.id()),
                         false,
                         color,
-                        PlayerData::new(-60.0, 20.0, 0.0, PLAYER_MAX_HP)
+                        PlayerData::new(spawn.x, spawn.y, 0.0, PLAYER_MAX_HP)
                     ))
 
                 }) {

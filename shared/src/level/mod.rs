@@ -4,6 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 // External Dependencies ------------------------------------------------------
 use toml;
+use rand;
+use rand::Rng;
 
 
 // Modules --------------------------------------------------------------------
@@ -19,6 +21,9 @@ pub use self::light_source::LightSource;
 mod wall;
 pub use self::wall::*;
 
+mod spawn;
+pub use self::spawn::*;
+
 
 // Statics --------------------------------------------------------------------
 pub const MAX_LEVEL_SIZE: f32 = 512.0;
@@ -29,6 +34,7 @@ pub const MAX_LEVEL_SIZE: f32 = 512.0;
 pub struct Level {
     pub walls: Vec<LevelWall>,
     pub lights: Vec<LightSource>,
+    pub spawns: Vec<LevelSpawn>,
     pub bounds: [f32; 4],
     collision_grid: HashMap<(isize, isize), Vec<usize>>,
     visibility_grid: HashMap<(isize, isize), HashSet<usize>>,
@@ -41,11 +47,18 @@ impl Level {
         Level {
             walls: Vec::new(),
             lights: Vec::new(),
+            spawns: vec![LevelSpawn::new(0.0, 0.0)],
             bounds: [1000000.0, 1000000.0, -100000.0, -1000000.0],
             collision_grid: HashMap::new(),
             visibility_grid: HashMap::new(),
             light_sources: Vec::new()
         }
+    }
+
+    pub fn randomized_spawns(&self) -> Vec<LevelSpawn> {
+        let mut spawns = self.spawns.clone();
+        rand::thread_rng().shuffle(&mut spawns);
+        spawns
     }
 
     pub fn from_toml(string: &str) -> Level {
@@ -80,6 +93,24 @@ impl Level {
                         ));
                     }
                 }
+            }
+
+            // Load Spawns
+            if let Some(&toml::Value::Array(ref spawns)) = value.get("spawns") {
+
+                if !spawns.is_empty() {
+                    level.spawns.clear();
+                }
+
+                for spawn in spawns {
+                    if let &toml::Value::Table(ref properties) = spawn {
+                        level.spawns.push(LevelSpawn::new(
+                            properties.get("x").unwrap().as_integer().unwrap() as f32,
+                            properties.get("y").unwrap().as_integer().unwrap() as f32
+                        ));
+                    }
+                }
+
             }
 
         }
@@ -142,76 +173,8 @@ impl Level {
     }
 
     pub fn load() -> Level {
-
         let data = include_str!("../../../editor/map.toml");
         Level::from_toml(data)
-
-        /*
-        let mut level = Level::new();
-
-        // Left
-        level.add_wall(LevelWall::new(-100.0, -100.0, -100.0, 0.0));
-        level.add_wall(LevelWall::new(-100.0, 5.0, -100.0, 100.0));
-
-        level.add_wall(LevelWall::new(100.0, 100.0, -100.0, 100.0));
-        level.add_wall(LevelWall::new(-50.0, -100.0, -50.0, 0.0));
-        level.add_wall(LevelWall::new(0.0, 0.0, 100.0, -100.0));
-        level.add_wall(LevelWall::new(0.0, 0.0, 100.0, 100.0));
-
-        level.add_walls_from_rect(&[
-            -LEVEL_MAX_VISIBILITY_DISTANCE, -LEVEL_MAX_VISIBILITY_DISTANCE,
-            LEVEL_MAX_VISIBILITY_DISTANCE, LEVEL_MAX_VISIBILITY_DISTANCE
-        ]);
-
-        level.add_walls_from_rect(&[
-            -35.0, 40.0,
-            -15.0, 60.0
-        ]);
-
-        level.add_walls_from_rect(&[
-            50.0, -10.0,
-            60.0, 10.0
-        ]);
-
-        level.add_walls_from_rect(&[
-            70.0, -10.0,
-            80.0, 10.0
-        ]);
-
-        level.add_walls_from_rect(&[
-            90.0, -10.0,
-            100.0, 10.0
-        ]);
-
-        level.add_walls_from_rect(&[
-            110.0, -10.0,
-            120.0, 10.0
-        ]);
-
-        level.lights.push(LightSource::new(140.0, 20.0, 50.0));
-        level.lights.push(LightSource::new(-120.0, -120.0, 50.0));
-        level.lights.push(LightSource::new(0.0, 120.0, 50.0));
-
-        level.pre_calculate_visibility();
-        level
-        */
-    }
-
-    // Internal ---------------------------------------------------------------
-    fn add_walls_from_rect(&mut self, bounds: &[f32; 4]) {
-
-        // Top
-        self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[2], bounds[1]));
-
-        // Right
-        self.add_wall(LevelWall::new(bounds[0], bounds[1], bounds[0], bounds[3]));
-
-        // Bottom
-        self.add_wall(LevelWall::new(bounds[0], bounds[3], bounds[2], bounds[3]));
-
-        // Left
-        self.add_wall(LevelWall::new(bounds[2], bounds[1], bounds[2], bounds[3]));
-
     }
 
 }
