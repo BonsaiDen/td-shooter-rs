@@ -7,6 +7,7 @@ authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 rustc-serialize = "0.3"
 clock_ticks = "*"
 bincode = "0.4.0"
+toml = "*"
 netsync = { path = "../deps/netsync", version = "0.1.0" }
 hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
 cobalt = { git = "https://github.com/bonsaiden/cobalt-rs.git", rev = "server_stream" }

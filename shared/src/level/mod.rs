@@ -2,6 +2,10 @@
 use std::collections::{HashMap, HashSet};
 
 
+// External Dependencies ------------------------------------------------------
+use toml;
+
+
 // Modules --------------------------------------------------------------------
 mod collision;
 pub use self::collision::*;
@@ -42,6 +46,47 @@ impl Level {
             visibility_grid: HashMap::new(),
             light_sources: Vec::new()
         }
+    }
+
+    pub fn from_toml(string: &str) -> Level {
+
+        let mut level = Level::new();
+        if let Some(value) = toml::Parser::new(string).parse() {
+
+            // Load Walls
+            if let Some(&toml::Value::Array(ref walls)) = value.get("walls") {
+                for wall in walls {
+                    if let &toml::Value::Table(ref properties) = wall {
+                        if let Some(&toml::Value::Array(ref points)) = properties.get("line") {
+                            level.add_wall(LevelWall::new(
+                                points[0].as_float().unwrap() as f32,
+                                points[1].as_float().unwrap() as f32,
+                                points[2].as_float().unwrap() as f32,
+                                points[3].as_float().unwrap() as f32
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Load Lights
+            if let Some(&toml::Value::Array(ref lights)) = value.get("lights") {
+                for light in lights {
+                    if let &toml::Value::Table(ref properties) = light {
+                        level.lights.push(LightSource::new(
+                            properties.get("x").unwrap().as_integer().unwrap() as f32,
+                            properties.get("y").unwrap().as_integer().unwrap() as f32,
+                            properties.get("radius").unwrap().as_integer().unwrap() as f32
+                        ));
+                    }
+                }
+            }
+
+        }
+
+        level.pre_calculate_visibility();
+        level
+
     }
 
     fn add_wall(&mut self, wall: LevelWall) {
@@ -98,6 +143,10 @@ impl Level {
 
     pub fn load() -> Level {
 
+        let data = include_str!("../../../editor/map.toml");
+        Level::from_toml(data)
+
+        /*
         let mut level = Level::new();
 
         // Left
@@ -145,6 +194,7 @@ impl Level {
 
         level.pre_calculate_visibility();
         level
+        */
     }
 
     // Internal ---------------------------------------------------------------

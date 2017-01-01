@@ -13,6 +13,8 @@
 extern crate rustc_serialize;
 extern crate clock_ticks;
 extern crate bincode;
+extern crate toml;
+
 extern crate hexahydrate;
 extern crate netsync;
 extern crate cobalt;
