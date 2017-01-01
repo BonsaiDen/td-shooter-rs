@@ -37,8 +37,39 @@ impl Level {
 
         }).collect();
 
+        let wall_width = 1.0;
         let cached_walls = level.walls.iter().map(|w| {
-            Line::new(&w.points, 0.5)
+
+            let p = &w.points;
+
+            // Adjust Horizonal endpoints
+            let line = if p[0] == p[2] {
+                [
+                    p[0],
+                    p[1] - wall_width * 0.5,
+                    p[2],
+                    p[3] + wall_width * 0.5,
+                ]
+
+            // Adjust Vertical endpoints
+            } else if p[1] == p[3] {
+                [
+                    p[0] - wall_width * 0.5,
+                    p[1],
+                    p[2] + wall_width * 0.5,
+                    p[3]
+                ]
+
+            } else {
+                [
+                    p[0],
+                    p[1],
+                    p[2],
+                    p[3]
+                ]
+            };
+
+            Line::new(&line, wall_width)
 
         }).collect();
 
