@@ -8,8 +8,10 @@ shared = { path = "../shared", version = "0.1.0" }
 netsync = { path = "../deps/netsync", version = "0.1.0" }
 hexahydrate = { path = "../deps/hexahydrate", version = "0.1.0" }
 cobalt = { git = "https://github.com/bonsaiden/cobalt-rs.git", rev = "server_stream" }
-clock_ticks = "*"
+
 clap = "*"
+rand = "*"
+clock_ticks = "*"
 clippy = { version = "*", optional = true }
 
 [features]

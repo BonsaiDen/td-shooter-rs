@@ -4,6 +4,8 @@ use std::collections::{HashMap, VecDeque};
 
 
 // External Dependencies ------------------------------------------------------
+use rand;
+use rand::Rng;
 use clock_ticks;
 use hexahydrate;
 use cobalt;
@@ -44,11 +46,13 @@ pub struct Server {
 impl Server {
 
     pub fn new(addr: String, updates_per_second: u64) -> Server {
+        let mut colors: Vec<ColorName> = ColorName::all_colored().into_iter().rev().collect();
+        rand::thread_rng().shuffle(&mut colors);
         Server {
             dt: 1.0 / updates_per_second as f32,
             addr: addr,
             connections: HashMap::new(),
-            available_colors: ColorName::all_colored().into_iter().rev().collect()
+            available_colors: colors
         }
     }
 
@@ -188,6 +192,9 @@ impl Server {
                             // Send beam firing action to all players
                             outgoing_actions.push((
                                 None,
+                                // TODO don't send beams to client in case
+                                // they are outside the locally expected viewport
+                                // bounds
                                 Action::CreateLaserBeam(
                                     color_name.to_u8(),
                                     beam_line[0],
