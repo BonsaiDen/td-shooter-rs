@@ -115,8 +115,6 @@ impl Level {
     ) {
 
         // TODO fix random crack lines
-        // TODO pre-render stencil value into a buffer in order to speed up
-        // rendering?
 
         // Render light clipping visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
@@ -166,7 +164,10 @@ impl Level {
 
         let bounds = camera.b2w();
         let context = camera.context();
-        let endpoints = self.calculate_visibility(data.x, data.y);
+        let endpoints = self.calculate_visibility(
+            data.x, data.y,
+            LEVEL_MAX_VISIBILITY_DISTANCE
+        );
 
         // Only render visibility cone if local player is alive
         if data.hp > 0 {
@@ -225,8 +226,8 @@ impl Level {
 // Traits ---------------------------------------------------------------------
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
-        self.level.calculate_visibility(x, y)
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
+        self.level.calculate_visibility(x, y, radius)
     }
 
     fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {

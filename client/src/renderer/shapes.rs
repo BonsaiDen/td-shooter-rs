@@ -95,9 +95,9 @@ impl Line {
             cx, cy,
 
             // A C D
-            cx, cy,
+            bx, by,
             dx, dy,
-            bx, by
+            cx, cy
 
         ]
 

@@ -24,16 +24,30 @@ pub struct CachedLightSource {
 impl CachedLightSource {
 
     pub fn from_light(level: &Level, light: &LightSource) -> CachedLightSource {
+
+        let mut points = level.calculate_visibility(light.x, light.y, light.radius * 1.4);
+        for &mut (_, ref mut a, ref mut b) in &mut points {
+
+            let (dx, dy) = (a.0 - light.x, a.1 - light.y);
+            let r = dy.atan2(dx);
+            let d = (dx * dx + dy * dy).sqrt();
+            a.0 = light.x + r.cos() * d.min(light.radius * 1.6);
+            a.1 = light.y + r.sin() * d.min(light.radius * 1.6);
+
+            let (dx, dy) = (b.0 - light.x, b.1 - light.y);
+            let r = dy.atan2(dx);
+            let d = (dx * dx + dy * dy).sqrt();
+            b.0 = light.x + r.cos() * d.min(light.radius * 1.6);
+            b.1 = light.y + r.sin() * d.min(light.radius * 1.6);
+
+        }
+
         CachedLightSource {
             aabb: light.aabb,
             x: light.x,
             y: light.y,
             s: rand::thread_rng().next_f64(),
-            light_polygon: LightPoylgon::new(
-                light.x,
-                light.y,
-                &level.calculate_visibility(light.x, light.y)
-            ),
+            light_polygon: LightPoylgon::new(light.x, light.y, &points),
             light_circle: Circle::new(16, 0.0, 0.0, light.radius)
         }
     }

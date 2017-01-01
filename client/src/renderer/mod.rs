@@ -126,6 +126,7 @@ pub struct Renderer {
 
     device: gfx_device_gl::Device,
     encoder: gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
+    primitive: gfx::Primitive,
 
     output_color: gfx::handle::RenderTargetView<gfx_device_gl::Resources, gfx::format::Srgba8>,
     output_stencil: gfx::handle::DepthStencilView<gfx_device_gl::Resources, gfx::format::DepthStencil>,
@@ -136,7 +137,8 @@ pub struct Renderer {
     buffer_locals: gfx::handle::Buffer<gfx_device_gl::Resources, Locals>,
     buffer_offset: usize,
 
-    pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    list_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    strip_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
 }
 
 impl Renderer {
@@ -158,7 +160,7 @@ impl Renderer {
             )
             //.fullscreen(true)
             .opengl(opengl)
-            .samples(samples)
+            //.samples(samples)
             .vsync(false)
             .exit_on_esc(true)
             .build()
@@ -180,10 +182,8 @@ impl Renderer {
             samples.into()
         ));
 
-        // Pipeline
-        let pipeline = create_pipeline(opengl, &mut factory);
-
         // Buffers
+        let buffer_locals = factory.create_constant_buffer(1);
         let buffer_pos = factory.create_buffer_dynamic(
             BUFFER_SIZE * CHUNKS,
             gfx::buffer::Role::Vertex,
@@ -198,7 +198,14 @@ impl Renderer {
 
         ).expect("Could not create `buffer_color`");
 
-        let buffer_locals = factory.create_constant_buffer(1);
+        // Pipeline
+        let list_pipeline = create_pipeline(
+            opengl, &mut factory, gfx::Primitive::TriangleList
+        );
+
+        let strip_pipeline = create_pipeline(
+            opengl, &mut factory, gfx::Primitive::TriangleStrip
+        );
 
         // GFX Encoder
         let encoder = factory.create_command_buffer().into();
@@ -217,6 +224,8 @@ impl Renderer {
 
             device: device,
             encoder: encoder,
+            primitive: gfx::Primitive::TriangleList,
+
             output_color: output_color,
             output_stencil: output_stencil,
 
@@ -226,7 +235,8 @@ impl Renderer {
             buffer_locals: buffer_locals,
             buffer_offset: 0,
 
-            pipeline: pipeline
+            list_pipeline: list_pipeline,
+            strip_pipeline: strip_pipeline
 
         }
 
@@ -345,7 +355,16 @@ impl Renderer {
 
     // Internal ---------------------------------------------------------------
     fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
+        self.draw(gfx::Primitive::TriangleList, m, vertices);
+    }
 
+    fn draw_triangle_strip(&mut self, m: &Matrix2d, vertices: &[f32]) {
+        self.draw(gfx::Primitive::TriangleStrip, m, vertices);
+    }
+
+    fn draw(&mut self, primitive: gfx::Primitive, m: &Matrix2d, vertices: &[f32]) {
+
+        let n = vertices.len() / POS_COMPONENTS;
         let color = gamma_srgb_to_linear(self.color);
         let view_matrix = [
             // Rotation
@@ -360,17 +379,12 @@ impl Renderer {
 
         ];
 
-        // Flush the render buffer if the view matrix changes
-        if self.buffer_matrix != view_matrix {
+        // Flush buffer if rendering primitive or view matrix changes or if
+        // the vertices would overflow the buffer
+        if self.primitive != primitive || self.buffer_matrix != view_matrix || self.buffer_offset + n > BUFFER_SIZE * CHUNKS {
             self.flush();
+            self.primitive = primitive;
             self.buffer_matrix = view_matrix;
-        }
-
-        let n = vertices.len() / POS_COMPONENTS;
-
-        // Flush the render buffer if we would exceed its size
-        if self.buffer_offset + n > BUFFER_SIZE * CHUNKS {
-            self.flush();
         }
 
         {
@@ -417,9 +431,12 @@ impl Renderer {
                 view: self.buffer_matrix
             });
 
-            let (pso_colored, stencil_val) = self.pipeline.get(
-                self.stencil_mode
-            );
+            let (pso_colored, stencil_val) = if self.primitive == gfx::Primitive::TriangleList {
+                self.list_pipeline.get(self.stencil_mode)
+
+            } else {
+                self.strip_pipeline.get(self.stencil_mode)
+            };
 
             let data = pipe_colored::Data {
                 pos: self.buffer_pos.clone(),
@@ -496,12 +513,12 @@ fn create_main_targets(dim: gfx::texture::Dimensions) -> (
 
 fn create_pipeline(
     opengl: OpenGL,
-    factory: &mut gfx_device_gl::Factory
+    factory: &mut gfx_device_gl::Factory,
+    primitive: gfx::Primitive
 
 ) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
 
-    use gfx::Primitive;
-    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample};
+    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
     use gfx::traits::*;
     use shaders_graphics2d::colored;
 
@@ -524,16 +541,18 @@ fn create_pipeline(
         factory: &mut gfx_device_gl::Factory,
         blend_preset: Blend,
         stencil: Stencil,
-        color_mask: gfx::state::ColorMask
+        color_mask: gfx::state::ColorMask,
+        primitive: gfx::Primitive
 
     | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
 
         let mut r = Rasterizer::new_fill();
+        r.cull_face = CullFace::Front;
         r.samples = Some(MultiSample);
 
         factory.create_pipeline_from_program(
             &colored_program,
-            Primitive::TriangleList,
+            primitive,
             r,
             pipe_colored::Init {
                 pos: (),
@@ -549,7 +568,7 @@ fn create_pipeline(
 
     };
 
-    ColoredStencil::new(factory, polygon_pipeline)
+    ColoredStencil::new(factory, primitive, polygon_pipeline)
 
 }
 

@@ -26,7 +26,7 @@ pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 150.0;
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelVisibility {
-    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))>;
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))>;
     fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool;
     fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool;
@@ -35,9 +35,9 @@ pub trait LevelVisibility {
 
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
         if let Some(walls) = self.visibility_grid.get(&self.w2v(x, y)) {
-            self.get_visibility_for_walls(x, y, &walls)
+            self.get_visibility_for_walls(x, y, radius, &walls)
 
         } else {
             Vec::new()
@@ -154,7 +154,13 @@ impl Level {
 
                 visibility_grid.insert(
                     (x, y),
-                    self.get_visibility_for_walls(cx, cy, &walls).into_iter().map(|v| v.0).collect()
+                    self.get_visibility_for_walls(
+                        cx,
+                        cy,
+                        LEVEL_MAX_VISIBILITY_DISTANCE,
+                        &walls
+
+                    ).into_iter().map(|v| v.0).collect()
                 );
 
             }
@@ -270,6 +276,7 @@ impl Level {
         &self,
         x: f32,
         y: f32,
+        max_distance: f32,
         walls: &HashSet<usize>
 
     ) -> Vec<(usize, (f32, f32), (f32, f32))> {
@@ -322,7 +329,7 @@ impl Level {
                     if pass == 1 {
 
                         let segment = segments.get(open_segment_index as usize);
-                        let points = get_triangle_points(x, y, r, endpoint.r, segment);
+                        let points = get_triangle_points(x, y, r, endpoint.r, segment, max_distance);
                         visibility.push((
                             segment.map_or(0, |s| s.wall_index),
                             points.0,
@@ -406,6 +413,7 @@ fn get_triangle_points(
     x: f32, y: f32,
     r1: f32, r2: f32,
     segment: Option<&Segment>,
+    max_distance: f32
 
 ) -> ((f32, f32), (f32, f32)) {
 
@@ -422,10 +430,10 @@ fn get_triangle_points(
 
     // Fallback for open level bounds
     } else {
-        p3.0 = x + r1.cos() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
-        p3.1 = y + r1.sin() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
-        p4.0 = x + r2.cos() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
-        p4.1 = y + r2.sin() * LEVEL_MAX_VISIBILITY_DISTANCE * 1.4;
+        p3.0 = x + r1.cos() * max_distance * 1.4;
+        p3.1 = y + r1.sin() * max_distance * 1.4;
+        p4.0 = x + r2.cos() * max_distance * 1.4;
+        p4.1 = y + r2.sin() * max_distance * 1.4;
     }
 
     let p_begin = line_intersection(p3, p4, p1, p2);
