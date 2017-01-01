@@ -10,6 +10,7 @@
 
 
 // Crates ---------------------------------------------------------------------
+extern crate clock_ticks;
 extern crate hexahydrate;
 extern crate netsync;
 extern crate cobalt;

@@ -26,6 +26,7 @@ pub struct PlayerEntity<S: NetworkState<PlayerData, PlayerInput>> {
     pub visibility_state: HashMap<ConnectionID, bool>,
     pub last_visible: u64,
     pub last_hidden: u64,
+    pub last_beam_fire: u64
 }
 
 impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
@@ -48,7 +49,8 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
             is_new: true,
             visibility_state: HashMap::new(),
             last_hidden: 0,
-            last_visible: 0
+            last_visible: 0,
+            last_beam_fire: 0
         };
 
         entity.state.set(data);
@@ -78,6 +80,16 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
             } else {
                 false
             }
+
+        } else {
+            false
+        }
+    }
+
+    pub fn fire_beam(&mut self, interval: u64, t: u64) -> bool {
+        if t >= self.last_beam_fire + interval {
+            self.last_beam_fire = t;
+            true
 
         } else {
             false

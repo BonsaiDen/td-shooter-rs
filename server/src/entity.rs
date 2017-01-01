@@ -7,7 +7,10 @@ use netsync::{ServerState, NetworkState};
 // Internal Dependencies ------------------------------------------------------
 use ::shared::color::ColorName;
 use ::shared::level::Level;
-use ::shared::entity::{PlayerInput, PlayerData, PlayerEntity};
+use ::shared::entity::{
+    PlayerInput, PlayerData, PlayerEntity,
+    PLAYER_BEAM_FIRE_INTERVAL
+};
 
 
 // Server Entity --------------------------------------------------------------
@@ -20,6 +23,7 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn current_data(&self) -> PlayerData;
     fn color_name(&self) -> ColorName;
     fn set_visibility(&mut self, ConnectionID, bool);
+    fn fire_beam(&mut self, t: u64) -> bool;
 }
 
 impl Entity for ServerPlayerEntity {
@@ -48,6 +52,12 @@ impl Entity for ServerPlayerEntity {
 
     fn set_visibility(&mut self, connection_id: ConnectionID, visible: bool) {
         self.visibility_state.insert(connection_id, visible);
+    }
+
+    fn fire_beam(&mut self, t: u64) -> bool {
+        // The client also limits the firing rate, however we want to make sure
+        // that we always accept the firing command if the client limited correclty
+        self.fire_beam(PLAYER_BEAM_FIRE_INTERVAL - 15, t)
     }
 
 }

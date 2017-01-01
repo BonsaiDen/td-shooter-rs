@@ -4,6 +4,7 @@ use std::collections::{HashMap, VecDeque};
 
 
 // External Dependencies ------------------------------------------------------
+use clock_ticks;
 use hexahydrate;
 use cobalt;
 use cobalt::ConnectionID;
@@ -132,6 +133,7 @@ impl Server {
 
     ) -> Vec<(Option<ConnectionID>, Action)> {
 
+        let t = clock_ticks::precise_time_ms();
         let mut outgoing_actions: Vec<(Option<ConnectionID>, Action)> = Vec::new();
         let mut beam_hits: Vec<(ConnectionID, ConnectionID)> = Vec::new();
 
@@ -145,13 +147,13 @@ impl Server {
 
                         // Correct firing angle to be somewhere between server
                         // and client side value
-                        let entity = if let Some(entity) = entity_server.entity_get(entity_slot) {
+                        let entity = if let Some(entity) = entity_server.entity_get_mut(entity_slot) {
 
                             let mut data = entity.data(tick);
                             data.merge_client_angle(client_r);
 
                             // Ignore action from dead entities
-                            if data.hp > 0 {
+                            if data.hp > 0 && entity.fire_beam(t) {
                                 Some((data, entity.color_name()))
 
                             } else {
@@ -239,8 +241,7 @@ impl Server {
         level: &Level
     ) {
 
-        // Get current entity positions
-        let current_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
+        let entity_data = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
             (entity.owner(), entity.current_data())
         });
 
@@ -253,7 +254,7 @@ impl Server {
                 let player_data = player_entity.current_data();
 
                 // Check to which other entities the player is visible
-                for &(entity_conn_id, ref entity_data) in &current_entities {
+                for &(entity_conn_id, ref entity_data) in &entity_data {
                     if let Some(ref entity_conn_id) = entity_conn_id {
 
                         // Ignore self-visibility
