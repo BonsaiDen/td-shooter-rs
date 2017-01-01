@@ -160,7 +160,7 @@ impl Renderer {
             )
             //.fullscreen(true)
             .opengl(opengl)
-            //.samples(samples)
+            .samples(samples)
             .vsync(false)
             .exit_on_esc(true)
             .build()

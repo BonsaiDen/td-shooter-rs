@@ -116,6 +116,10 @@ impl Level {
 
         // TODO fix random crack lines
 
+        // TODO there are potential issues with lights that are very close
+        // which might cause the light circle from one light to overlap with
+        // the visibility cone of another light
+
         // Render light clipping visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
         for light in &self.lights {

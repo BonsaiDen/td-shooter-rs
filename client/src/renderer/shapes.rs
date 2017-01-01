@@ -34,19 +34,23 @@ impl LightPoylgon {
     }
 
     pub fn vertices(
-        x: f32,
-        y: f32,
+        mut x: f32,
+        mut y: f32,
         endpoints: &[(usize, (f32, f32), (f32, f32))]
 
     ) -> Vec<f32> {
+
+        x = (x * 10000.0).round() * 0.0001;
+        y = (y * 10000.0).round() * 0.0001;
+
         let mut vertices = Vec::new();
         for &(_, a, b) in endpoints {
             vertices.push(x);
             vertices.push(y);
-            vertices.push(a.0);
-            vertices.push(a.1);
-            vertices.push(b.0);
-            vertices.push(b.1);
+            vertices.push((a.0 * 10000.0).round() * 0.0001);
+            vertices.push((a.1 * 10000.0).round() * 0.0001);
+            vertices.push((b.0 * 10000.0).round() * 0.0001);
+            vertices.push((b.1 * 10000.0).round() * 0.0001);
         }
         vertices
     }
@@ -142,20 +146,20 @@ impl Circle {
         for i in 0..segments {
 
             // Center
-            vertices.push(x);
-            vertices.push(y);
+            vertices.push((x * 10000.0).round() * 0.0001);
+            vertices.push((y * 10000.0).round() * 0.0001);
 
             // First outer point
             let ar = i as f32 * step;
             let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-            vertices.push(ax);
-            vertices.push(ay);
+            vertices.push((ax * 10000.0).round() * 0.0001);
+            vertices.push((ay * 10000.0).round() * 0.0001);
 
             // Second outer point
             let br = ar + step;
             let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-            vertices.push(bx);
-            vertices.push(by);
+            vertices.push((bx * 10000.0).round() * 0.0001);
+            vertices.push((by * 10000.0).round() * 0.0001);
 
         }
 
