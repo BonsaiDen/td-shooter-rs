@@ -58,9 +58,24 @@ impl Server {
         level: &Level
     ) {
 
-        let dt = self.dt;
+        self.receive(entity_server, server);
+        self.update_entities_before(entity_server, level);
 
-        // Accept and receive connections / messages
+        let actions = self.apply_actions(entity_server, level);
+        self.update_entities_after(entity_server, level);
+        self.send(entity_server, server, &actions);
+
+        // This sleeps to achieve the desired server tick rate
+        server.flush().ok();
+
+    }
+
+    fn receive(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        server: &mut cobalt::ServerStream
+    ) {
+
         while let Ok(event) = server.accept_receive() {
 
             match event {
@@ -98,20 +113,28 @@ impl Server {
 
         }
 
-        // Update entities
-        entity_server.update_with(|_, entity| {
-            entity.update(dt, &level);
-        });
+    }
 
-        // Get current entity positions
-        let current_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
-            (entity.owner(), entity.current_data())
+    fn update_entities_before(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        level: &Level
+    ) {
+        entity_server.update_with(|_, entity| {
+            entity.update(self.dt, &level);
         });
+    }
+
+    fn apply_actions(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        level: &Level
+
+    ) -> Vec<(Option<ConnectionID>, Action)> {
 
         let mut outgoing_actions: Vec<(Option<ConnectionID>, Action)> = Vec::new();
         let mut beam_hits: Vec<(ConnectionID, ConnectionID)> = Vec::new();
 
-        // Apply and generate actions
         for (conn_id, &mut (_, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
 
             while let Some(action) = incoming_actions.pop_front() {
@@ -206,8 +229,23 @@ impl Server {
 
         }
 
+        outgoing_actions
+
+    }
+
+    fn update_entities_after(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        level: &Level
+    ) {
+
+        // Get current entity positions
+        let current_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
+            (entity.owner(), entity.current_data())
+        });
+
         // Update visibility and send entitiy data to clients
-        for (conn_id, &mut (ref slot, ref entity_slot, _, _)) in &mut self.connections {
+        for (conn_id, &mut (_, ref entity_slot, _, _)) in &mut self.connections {
 
             // Check to which other entities this player's entity is visible
             if let Some(player_entity) = entity_server.entity_get_mut(entity_slot) {
@@ -234,33 +272,42 @@ impl Server {
 
             }
 
-            // Send updates to clients
+        }
+
+    }
+
+    fn send(
+        &mut self,
+        entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        server: &mut cobalt::ServerStream,
+        actions: &[(Option<ConnectionID>, Action)]
+    ) {
+
+        for (conn_id, &mut (ref slot, _, _, _)) in &mut self.connections {
+
             for packet in entity_server.connection_send(slot, 512).unwrap() {
                 server.send(conn_id, cobalt::MessageKind::Instant, packet).ok();
             }
 
-        }
+            for &(connection_filter, ref action) in actions {
 
-        // Send new actions
-        for (id, _) in &mut self.connections {
-            for &(filter_id, ref action) in &outgoing_actions {
-
-                let send_to_connection = if filter_id.is_none() {
+                let send_to_connection = if connection_filter.is_none() {
                     true
 
                 } else {
-                    filter_id.unwrap() == *id
+                    connection_filter.unwrap() == *conn_id
                 };
 
                 if send_to_connection {
-                    server.send(id, cobalt::MessageKind::Reliable, action.to_bytes()).ok();
+                    server.send(
+                        conn_id,
+                        cobalt::MessageKind::Reliable,
+                        action.to_bytes()
+                    ).ok();
                 }
 
             }
         }
-
-        // This sleeps to achieve the desired server tick rate
-        server.flush().ok();
 
     }
 
