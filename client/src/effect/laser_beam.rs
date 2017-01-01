@@ -42,7 +42,8 @@ impl LaserBeam {
         color_name: ColorName,
         x: f32, y: f32,
         r: f32, d: f32,
-        l: f32
+        l: f32,
+        wall_angle: Option<f32>
 
     ) -> LaserBeam {
 
@@ -74,8 +75,32 @@ impl LaserBeam {
             }
         }
 
-        // TODO impact particles when beam hits a wall
-        // TODO extrapolate wall hit locally
+        // Create particles in case of a wall hit
+        if let Some(wr) = wall_angle {
+            for _ in 0..15 {
+
+                if let Some(p) = particle_system.get() {
+
+                    let a = rand::thread_rng().gen::<f32>();
+                    let b = rand::thread_rng().gen::<f32>() + 0.5;
+                    let c = rand::thread_rng().gen::<f32>() - 0.5;
+
+                    let ir = wr - (consts::PI * 0.4 * c) - consts::PI;
+                    p.color = particle_color;
+                    p.x = x + r.cos() * l;
+                    p.y = y + r.sin() * l;
+                    p.direction = ir;
+                    p.size = 4.5 * b;
+                    p.size_ms = -3.5 * b;
+                    p.velocity = 15.0 + 6.0 * b;
+                    p.lifetime = (0.75 + 1.5 * a) * 0.3;
+                    p.remaining = p.lifetime;
+
+                }
+
+            }
+
+        }
 
         // TODO have a small sparkle / rotation / start effect at the source of the beam
         LaserBeam::new(color_name, [

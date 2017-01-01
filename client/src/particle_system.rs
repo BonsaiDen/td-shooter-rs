@@ -167,7 +167,7 @@ impl Particle {
             self.direction += self.direction_ms * dt;
             self.velocity += self.velocity_ms * dt;
             self.remaining -= dt;
-            self.size > 0.0
+            true
         }
     }
 

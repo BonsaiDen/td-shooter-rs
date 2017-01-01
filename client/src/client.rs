@@ -15,13 +15,15 @@ use hexahydrate;
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
+use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL};
-use ::particle_system::ParticleSystem;
-use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
-use ::entity::{Entity, Registry};
-use ::effect::{Effect, LaserBeam, LaserBeamHit};
-use ::camera::Camera;
+
 use ::level::Level;
+use ::camera::Camera;
+use ::entity::{Entity, Registry};
+use ::particle_system::ParticleSystem;
+use ::effect::{Effect, LaserBeam, LaserBeamHit};
+use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 
 
 // Client Implementation ------------------------------------------------------
@@ -110,7 +112,8 @@ impl Client {
                             self.player_data.y,
                             self.player_data.r,
                             PLAYER_RADIUS + 0.5,
-                            100.0
+                            100.0,
+                            None
                         )));
                     }
 
@@ -242,7 +245,8 @@ impl Client {
                         &mut self.particle_system,
                         ColorName::from_u8(color),
                         x, y, r,
-                        0.0, l
+                        0.0, l,
+                        level.collide_beam_wall(x, y, r, l + 1.0)
                     )));
                 },
                 Action::LaserBeamHit(color, x, y) => {

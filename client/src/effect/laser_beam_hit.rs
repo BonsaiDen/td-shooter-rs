@@ -56,8 +56,8 @@ impl LaserBeamHit {
 
         for i in 0..segments {
             if let Some(p) = particle_system.get() {
-                let r = (i as f32) * step;
 
+                let r = (i as f32) * step;
                 let a = rand::thread_rng().gen::<f32>();
                 let b = rand::thread_rng().gen::<f32>() + 0.5;
                 let c = rand::thread_rng().gen::<f32>() - 0.5;

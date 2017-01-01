@@ -14,7 +14,7 @@ pub const PLAYER_RADIUS: f32 = 6.0;
 pub const PLAYER_MAX_HP: u8 = 255;
 pub const PLAYER_VISBILITY_CONE: f32 = consts::PI * 0.20;
 pub const PLAYER_VISBILITY_CONE_OFFSET: f32 = PLAYER_RADIUS * 3.0;
-pub const PLAYER_BEAM_FIRE_INTERVAL: u64 = 500;
+pub const PLAYER_BEAM_FIRE_INTERVAL: u64 = 300;
 
 
 // Re-Exports -----------------------------------------------------------------

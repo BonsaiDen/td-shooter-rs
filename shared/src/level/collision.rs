@@ -1,4 +1,5 @@
 // STD Dependencies -----------------------------------------------------------
+use std::f32::consts;
 use std::collections::HashSet;
 
 
@@ -15,6 +16,7 @@ pub trait LevelCollision {
     fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32);
     fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])>;
+    fn collide_beam_wall(&self, x: f32, y: f32, r: f32, l: f32) -> Option<f32>;
     fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])>;
 }
 
@@ -92,6 +94,63 @@ impl LevelCollision for Level {
         ];
 
         self.collide_line(&line)
+
+    }
+
+    fn collide_beam_wall(&self, x: f32, y: f32, r: f32, l: f32) -> Option<f32> {
+
+        let line = [
+            x,
+            y,
+            x + r.cos() * l,
+            y + r.sin() * l
+        ];
+
+        // Return wall angle
+        if let Some(intersect) = self.collide_line(&line) {
+
+            let wall = &self.walls[intersect.0];
+
+            // Vertical |
+            if wall.is_vertical {
+                // Left or right of the wall
+                if x > wall.points[0] {
+                    Some(consts::PI)
+
+                } else {
+                    Some(0.0)
+                }
+
+            // Horizontal --
+            } else if wall.is_horizontal {
+                // Above or below the wall
+                if y > wall.points[1] {
+                    Some(-consts::PI * 0.5)
+
+                } else {
+                    Some(consts::PI * 0.5)
+                }
+
+            // Diagonal \
+            } else if wall.points[0] < wall.points[2] && wall.points[1] < wall.points[3] {
+                if r > consts::PI * 0.35 && r < consts::PI * 1.25 {
+                    Some(consts::PI * 0.75)
+
+                } else {
+                    Some(consts::PI * 1.75)
+                }
+
+            // Diagonal /
+            } else if r > consts::PI * 0.75 && r < consts::PI * 1.75 {
+                Some(consts::PI * 1.25)
+
+            } else {
+                Some(consts::PI * 0.25)
+            }
+
+        } else {
+            None
+        }
 
     }
 
