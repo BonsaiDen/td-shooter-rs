@@ -13,17 +13,10 @@ use netsync::ServerState;
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
 use shared::util;
-use shared::entity::{
-    PLAYER_RADIUS,
-    PLAYER_MAX_HP,
-    PLAYER_SERVER_VISIBILITY_SCALING,
-    PLAYER_VISBILITY_CONE,
-    PLAYER_VISBILITY_CONE_OFFSET
-};
+use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP};
 use shared::action::Action;
 use shared::level::{
     Level, LevelCollision, LevelVisibility,
-    LEVEL_MAX_VISIBILITY_DISTANCE,
     line_intersect_circle
 };
 use shared::color::ColorName;
@@ -221,64 +214,18 @@ impl Server {
 
                 let player_data = player_entity.current_data();
 
-                // Check if player is in one of the level lights
-                let player_in_light = level.circle_in_light(
-                    player_data.x,
-                    player_data.y,
-                    PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING
-                );
-
-                // Check and set visibility to other entities
-                for &(entity_conn_id, ref data) in &current_entities {
+                // Check to which other entities the player is visible
+                for &(entity_conn_id, ref entity_data) in &current_entities {
                     if let Some(ref entity_conn_id) = entity_conn_id {
 
                         // Ignore self-visibility
                         if entity_conn_id != conn_id {
-
-                            // TODO merge with client side visibility check
-                            let distance = util::distance(
-                                data.x, data.y,
-                                player_data.x, player_data.y
+                            player_entity.set_visibility(
+                                *entity_conn_id,
+                                level.player_within_visibility(
+                                    entity_data, &player_data
+                                )
                             );
-
-                            // Entities standing in lights are always visible
-                            let visible = if player_in_light {
-                                true
-
-                            // Dead entities can see no other entities
-                            } else if player_data.hp == 0 {
-                                false
-
-                            // Entities outside the maximum visibility radius are never visible
-                            } else if distance > LEVEL_MAX_VISIBILITY_DISTANCE - PLAYER_VISBILITY_CONE_OFFSET + PLAYER_RADIUS * 0.5 {
-                                false
-
-                            } else {
-
-                                // Entities outside the visibility cone are never visible
-                                if !util::angle_within_cone(
-                                    data.x, data.y, data.r,
-                                    player_data.x, player_data.y,
-                                    PLAYER_VISBILITY_CONE_OFFSET,
-                                    PLAYER_VISBILITY_CONE
-                                ) {
-                                    false
-
-                                } else {
-                                    // Entities within the visibility cone are only visible if sight is not blocked by a wall
-                                    level.circle_visible_from(
-                                        player_data.x,
-                                        player_data.y,
-                                        PLAYER_RADIUS * PLAYER_SERVER_VISIBILITY_SCALING,
-                                        data.x,
-                                        data.y
-                                    )
-                                }
-
-                            };
-
-                            player_entity.set_visibility(*entity_conn_id, visible);
-
                         }
 
                     }

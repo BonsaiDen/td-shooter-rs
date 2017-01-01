@@ -9,7 +9,13 @@ use clock_ticks;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::entity::PLAYER_RADIUS;
+use ::util;
+use ::entity::{
+    PlayerData,
+    PLAYER_RADIUS,
+    PLAYER_VISBILITY_CONE,
+    PLAYER_VISBILITY_CONE_OFFSET
+};
 use super::{Level, LevelCollision};
 
 
@@ -24,6 +30,7 @@ pub trait LevelVisibility {
     fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool;
     fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool;
+    fn player_within_visibility(&self, a: &PlayerData, b: &PlayerData) -> bool;
 }
 
 impl LevelVisibility for Level {
@@ -78,6 +85,34 @@ impl LevelVisibility for Level {
             }
         }
         false
+    }
+
+    fn player_within_visibility(&self, a: &PlayerData, b: &PlayerData) -> bool {
+
+        // Players standing in a light circle are always visible
+        if self.circle_in_light(b.x, b.y, PLAYER_RADIUS) {
+            true
+
+        // Dead players cannot see any other players
+        } else if a.hp == 0 {
+            false
+
+        // Players outside the maximum visibility distance are never visible
+        } else if util::distance(b.x, b.y, a.x, a.y) > LEVEL_MAX_VISIBILITY_DISTANCE - PLAYER_VISBILITY_CONE_OFFSET + PLAYER_RADIUS * 0.5 {
+            false
+
+        } else {
+
+            // Players outside the visibility cone are never visible
+            if !util::angle_within_cone(a.x, a.y, a.r, b.x, b.y, PLAYER_VISBILITY_CONE_OFFSET, PLAYER_VISBILITY_CONE) {
+                false
+
+            } else {
+                // Players within the visibility cone are only visible if sight is not blocked by a wall
+                self.circle_visible_from(a.x, a.y, PLAYER_RADIUS, b.x, b.y)
+            }
+
+        }
     }
 
 }
@@ -364,13 +399,6 @@ fn segment_in_front_of(x: f32, y: f32, a: &Segment, b: &Segment) -> bool {
 
     } else if a1 == a2 && a2 == a3 {
         true
-
-    // TODO these are superflous since we alway return false anyways
-    //} else if A1 == A2 && A2 != A3 {
-    //    false
-
-    //} else if B1 == B2 && B2 == B3 {
-    //    false
 
     } else {
         false

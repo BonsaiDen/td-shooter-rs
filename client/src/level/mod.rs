@@ -241,6 +241,10 @@ impl LevelVisibility for Level {
         self.level.circle_in_light(x, y, radius)
     }
 
+    fn player_within_visibility(&self, a: &PlayerData, b: &PlayerData) -> bool {
+        self.level.player_within_visibility(a, b)
+    }
+
 }
 
 impl LevelCollision for Level {

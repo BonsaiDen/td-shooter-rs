@@ -528,6 +528,7 @@ fn create_pipeline(
 
         factory.create_pipeline_from_program(
             &colored_program,
+            // TODO use triangle strips here need to update triangulation!
             Primitive::TriangleList,
             r,
             pipe_colored::Init {

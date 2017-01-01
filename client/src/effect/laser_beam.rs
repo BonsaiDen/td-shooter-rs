@@ -57,6 +57,7 @@ impl Effect for LaserBeam {
         let u = ((1.0 / self.duration as f32) * exp as f32).min(1.0).max(0.0);
         let a = 0.35 + u * 0.5;
 
+        // Wide background beam
         renderer.set_color([
             self.color_dark[0],
             self.color_dark[1],
@@ -65,6 +66,7 @@ impl Effect for LaserBeam {
         ]);
         renderer.line(context, &self.line, u.sin() * 4.0);
 
+        // Focussed beam in the middle
         renderer.set_color([
             self.color_light[0],
             self.color_light[1],
