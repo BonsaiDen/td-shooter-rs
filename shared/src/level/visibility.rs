@@ -16,7 +16,7 @@ use ::entity::{
     PLAYER_VISBILITY_CONE,
     PLAYER_VISBILITY_CONE_OFFSET
 };
-use super::{Level, LevelCollision};
+use super::{Level, LevelCollision, line_intersect_circle_test};
 
 
 // Statics --------------------------------------------------------------------
@@ -101,18 +101,15 @@ impl LevelVisibility for Level {
         } else if util::distance(b.x, b.y, a.x, a.y) > LEVEL_MAX_VISIBILITY_DISTANCE - PLAYER_VISBILITY_CONE_OFFSET + PLAYER_RADIUS * 0.5 {
             false
 
+        // Players outside the visibility cone are never visible
+        } else if !within_visibility_cone(a.x, a.y, a.r, b.x, b.y, PLAYER_VISBILITY_CONE_OFFSET, PLAYER_VISBILITY_CONE, PLAYER_RADIUS) {
+            false
+
+        // Players within the visibility cone are only visible if sight is not blocked by a wall
         } else {
-
-            // Players outside the visibility cone are never visible
-            if !util::angle_within_cone(a.x, a.y, a.r, b.x, b.y, PLAYER_VISBILITY_CONE_OFFSET, PLAYER_VISBILITY_CONE) {
-                false
-
-            } else {
-                // Players within the visibility cone are only visible if sight is not blocked by a wall
-                self.circle_visible_from(a.x, a.y, PLAYER_RADIUS, b.x, b.y)
-            }
-
+            self.circle_visible_from(a.x, a.y, PLAYER_RADIUS, b.x, b.y)
         }
+
     }
 
 }
@@ -455,6 +452,64 @@ fn line_intersection(a: (f32, f32), b: (f32, f32), c: (f32, f32), d: (f32, f32))
         a.0 + s * (b.0 - a.0),
         a.1 + s * (b.1 - a.1)
     )
+
+}
+
+fn within_visibility_cone(
+    x: f32, y: f32,
+    r: f32,
+    ox: f32, oy: f32,
+    offset: f32,
+    cone: f32,
+    radius: f32
+
+) -> bool {
+
+    // Move to offset location behind player
+    let (cx, cy) = (x - r.cos() * offset, y - r.sin() * offset);
+
+    // Get intial angle between players
+    let (dx, dy) = (ox - cx, oy - cy);
+    let or = dy.atan2(dx);
+
+    // Check on which side of the cone the other player is
+    let dr = r - or;
+    let cr = dr.sin().atan2(dr.cos());
+
+    // Directly within the cone
+    if cr.abs() < cone {
+        true
+
+    // Definitely not on the edge
+    } else if cr.abs() > cone * 1.5 {
+        false
+
+    // Pontentially on one of the edges
+    } else if cr > 0.0 {
+
+        let edge = [
+            cx,
+            cy,
+            cx + (r - cone).cos() * LEVEL_MAX_VISIBILITY_DISTANCE,
+            cy + (r - cone).sin() * LEVEL_MAX_VISIBILITY_DISTANCE
+        ];
+
+        line_intersect_circle_test(&edge, ox, oy, radius)
+
+    } else if cr < 0.0 {
+
+        let edge = [
+            cx,
+            cy,
+            cx + (r + cone).cos() * LEVEL_MAX_VISIBILITY_DISTANCE,
+            cy + (r + cone).sin() * LEVEL_MAX_VISIBILITY_DISTANCE
+        ];
+
+        line_intersect_circle_test(&edge, ox, oy, radius)
+
+    } else {
+        false
+    }
 
 }
 
