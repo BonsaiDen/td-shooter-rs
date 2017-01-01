@@ -8,8 +8,8 @@ use ::renderer::Renderer;
 
 // Client Camera Abstraction --------------------------------------------------
 pub struct Camera {
-    pub x: f32,
-    pub y: f32,
+    x: f32,
+    y: f32,
     pub z: f32,
     ratio: f32,
     center: (f32, f32),

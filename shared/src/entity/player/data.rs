@@ -105,27 +105,32 @@ impl PlayerData {
     pub fn update<L: LevelCollision>(dt: f32, state: &mut PlayerData, input: &PlayerInput, level: &L) {
 
         let (mut dx, mut dy) = (0.0, 0.0);
+        let mut speed = PLAYER_SPEED;
+        if input.buttons & 16 == 16 {
+            speed *= 0.5;
+        }
+
         if input.buttons & 1 == 1 {
-            dy -= PLAYER_SPEED;
+            dy -= speed;
         }
 
         if input.buttons & 2 == 2 {
-            dx += PLAYER_SPEED;
+            dx += speed;
         }
 
         if input.buttons & 4 == 4 {
-            dy += PLAYER_SPEED;
+            dy += speed;
         }
 
         if input.buttons & 8 == 8 {
-            dx -= PLAYER_SPEED;
+            dx -= speed;
         }
 
         // Limit diagonal speed
         let r = dy.atan2(dx);
         let dist = ((dx * dx) + (dy * dy)).sqrt();
-        state.vx = r.cos() * dist.min(PLAYER_SPEED * dt);
-        state.vy = r.sin() * dist.min(PLAYER_SPEED * dt);
+        state.vx = r.cos() * dist.min(speed * dt);
+        state.vy = r.sin() * dist.min(speed * dt);
         state.x += state.vx;
         state.y += state.vy;
 

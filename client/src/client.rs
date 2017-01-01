@@ -15,7 +15,7 @@ use graphics::Transformed;
 // Internal Dependencies ------------------------------------------------------
 use shared::action::Action;
 use shared::color::ColorName;
-use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS};
+use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL};
 use ::renderer::{Circle, CircleArc, Renderer};
 use ::entity::{Entity, Registry};
 use ::effect::{Effect, LaserBeam};
@@ -38,10 +38,12 @@ pub struct Client {
     debug_draw: bool,
 
     // Player Colors
+    // TODO optimize these?
     player_colors: [[f32; 4]; 2],
     player_data: PlayerData,
     player_circle: Circle,
     player_cone: CircleArc,
+    player_last_beam_fire: u64,
 
     // Network
     actions: Vec<Action>,
@@ -70,6 +72,7 @@ impl Client {
             player_data: PlayerData::default(),
             player_circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
             player_cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
+            player_last_beam_fire: 0,
 
             // Network
             actions: Vec::new(),
@@ -85,37 +88,35 @@ impl Client {
         e: &Input
     ) {
 
-        if let Some(Button::Mouse(button)) = e.press_args() {
-            // TODO Limit firing rate
-            if button == MouseButton::Left {
-                self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
+        let t = clock_ticks::precise_time_ms();
 
-                // TODO create laser on server but already play sfx
-                // TODO play laser SFX
-                // TODO limit laser firing rate on client and server
-                if self.debug_draw {
-                    self.effects.push(Box::new(LaserBeam::from_point(
-                        ColorName::Grey,
-                        self.player_data.x,
-                        self.player_data.y,
-                        self.player_data.r,
-                        PLAYER_RADIUS + 0.5,
-                        100.0,
-                        400
-                    )));
+        if let Some(Button::Mouse(button)) = e.press_args() {
+            if button == MouseButton::Left {
+
+                if t >= self.player_last_beam_fire + PLAYER_BEAM_FIRE_INTERVAL {
+
+                    // TODO create laser on server but already play sfx
+                    // TODO play laser SFX
+                    self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
+
+                    if self.debug_draw {
+                        self.effects.push(Box::new(LaserBeam::from_point(
+                            ColorName::Grey,
+                            self.player_data.x,
+                            self.player_data.y,
+                            self.player_data.r,
+                            PLAYER_RADIUS + 0.5,
+                            100.0,
+                            400
+                        )));
+                    }
+
+                    self.player_last_beam_fire = t;
+
                 }
 
-                self.buttons |= 16;
-
             }
         }
-
-        if let Some(Button::Mouse(button)) = e.release_args() {
-            if button == MouseButton::Left {
-                self.buttons &= !16;
-            }
-        }
-
         if let Some(value) = e.mouse_scroll_args() {
             if self.debug_draw {
                 self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
@@ -133,6 +134,7 @@ impl Client {
                 Key::A => 8,
                 Key::S => 4,
                 Key::D => 2,
+                Key::LShift => 16,
                 _ => 0
 
             } as u8;
@@ -144,6 +146,7 @@ impl Client {
                 Key::A => 8,
                 Key::S => 4,
                 Key::D => 2,
+                Key::LShift => 16,
                 _ => 0
 
             } as u8);
@@ -164,7 +167,10 @@ impl Client {
     ) {
 
         let input = PlayerInput::new(
-            self.tick, self.buttons, self.input_angle, dt
+            self.tick,
+            self.buttons,
+            self.input_angle,
+            dt
         );
 
         // Receive messages
