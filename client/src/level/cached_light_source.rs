@@ -67,6 +67,23 @@ impl CachedLightSource {
         }
     }
 
+    pub fn render_light_circle(
+        &self,
+        renderer: &mut Renderer,
+        camera: &Camera
+    ) {
+        let bounds = camera.b2w();
+        if aabb_intersect(&self.aabb, &bounds) {
+            let s = 0.9 - ((renderer.t() as f64 * 0.003 + self.s).cos() * 0.035).abs();
+            let context = camera.context().trans(
+                self.x as f64,
+                self.y as f64
+
+            ).scale(s, s);
+            self.light_circle.render(renderer, &context);
+        }
+    }
+
 }
 
 

@@ -132,11 +132,17 @@ impl Level {
         let bounds = camera.b2w();
         let s = 1.0 - ((renderer.t() as f32 * 0.003).cos() * 0.03).abs();
         renderer.set_stencil_mode(StencilMode::InsideLightCircle);
-        renderer.set_color([0.9 * s, 0.7, 0.0, 0.2]);
+        renderer.set_color([0.9 * s, 0.7, 0.0, 0.15]);
         renderer.rectangle(
             camera.context(),
             &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
         );
+
+        // Render inner light circles
+        renderer.set_color([0.9 * s, 0.6, 0.0, 0.2]);
+        for light in &self.lights {
+            light.render_light_circle(renderer, camera);
+        }
 
         // Remove all light clipping cones and leave only the clipped light
         // circles in the stencil with a value of 255

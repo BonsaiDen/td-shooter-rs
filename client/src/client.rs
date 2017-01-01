@@ -86,7 +86,7 @@ impl Client {
     ) {
 
         if let Some(Button::Mouse(button)) = e.press_args() {
-            // Limit shot rate
+            // TODO Limit firing rate
             if button == MouseButton::Left {
                 self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
 
