@@ -113,6 +113,7 @@ gfx_pipeline_base!( pipe_colored {
 
 // Renderer Implementation ----------------------------------------------------
 pub struct Renderer {
+
     window: GlutinWindow,
     updates_per_second: u64,
     width: f32,
@@ -125,15 +126,17 @@ pub struct Renderer {
 
     device: gfx_device_gl::Device,
     encoder: gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
+
     output_color: gfx::handle::RenderTargetView<gfx_device_gl::Resources, gfx::format::Srgba8>,
     output_stencil: gfx::handle::DepthStencilView<gfx_device_gl::Resources, gfx::format::DepthStencil>,
 
+    buffer_matrix: [[f32; 4]; 4],
     buffer_pos: gfx::handle::Buffer<gfx_device_gl::Resources, PositionFormat>,
     buffer_color: gfx::handle::Buffer<gfx_device_gl::Resources, ColorFormat>,
     buffer_locals: gfx::handle::Buffer<gfx_device_gl::Resources, Locals>,
+    buffer_offset: usize,
 
-    colored_pso: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
-    colored_offset: usize
+    pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
 }
 
 impl Renderer {
@@ -178,7 +181,7 @@ impl Renderer {
         ));
 
         // Pipeline
-        let colored_pso = create_pipeline(opengl, &mut factory);
+        let pipeline = create_pipeline(opengl, &mut factory);
 
         // Buffers
         let buffer_pos = factory.create_buffer_dynamic(
@@ -217,11 +220,13 @@ impl Renderer {
             output_color: output_color,
             output_stencil: output_stencil,
 
+            buffer_matrix: [[0.0; 4]; 4],
             buffer_pos: buffer_pos,
             buffer_color: buffer_color,
             buffer_locals: buffer_locals,
-            colored_pso: colored_pso,
-            colored_offset: 0
+            buffer_offset: 0,
+
+            pipeline: pipeline
 
         }
 
@@ -270,6 +275,7 @@ impl Renderer {
 
     pub fn end(&mut self) {
 
+        self.flush();
         self.encoder.flush(&mut self.device);
         self.device.cleanup();
 
@@ -295,6 +301,8 @@ impl Renderer {
     }
 
     pub fn set_stencil_mode(&mut self, mode: StencilMode) {
+        // Stencil changes need to flush the render buffer
+        self.flush();
         self.stencil_mode = mode;
     }
 
@@ -338,6 +346,25 @@ impl Renderer {
     // Internal ---------------------------------------------------------------
     fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
 
+        let view_matrix = [
+            // Rotation
+            [m[0][0] as f32, m[1][0] as f32, 0.0, 0.0],
+            [m[0][1] as f32, m[1][1] as f32, 0.0, 0.0],
+
+            // Identity
+            [0.0, 0.0, 1.0, 0.0],
+
+            // Translation
+            [m[0][2] as f32, m[1][2] as f32, 0.0, 1.0]
+
+        ];
+
+        // Flush the render buffer if the view matrix changes
+        if self.buffer_matrix != view_matrix {
+            self.flush();
+            self.buffer_matrix = view_matrix;
+        }
+
         let color = gamma_srgb_to_linear(self.color);
         let n = vertices.len() / POS_COMPONENTS;
 
@@ -351,7 +378,7 @@ impl Renderer {
                         vertices.as_ptr() as *const PositionFormat,
                         n
                     ),
-                    self.colored_offset
+                    self.buffer_offset
 
                 ).unwrap();
             }
@@ -363,42 +390,29 @@ impl Renderer {
                             color: color
                         }
                     ],
-                    self.colored_offset + i
+                    self.buffer_offset + i
 
                 ).unwrap();
             }
 
-            self.colored_offset += n;
+            self.buffer_offset += n;
 
         }
-
-        self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
-            view: [
-                // Rotation
-                [m[0][0] as f32, m[1][0] as f32, 0.0, 0.0],
-                [m[0][1] as f32, m[1][1] as f32, 0.0, 0.0],
-
-                // Identity
-                [0.0, 0.0, 1.0, 0.0],
-
-                // Translation
-                [m[0][2] as f32, m[1][2] as f32, 0.0, 1.0]
-
-            ]
-        });
-
-        self.flush();
 
     }
 
     fn flush(&mut self) {
 
-        if self.colored_offset > 0 {
+        if self.buffer_offset > 0 {
 
             use draw_state::target::Rect;
             use std::u16;
 
-            let (pso_colored, stencil_val) = self.colored_pso.get(
+            self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
+                view: self.buffer_matrix
+            });
+
+            let (pso_colored, stencil_val) = self.pipeline.get(
                 self.stencil_mode
             );
 
@@ -411,7 +425,6 @@ impl Renderer {
                     self.output_stencil.clone(),
                     (stencil_val, stencil_val)
                 ),
-                // Use white color for blend reference to make invert work.
                 blend_ref: [1.0; 4],
                 scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
             };
@@ -419,13 +432,13 @@ impl Renderer {
             let slice = gfx::Slice {
                 instances: None,
                 start: 0,
-                end: self.colored_offset as u32,
+                end: self.buffer_offset as u32,
                 buffer: gfx::IndexBuffer::Auto,
                 base_vertex: 0,
             };
 
             self.encoder.draw(&slice, pso_colored, &data);
-            self.colored_offset = 0;
+            self.buffer_offset = 0;
 
         }
 
@@ -534,5 +547,4 @@ fn create_pipeline(
     ColoredStencil::new(factory, polygon_pipeline)
 
 }
-
 

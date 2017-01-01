@@ -42,7 +42,7 @@ impl Level {
 
             let p = &w.points;
 
-            // Adjust Horizonal endpoints
+            // Adjust horizonal endpoints to meetup at edges
             let line = if p[0] == p[2] {
                 [
                     p[0],
@@ -51,7 +51,7 @@ impl Level {
                     p[3] + wall_width * 0.5,
                 ]
 
-            // Adjust Vertical endpoints
+            // Adjust vertical endpoints to meetup at edges
             } else if p[1] == p[3] {
                 [
                     p[0] - wall_width * 0.5,
@@ -60,6 +60,8 @@ impl Level {
                     p[3]
                 ]
 
+            // Diagonal endpoints are left untouched as they will integrate
+            // nicely with the rest
             } else {
                 [
                     p[0],
@@ -114,7 +116,7 @@ impl Level {
 
         // TODO fix random crack lines
         // TODO pre-render stencil value into a buffer in order to speed up
-        // rendering
+        // rendering?
 
         // Render light clipping visibility cones into stencil
         renderer.set_stencil_mode(StencilMode::Replace(254));
@@ -191,6 +193,8 @@ impl Level {
             &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
         );
 
+        renderer.set_stencil_mode(StencilMode::None);
+
     }
 
     pub fn render_walls(
@@ -202,7 +206,6 @@ impl Level {
         _: bool
     ) {
 
-        renderer.set_stencil_mode(StencilMode::None);
         renderer.set_color([0.8, 0.8, 0.8, 1.0]);
 
         let bounds = camera.b2w();
