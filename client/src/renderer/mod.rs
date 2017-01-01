@@ -346,6 +346,7 @@ impl Renderer {
     // Internal ---------------------------------------------------------------
     fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
 
+        let color = gamma_srgb_to_linear(self.color);
         let view_matrix = [
             // Rotation
             [m[0][0] as f32, m[1][0] as f32, 0.0, 0.0],
@@ -365,8 +366,12 @@ impl Renderer {
             self.buffer_matrix = view_matrix;
         }
 
-        let color = gamma_srgb_to_linear(self.color);
         let n = vertices.len() / POS_COMPONENTS;
+
+        // Flush the render buffer if we would exceed its size
+        if self.buffer_offset + n > BUFFER_SIZE * CHUNKS {
+            self.flush();
+        }
 
         {
             use std::slice::from_raw_parts;
@@ -528,7 +533,6 @@ fn create_pipeline(
 
         factory.create_pipeline_from_program(
             &colored_program,
-            // TODO use triangle strips here need to update triangulation!
             Primitive::TriangleList,
             r,
             pipe_colored::Init {

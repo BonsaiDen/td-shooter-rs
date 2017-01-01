@@ -72,7 +72,6 @@ impl Line {
 
     pub fn vertices(p: &[f32; 4], width: f32) -> [f32; 12] {
 
-        // TODO support line caching via pre-calculation
         let (dx, dy) = (p[0] - p[2], p[1] - p[3]);
         let pr = dy.atan2(dx) - consts::PI * 0.5;
 
