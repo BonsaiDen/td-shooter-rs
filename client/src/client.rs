@@ -3,8 +3,6 @@ use std::f32::consts;
 
 
 // External Dependencies ------------------------------------------------------
-use rand;
-use rand::Rng;
 use clock_ticks;
 use piston::input::*;
 use graphics::Transformed;
@@ -21,7 +19,7 @@ use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_IN
 use ::particle_system::ParticleSystem;
 use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 use ::entity::{Entity, Registry};
-use ::effect::{Effect, LaserBeam};
+use ::effect::{Effect, LaserBeam, LaserBeamHit};
 use ::camera::Camera;
 use ::level::Level;
 
@@ -132,6 +130,14 @@ impl Client {
 
             if key == Key::G {
                 self.debug_draw = !self.debug_draw;
+
+                self.effects.push(Box::new(LaserBeamHit::from_point(
+                    &mut self.particle_system,
+                    ColorName::Red,
+                    self.player_data.x,
+                    self.player_data.y
+                )));
+
             }
 
             self.buttons |= match key {
@@ -239,6 +245,13 @@ impl Client {
                         0.0, l
                     )));
                 },
+                Action::LaserBeamHit(color, x, y) => {
+                    self.effects.push(Box::new(LaserBeamHit::from_point(
+                        &mut self.particle_system,
+                        ColorName::from_u8(color),
+                        x, y
+                    )));
+                },
                 _ => {}
             }
         }
@@ -255,24 +268,6 @@ impl Client {
 
         client.flush().ok();
         self.tick = self.tick.wrapping_add(1);
-
-        // Test Particles
-        if rand::thread_rng().gen::<u8>() > 50 && self.debug_draw {
-            if let Some(p) = self.particle_system.get() {
-
-                let r = rand::thread_rng().gen::<u8>() as f32;
-                let s = rand::thread_rng().gen::<f32>() + 0.5;
-
-                p.color = [1.0, 1.0, 0.0, 1.0];
-                p.x = 0.0;
-                p.y = 0.0;
-                p.size = 15.0 * s;
-                p.size_ms = -10.0 * s;
-                p.direction = (r / 255.0) * consts::PI * 2.0;
-                p.velocity = 15.0 * s;
-
-            }
-        }
 
     }
 

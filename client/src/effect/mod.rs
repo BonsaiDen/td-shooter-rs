@@ -1,9 +1,11 @@
 // Modules --------------------------------------------------------------------
-pub mod laser_beam;
+mod laser_beam;
+mod laser_beam_hit;
 
 
 // Re-Exports -----------------------------------------------------------------
 pub use self::laser_beam::LaserBeam;
+pub use self::laser_beam_hit::LaserBeamHit;
 
 
 // Internal Dependencies ------------------------------------------------------

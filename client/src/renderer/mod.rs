@@ -51,7 +51,7 @@ use ::particle_system::Particle;
 
 
 // Statics --------------------------------------------------------------------
-pub const MAX_PARTICLES: usize = 200;
+pub const MAX_PARTICLES: usize = 400;
 const POS_COMPONENTS: usize = 2;
 const CHUNKS: usize = 100;
 
@@ -283,7 +283,7 @@ impl Renderer {
             dt: 0.0,
             u: 0.0,
 
-            // TODO optimize
+            // TODO optimize further
             particle_position: iter::repeat(0.0).take(MAX_PARTICLES * 2).collect(),
             particle_scale: iter::repeat(0.0).take(MAX_PARTICLES * 2).collect(),
             particle_color: iter::repeat([0f32; 4]).take(MAX_PARTICLES).collect(),

@@ -46,9 +46,9 @@ impl LaserBeam {
 
     ) -> LaserBeam {
 
-        // TODO have a small sparkle / rotation / start effect at the source of the beam
+        // TODO factor out into particles module
 
-        // Spawn particles along beam path
+        // Create particles along beam path
         let step = 4.0;
         let count = (l / step).floor() as usize;
         let particle_color = Color::from_name(color_name).into_f32();
@@ -74,10 +74,13 @@ impl LaserBeam {
             }
         }
 
+        // TODO impact particles when beam hits a wall
+        // TODO extrapolate wall hit locally
+
+        // TODO have a small sparkle / rotation / start effect at the source of the beam
         LaserBeam::new(color_name, [
             x + r.cos() * d, y + r.sin() * d,
             x + r.cos() * (d + l), y + r.sin() * (d + l)
-
         ])
 
     }
