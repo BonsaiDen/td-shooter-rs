@@ -34,7 +34,7 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
         owner: Option<ConnectionID>,
         local: bool,
         color: ColorName,
-        position: PlayerData
+        data: PlayerData
 
     ) -> PlayerEntity<S> {
 
@@ -51,7 +51,7 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
             last_visible: 0
         };
 
-        entity.state.set(position);
+        entity.state.set(data);
         entity
 
     }

@@ -5,7 +5,7 @@ use std::f32::consts;
 // Modules --------------------------------------------------------------------
 mod entity;
 mod input;
-mod position;
+mod data;
 
 
 // Statics --------------------------------------------------------------------
@@ -20,5 +20,5 @@ pub const PLAYER_VISBILITY_CONE_OFFSET: f32 = PLAYER_RADIUS * 3.0;
 // Re-Exports -----------------------------------------------------------------
 pub use self::entity::PlayerEntity;
 pub use self::input::PlayerInput;
-pub use self::position::PlayerData;
+pub use self::data::PlayerData;
 
