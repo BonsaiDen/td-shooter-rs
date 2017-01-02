@@ -107,7 +107,7 @@ impl LevelVisibility for Level {
 
         // Players within the visibility cone are only visible if sight is not blocked by a wall
         } else {
-            self.circle_visible_from(a.x, a.y, PLAYER_RADIUS, b.x, b.y)
+            self.circle_visible_from(b.x, b.y, PLAYER_RADIUS, a.x, a.y)
         }
 
     }

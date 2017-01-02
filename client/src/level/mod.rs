@@ -37,7 +37,7 @@ impl Level {
 
         }).collect();
 
-        let wall_width = 1.0;
+        let wall_width = 0.75;
         let cached_walls = level.walls.iter().map(|w| {
 
             let p = &w.points;

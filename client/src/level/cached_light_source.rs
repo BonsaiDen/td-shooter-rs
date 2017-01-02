@@ -25,22 +25,23 @@ impl CachedLightSource {
 
     pub fn from_light(level: &Level, light: &LightSource) -> CachedLightSource {
 
-        let mut points = level.calculate_visibility(light.x, light.y, light.radius * 1.4);
-        for &mut (_, ref mut a, ref mut b) in &mut points {
+        // TODO can we actually optimize these?
+        let points = level.calculate_visibility(light.x, light.y, light.radius * 1.4);
+        //for &mut (_, ref mut a, ref mut b) in &mut points {
 
-            let (dx, dy) = (a.0 - light.x, a.1 - light.y);
-            let r = dy.atan2(dx);
-            let d = (dx * dx + dy * dy).sqrt();
-            a.0 = light.x + r.cos() * d.min(light.radius * 1.6);
-            a.1 = light.y + r.sin() * d.min(light.radius * 1.6);
+        //    let (dx, dy) = (a.0 - light.x, a.1 - light.y);
+        //    let r = dy.atan2(dx);
+        //    let d = (dx * dx + dy * dy).sqrt();
+        //    a.0 = light.x + r.cos() * d.min(light.radius * 2.0);
+        //    a.1 = light.y + r.sin() * d.min(light.radius * 2.0);
 
-            let (dx, dy) = (b.0 - light.x, b.1 - light.y);
-            let r = dy.atan2(dx);
-            let d = (dx * dx + dy * dy).sqrt();
-            b.0 = light.x + r.cos() * d.min(light.radius * 1.6);
-            b.1 = light.y + r.sin() * d.min(light.radius * 1.6);
+        //    let (dx, dy) = (b.0 - light.x, b.1 - light.y);
+        //    let r = dy.atan2(dx);
+        //    let d = (dx * dx + dy * dy).sqrt();
+        //    b.0 = light.x + r.cos() * d.min(light.radius * 2.0);
+        //    b.1 = light.y + r.sin() * d.min(light.radius * 2.6);
 
-        }
+        //}
 
         CachedLightSource {
             aabb: light.aabb,
