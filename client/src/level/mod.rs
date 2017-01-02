@@ -219,7 +219,7 @@ impl Level {
         camera: &Camera,
         _: f32,
         _: f32,
-        _: bool
+        debug_draw: bool
     ) {
 
         renderer.set_color([0.8, 0.8, 0.8, 1.0]);
@@ -234,14 +234,25 @@ impl Level {
         }
 
         // Solids
-        // TODO use spatial index to avoid drawing too much
-        renderer.set_color([0.0, 0.0, 0.0, 1.0]);
+        if debug_draw {
+            renderer.set_color([1.0, 0.0, 1.0, 1.0]);
+
+        } else {
+            renderer.set_color([0.0, 0.0, 0.0, 1.0]);
+        }
         for solid in &self.solids {
-            solid.render(renderer, context);
+            if aabb_intersect(&solid.aabb, &bounds) {
+                solid.render(renderer, context);
+            }
         }
 
     }
 
+}
+
+// Helpers --------------------------------------------------------------------
+fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
+    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
 }
 
 

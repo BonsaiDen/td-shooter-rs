@@ -431,7 +431,7 @@ fn is_valid_path_pixel(
 
 ) -> bool {
 
-    if x >= 0 && x < w && y >= 0 && y < h {
+    if x >= bounds[0] && x < bounds[2] && y >= bounds[1] && y < bounds[3] {
         if !usage.contains(&(x, y)) {
             if let Some(p) = get_path_type(x, y, img, check_solids, bounds) {
                 p == path_type
@@ -460,7 +460,7 @@ fn is_potential_path_pixel(
 
 ) -> bool {
 
-    if x >= 0 && x < w && y >= 0 && y < h {
+    if x >= bounds[0] && x < bounds[2] && y >= bounds[1] && y < bounds[3] {
         if let Some(p) = get_path_type(x, y, img, check_solids, bounds) {
             p == path_type
 
@@ -501,14 +501,14 @@ fn get_path_type(x: i32, y: i32, img: &image::DynamicImage, solids: bool, bounds
 }
 
 fn any_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]) -> bool {
-    is_wall_or_edge(x, y - 1, img, bounds)
-        || is_wall_or_edge(x - 1,     y, img, bounds)
-        || is_wall_or_edge(x + 1, y, img, bounds)
-        || is_wall_or_edge(x, y + 1, img, bounds)
+    is_wall_or_edge(x, y - 1, img, bounds) ||
+    is_wall_or_edge(x - 1, y, img, bounds) ||
+    is_wall_or_edge(x + 1, y, img, bounds) ||
+    is_wall_or_edge(x, y + 1, img, bounds)
 }
 
 fn is_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]) -> bool {
-    if x < bounds[0] || x >= bounds[2] || y <= bounds[1] || y > bounds[3] {
+    if x < bounds[0] || x > bounds[2] || y < bounds[1] || y > bounds[3] {
         true
 
     } else {

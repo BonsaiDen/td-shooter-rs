@@ -50,7 +50,9 @@ fn main() {
 
     let mut network = cobalt::ClientStream::new(cobalt::Config {
         send_rate: UPDATES_PER_SECOND as u32,
-        connection_init_threshold: 1000,
+        packet_drop_threshold: 2000,
+        connection_drop_threshold: 5000,
+        connection_init_threshold: 1500,
         .. Default::default()
     });
 

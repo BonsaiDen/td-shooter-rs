@@ -7,7 +7,7 @@ use graphics::Transformed;
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
 use ::renderer::{Renderer, LightPoylgon, Circle};
-use ::shared::level::{Level, LightSource, LevelVisibility};
+use ::shared::level::{Level, LightSource, LevelVisibility, line_intersect_circle_test};
 
 
 // Cached Light Source for Fast Rendering -------------------------------------
@@ -17,6 +17,7 @@ pub struct CachedLightSource {
     y: f32,
     s: f64,
     aabb: [f32; 4],
+    clipped_walls: usize,
     light_polygon: LightPoylgon,
     light_circle: Circle
 }
@@ -27,27 +28,25 @@ impl CachedLightSource {
 
         // TODO can we actually optimize these?
         let points = level.calculate_visibility(light.x, light.y, light.radius * 1.4);
-        //for &mut (_, ref mut a, ref mut b) in &mut points {
 
-        //    let (dx, dy) = (a.0 - light.x, a.1 - light.y);
-        //    let r = dy.atan2(dx);
-        //    let d = (dx * dx + dy * dy).sqrt();
-        //    a.0 = light.x + r.cos() * d.min(light.radius * 2.0);
-        //    a.1 = light.y + r.sin() * d.min(light.radius * 2.0);
+        // Figure out if we actually intersect with any walls
+        // if not we can render a simple circle instead of the visibility polygon
+        // in the first pass of the stencil buffer
+        let mut clipped_walls = 0;
+        for w in &level.walls {
+            if line_intersect_circle_test(&w.points, light.x, light.y, light.radius) {
+                clipped_walls += 1;
+            }
+        }
 
-        //    let (dx, dy) = (b.0 - light.x, b.1 - light.y);
-        //    let r = dy.atan2(dx);
-        //    let d = (dx * dx + dy * dy).sqrt();
-        //    b.0 = light.x + r.cos() * d.min(light.radius * 2.0);
-        //    b.1 = light.y + r.sin() * d.min(light.radius * 2.6);
-
-        //}
+        println!("[Level] Light clipped {} walls.", clipped_walls);
 
         CachedLightSource {
             aabb: light.aabb,
             x: light.x,
             y: light.y,
             s: rand::thread_rng().next_f64(),
+            clipped_walls: clipped_walls,
             light_polygon: LightPoylgon::new(light.x, light.y, &points),
             light_circle: Circle::new(16, 0.0, 0.0, light.radius)
         }
@@ -60,8 +59,18 @@ impl CachedLightSource {
     ) {
         let bounds = camera.b2w();
         if aabb_intersect(&self.aabb, &bounds) {
-            let context = camera.context();
-            self.light_polygon.render(renderer, &context);
+            if self.clipped_walls > 0 {
+                let context = camera.context();
+                self.light_polygon.render(renderer, &context);
+
+            } else {
+                let context = camera.context().trans(
+                    self.x as f64,
+                    self.y as f64
+
+                );
+                self.light_circle.render(renderer, &context);
+            }
         }
     }
 

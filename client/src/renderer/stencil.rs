@@ -31,14 +31,12 @@ impl<T> ColoredStencil<T> {
 
     pub fn new<F>(
         factory: &mut gfx_device_gl::Factory,
-        primitive: gfx::Primitive,
         f: F
     ) -> ColoredStencil<T> where F: Fn(
         &mut gfx_device_gl::Factory,
         gfx::state::Blend,
         gfx::state::Stencil,
-        gfx::state::ColorMask,
-        gfx::Primitive
+        gfx::state::ColorMask
 
     ) -> T {
 
@@ -52,7 +50,7 @@ impl<T> ColoredStencil<T> {
                 0,
                 (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_ALL, primitive),
+            ), gfx::state::MASK_ALL),
 
             // Adds 1 to the stencil buffer clamping at 255
             add: f(factory, blend::ALPHA, Stencil::new(
@@ -60,7 +58,7 @@ impl<T> ColoredStencil<T> {
                 255,
                 (StencilOp::IncrementClamp, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_NONE, primitive),
+            ), gfx::state::MASK_NONE),
 
             // Always replaces the stencil buffer with a specified value
             replace: f(factory, blend::ALPHA, Stencil::new(
@@ -68,7 +66,7 @@ impl<T> ColoredStencil<T> {
                 255,
                 (StencilOp::Replace, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_NONE, primitive),
+            ), gfx::state::MASK_NONE),
 
             // Replaces all non-255 values in the stencil buffer with 254
             replace_non_light: f(factory, blend::ALPHA, Stencil::new(
@@ -76,7 +74,7 @@ impl<T> ColoredStencil<T> {
                 254,
                 (StencilOp::Replace, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_NONE, primitive),
+            ), gfx::state::MASK_NONE),
 
             // Clears all remaining values of 254 in the stencil buffer to 0
             clear_light_cones: f(factory, blend::ALPHA, Stencil::new(
@@ -84,7 +82,7 @@ impl<T> ColoredStencil<T> {
                 255,
                 (StencilOp::Zero, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_NONE, primitive),
+            ), gfx::state::MASK_NONE),
 
             // Only renders where the stencil buffer is 255
             inside_visible: f(factory, blend::ALPHA, Stencil::new(
@@ -92,7 +90,7 @@ impl<T> ColoredStencil<T> {
                 255,
                 (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_ALL, primitive),
+            ), gfx::state::MASK_ALL),
 
             // Renders everywhere the stencil buffer ist NOT 255
             outside_visible: f(factory, blend::ALPHA, Stencil::new(
@@ -100,7 +98,7 @@ impl<T> ColoredStencil<T> {
                 255,
                 (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep)
 
-            ), gfx::state::MASK_ALL, primitive)
+            ), gfx::state::MASK_ALL)
 
         }
 

@@ -49,6 +49,8 @@ pub fn run(
 
         let config = cobalt::Config {
             send_rate: updates_per_second as u32,
+            packet_drop_threshold: 2000,
+            connection_drop_threshold: 5000,
             .. cobalt::Config::default()
         };
 

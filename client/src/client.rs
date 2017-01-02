@@ -88,6 +88,7 @@ impl Client {
 
     pub fn input(
         &mut self,
+        renderer: &mut Renderer,
         _: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         _: &Level,
         e: &Input
@@ -133,14 +134,11 @@ impl Client {
 
             if key == Key::G {
                 self.debug_draw = !self.debug_draw;
+            }
 
-                self.effects.push(Box::new(LaserBeamHit::from_point(
-                    &mut self.particle_system,
-                    ColorName::Red,
-                    self.player_data.x,
-                    self.player_data.y
-                )));
-
+            if key == Key::P {
+                let enabled = renderer.wireframe();
+                renderer.set_wireframe(!enabled);
             }
 
             self.buttons |= match key {

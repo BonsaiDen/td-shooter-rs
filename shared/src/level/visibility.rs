@@ -21,7 +21,7 @@ use super::{Level, LevelCollision, line_intersect_circle_test};
 
 // Statics --------------------------------------------------------------------
 pub const VISIBILITY_GRID_SPACING: f32 = PLAYER_RADIUS * 4.0;
-pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 150.0;
+pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 130.0;
 
 
 // Traits ---------------------------------------------------------------------

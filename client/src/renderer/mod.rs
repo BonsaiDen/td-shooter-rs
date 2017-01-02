@@ -172,6 +172,8 @@ pub struct Renderer {
     dt: f32,
     u: f32,
 
+    wireframe: bool,
+
     particle_position: Vec<f32>,
     particle_scale: Vec<f32>,
     particle_color: Vec<[f32; 4]>,
@@ -191,6 +193,7 @@ pub struct Renderer {
     buffer_offset: usize,
 
     list_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    wire_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
     point_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
 }
 
@@ -258,13 +261,23 @@ impl Renderer {
 
         ).expect("Could not create `buffer_color`");
 
-        // Pipeline
+        // Pipelines
         let list_pipeline = create_pipeline(
-            opengl, &mut factory, gfx::Primitive::TriangleList
+            opengl, &mut factory,
+            gfx::Primitive::TriangleList,
+            gfx::state::RasterMethod::Fill
+        );
+
+        let wire_pipeline = create_pipeline(
+            opengl, &mut factory,
+            gfx::Primitive::TriangleList,
+            gfx::state::RasterMethod::Line(1)
         );
 
         let point_pipeline = create_pipeline(
-            opengl, &mut factory, gfx::Primitive::PointList
+            opengl, &mut factory,
+            gfx::Primitive::PointList,
+            gfx::state::RasterMethod::Fill
         );
 
         // GFX Encoder
@@ -282,6 +295,8 @@ impl Renderer {
             t: clock_ticks::precise_time_ms(),
             dt: 0.0,
             u: 0.0,
+
+            wireframe: false,
 
             // TODO optimize further
             particle_position: iter::repeat(0.0).take(MAX_PARTICLES * 2).collect(),
@@ -303,6 +318,7 @@ impl Renderer {
             buffer_offset: 0,
 
             list_pipeline: list_pipeline,
+            wire_pipeline: wire_pipeline,
             point_pipeline: point_pipeline
 
         }
@@ -312,6 +328,16 @@ impl Renderer {
     // Events -----------------------------------------------------------------
     pub fn events(&self) -> WindowEvents {
         self.window.events()
+    }
+
+
+    // Configuration ----------------------------------------------------------
+    pub fn wireframe(&mut self) -> bool {
+        self.wireframe
+    }
+
+    pub fn set_wireframe(&mut self, enabled: bool) {
+        self.wireframe = enabled;
     }
 
 
@@ -579,7 +605,12 @@ impl Renderer {
             });
 
             let (pso_colored, stencil_val) = if self.primitive == gfx::Primitive::TriangleList {
-                self.list_pipeline.get(self.stencil_mode)
+                if self.wireframe {
+                    self.wire_pipeline.get(self.stencil_mode)
+
+                } else {
+                    self.list_pipeline.get(self.stencil_mode)
+                }
 
             } else {
                 self.point_pipeline.get(self.stencil_mode)
@@ -662,11 +693,12 @@ fn create_main_targets(dim: gfx::texture::Dimensions) -> (
 fn create_pipeline(
     opengl: OpenGL,
     factory: &mut gfx_device_gl::Factory,
-    primitive: gfx::Primitive
+    primitive: gfx::Primitive,
+    method: gfx::state::RasterMethod
 
 ) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
 
-    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace, RasterMethod};
+    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
     use gfx::traits::*;
     use shaders_graphics2d::colored;
 
@@ -706,14 +738,12 @@ fn create_pipeline(
         blend_preset: Blend,
         stencil: Stencil,
         color_mask: gfx::state::ColorMask,
-        primitive: gfx::Primitive
 
     | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
 
         let mut r = Rasterizer::new_fill();
         r.cull_face = CullFace::Front;
-        // TODO add pipeline to toggle triangle rendering mode
-        //r.method = RasterMethod::Line(1);
+        r.method = method;
         r.samples = Some(MultiSample);
 
         factory.create_pipeline_from_program(
@@ -735,7 +765,7 @@ fn create_pipeline(
 
     };
 
-    ColoredStencil::new(factory, primitive, polygon_pipeline)
+    ColoredStencil::new(factory, polygon_pipeline)
 
 }
 

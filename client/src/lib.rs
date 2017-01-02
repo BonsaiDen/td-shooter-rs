@@ -40,8 +40,8 @@ mod particle_system;
 
 
 // Statics --------------------------------------------------------------------
-static BASE_WIDTH: u32 = 640;
-static BASE_HEIGHT: u32 = 640;
+static BASE_WIDTH: u32 = 800;
+static BASE_HEIGHT: u32 = 600;
 
 
 // External Dependencies ------------------------------------------------------
@@ -92,7 +92,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     while let Some(e) = events.next(&mut renderer) {
         match e {
             Event::Input(ref event) => client.input(
-                &mut entity_client, &level, event
+                &mut renderer, &mut entity_client, &level, event
             ),
             Event::Update(update) => client.update(
                 &mut entity_client, &mut network, &level, update.dt as f32

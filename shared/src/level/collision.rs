@@ -248,8 +248,6 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
     // compute the direction vector D from A to B
     let (dx, dy) = ((bx - ax) / lab, (by - ay) / lab);
 
-    // Now the line equation is x = Dx*t + Ax, y = Dy*t + Ay with 0 <= t <= 1.
-
     // compute the value t of the closest point to the circle center (Cx, Cy)
     let t = dx * (cx - ax) + dy * (cy - ay);
 
@@ -286,34 +284,28 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
         None
     }
 
+
 }
 
 pub fn line_intersect_circle_test(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> bool {
 
     let (ax, ay) = (line[0], line[1]);
     let (bx, by) = (line[2], line[3]);
+    let (dx, dy) = (bx - ax, by - ay);
 
-    // compute the euclidean distance between A and B
-    let lab = ((bx - ax).powf(2.0) + (by - ay).powf(2.0)).sqrt();
+    let a = dx * dx + dy * dy;
+    let b = 2.0 * (dx * (ax - cx) + dy * (ay - cy));
 
-    // compute the direction vector D from A to B
-    let (dx, dy) = ((bx - ax) / lab, (by - ay) / lab);
+    let c = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy) - r * r;
+    let det = b * b - 4.0 * a * c;
 
-    // Now the line equation is x = Dx*t + Ax, y = Dy*t + Ay with 0 <= t <= 1.
+    if det >= 0.0 {
+        let t = -b / (2.0 * a);
+        t >= 0.0 && t <= 1.0
 
-    // compute the value t of the closest point to the circle center (Cx, Cy)
-    let t = dx * (cx - ax) + dy * (cy - ay);
-
-    // This is the projection of C on the line from A to B.
-
-    // compute the coordinates of the point E on line and closest to C
-    let (ex, ey) = (t * dx + ax, t * dy + ay);
-
-    // compute the euclidean distance from E to C
-    let lec = ((ex - cx).powf(2.0) + (ey - cy).powf(2.0)).sqrt();
-
-    // test if the line intersects the circle
-    lec < r
+    } else {
+        false
+    }
 
 }
 
