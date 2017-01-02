@@ -16,7 +16,7 @@ use ::entity::{
     PLAYER_VISBILITY_CONE,
     PLAYER_VISBILITY_CONE_OFFSET
 };
-use super::{Level, LevelCollision, line_intersect_circle_test};
+use super::{Level, LevelCollision, line_segment_intersect_circle_test};
 
 
 // Statics --------------------------------------------------------------------
@@ -502,7 +502,7 @@ fn within_visibility_cone(
             cy + (r - cone).sin() * LEVEL_MAX_VISIBILITY_DISTANCE
         ];
 
-        line_intersect_circle_test(&edge, ox, oy, radius)
+        line_segment_intersect_circle_test(&edge, ox, oy, radius)
 
     } else if cr < 0.0 {
 
@@ -513,7 +513,7 @@ fn within_visibility_cone(
             cy + (r + cone).sin() * LEVEL_MAX_VISIBILITY_DISTANCE
         ];
 
-        line_intersect_circle_test(&edge, ox, oy, radius)
+        line_segment_intersect_circle_test(&edge, ox, oy, radius)
 
     } else {
         false

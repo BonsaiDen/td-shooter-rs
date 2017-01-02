@@ -20,7 +20,7 @@ use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP};
 use shared::action::Action;
 use shared::level::{
     Level, LevelCollision, LevelVisibility, LevelSpawn,
-    line_intersect_circle
+    line_segment_intersect_circle
 };
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerData, PlayerEntity};
@@ -469,7 +469,7 @@ fn check_laser_beam_hits(
 
                 // Ignore entities outside of beam range
                 let distance = util::distance(data.x, data.y, beam_line[0], beam_line[1]);
-                if distance < l {
+                if distance - PLAYER_RADIUS < l {
                     nearest_entities.push((distance, data.x, data.y, *entity_conn_id));
                 }
 
@@ -493,7 +493,7 @@ fn check_laser_beam_hits(
 
     // Find first entity which is hit by beam
     for &(l, x, y, entity_conn_id) in &nearest_entities {
-        if let Some(intersection) = line_intersect_circle(&beam_line, x, y, PLAYER_RADIUS) {
+        if let Some(intersection) = line_segment_intersect_circle(&beam_line, x, y, PLAYER_RADIUS) {
             return Some((entity_conn_id, l - intersection[6]));
         }
     }

@@ -284,10 +284,50 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
         None
     }
 
+}
+
+pub fn line_segment_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Option<[f32; 8]> {
+
+
+    let (ax, ay) = (line[0], line[1]);
+    let (bx, by) = (line[2], line[3]);
+    let (dx, dy) = (bx - ax, by - ay);
+
+    println!("{}@{} --> {}/{} r{}", cx, cy, bx, by, r);
+
+    let a = dx * dx + dy * dy;
+    let b = 2.0 * (dx * (ax - cx) + dy * (ay - cy));
+
+    let c = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy) - r * r;
+    let det = b * b - 4.0 * a * c;
+
+    if det >= 0.0 {
+
+        // compute first intersection point
+        let t = (-b + det.sqrt()) / (2.0 * a);
+
+        let (fx, fy) = (ax + t * dx, ay + t * dy);
+
+        // compute second intersection point
+        let t = (-b - det.sqrt()) / (2.0 * a);
+        let (gx, gy) = (ax + t * dx, ay + t * dy);
+
+        // projected end of intersection line
+        let (hx, hy) = (fx + (gx - fx) * 0.5, fy + (gy - fy) * 0.5);
+
+        // Overlap
+        let (ox, oy) = (hx - cx, hy - cy);
+        let o = r - (ox * ox + oy * oy).sqrt();
+
+        Some([fx, fy, gx, gy, hx, hy, o, oy.atan2(ox)])
+
+    } else {
+        None
+    }
 
 }
 
-pub fn line_intersect_circle_test(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> bool {
+pub fn line_segment_intersect_circle_test(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> bool {
 
     let (ax, ay) = (line[0], line[1]);
     let (bx, by) = (line[2], line[3]);
@@ -299,7 +339,7 @@ pub fn line_intersect_circle_test(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> 
     let c = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy) - r * r;
     let det = b * b - 4.0 * a * c;
 
-    if det >= 0.0 {
+    if det > 0.0 {
         let t = -b / (2.0 * a);
         t >= 0.0 && t <= 1.0
 
