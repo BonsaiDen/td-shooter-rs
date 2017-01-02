@@ -14,7 +14,7 @@ use super::{Level, MAX_LEVEL_SIZE};
 // Traits ---------------------------------------------------------------------
 pub trait LevelCollision {
     fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4];
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32);
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool);
     fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])>;
     fn collide_beam_wall(&self, x: f32, y: f32, r: f32, l: f32) -> Option<f32>;
     fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])>;
@@ -32,7 +32,7 @@ impl LevelCollision for Level {
         ]
     }
 
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32) {
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool) {
 
         let walls = self.get_walls_in_bounds(&[
             *x - radius,
@@ -72,10 +72,20 @@ impl LevelCollision for Level {
 
             }
 
+            // Avoid edge sliding without player input
+            if active == false && overlap.0.abs() < 0.1 && overlap.1.abs() < 0.1 {
+                break;
+            }
+
             *x -= overlap.0;
             *y -= overlap.1;
 
             iterations += 1;
+
+            // No need to iterate idle entities multiple times per frame
+            if active == false {
+                break;
+            }
 
         }
 

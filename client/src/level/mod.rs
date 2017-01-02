@@ -3,7 +3,7 @@ use graphics::Transformed;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::{Renderer, CircleArc, Line, StencilMode};
+use ::renderer::{Renderer, CircleArc, Polygon, Line, StencilMode};
 use ::camera::Camera;
 use shared::entity::{PlayerData, PLAYER_VISBILITY_CONE, PLAYER_VISBILITY_CONE_OFFSET};
 use shared::level::{
@@ -25,6 +25,7 @@ pub struct Level {
     level: SharedLevel,
     visibility_circle: CircleArc,
     lights: Vec<CachedLightSource>,
+    solids: Vec<Polygon>,
     walls: Vec<Line>
 }
 
@@ -32,11 +33,13 @@ impl Level {
 
     pub fn new(level: SharedLevel) -> Level {
 
+        // Generate light visualizations
         let cached_lights = level.lights.iter().map(|l| {
             CachedLightSource::from_light(&level, l)
 
         }).collect();
 
+        // Generate walls visualizations
         let wall_width = 0.75;
         let cached_walls = level.walls.iter().map(|w| {
 
@@ -46,17 +49,17 @@ impl Level {
             let line = if p[0] == p[2] {
                 [
                     p[0],
-                    p[1] - wall_width * 0.5,
+                    p[1] - wall_width * 0.75,
                     p[2],
-                    p[3] + wall_width * 0.5,
+                    p[3] + wall_width * 0.75,
                 ]
 
             // Adjust vertical endpoints to meetup at edges
             } else if p[1] == p[3] {
                 [
-                    p[0] - wall_width * 0.5,
+                    p[0] - wall_width * 0.75,
                     p[1],
-                    p[2] + wall_width * 0.5,
+                    p[2] + wall_width * 0.75,
                     p[3]
                 ]
 
@@ -75,6 +78,11 @@ impl Level {
 
         }).collect();
 
+        let cached_solids = level.solids.iter().map(|s| {
+            Polygon::new(&s)
+
+        }).collect();
+
         Level {
             level: level,
             visibility_circle: CircleArc::new(
@@ -82,6 +90,7 @@ impl Level {
                 0.0, PLAYER_VISBILITY_CONE
             ),
             lights: cached_lights,
+            solids: cached_solids,
             walls: cached_walls
         }
 
@@ -99,12 +108,16 @@ impl Level {
         _: f32,
         _: bool
     ) {
+
+        // Background layer
         let bounds = self.level.bounds;
+        let context = camera.context();
         renderer.set_color([0.3, 0.3, 0.3, 1.0]);
         renderer.rectangle(
-            camera.context(),
+            context,
             &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
         );
+
     }
 
     pub fn render_lights(
@@ -113,8 +126,6 @@ impl Level {
         camera: &Camera,
         _: bool
     ) {
-
-        // TODO fix random crack lines
 
         // TODO there are potential issues with lights that are very close
         // which might cause the light circle from one light to overlap with
@@ -222,6 +233,13 @@ impl Level {
             wall.render(renderer, &context);
         }
 
+        // Solids
+        // TODO use spatial index to avoid drawing too much
+        renderer.set_color([0.0, 0.0, 0.0, 1.0]);
+        for solid in &self.solids {
+            solid.render(renderer, context);
+        }
+
     }
 
 }
@@ -258,8 +276,8 @@ impl LevelCollision for Level {
         self.level.collision_bounds(x, y)
     }
 
-    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32) {
-        self.level.collide(x, y, radius);
+    fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool) {
+        self.level.collide(x, y, radius, active);
     }
 
     fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])> {

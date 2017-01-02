@@ -76,7 +76,7 @@ impl ParticleSystem {
 
     }
 
-    pub fn render(&mut self, m: &Matrix2d, renderer: &mut Renderer) {
+    pub fn render(&mut self, scale: f32, m: &Matrix2d, renderer: &mut Renderer) {
 
         let mut max_used_particle = 0;
         let mut particle_index = 0;
@@ -91,7 +91,7 @@ impl ParticleSystem {
                     self.first_available_particle = particle.id;
 
                 } else {
-                    renderer.add_particle(particle_index, &particle);
+                    renderer.add_particle(scale, particle_index, &particle);
                     particle_index += 1;
                     max_used_particle = cmp::max(
                         particle.id + 1,

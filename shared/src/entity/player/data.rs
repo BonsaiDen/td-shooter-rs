@@ -148,14 +148,14 @@ impl PlayerData {
         }
 
         // Collision
-        level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS);
+        level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS, dx != 0.0 || dy != 0.0);
 
     }
 
     pub fn update_extrapolated<L: LevelCollision>(state: &mut PlayerData, level: &L) {
         state.x += state.vx;
         state.y += state.vy;
-        level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS);
+        level.collide(&mut state.x, &mut state.y, PLAYER_RADIUS, true);
     }
 
     pub fn merge_client_angle(&mut self, client_r: f32) {

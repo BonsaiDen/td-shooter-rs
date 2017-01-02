@@ -89,6 +89,10 @@ impl Camera {
         self.y = self.y.max(bounds[1]).min(bounds[3]);
     }
 
+    pub fn scalar(&self, s: f32) -> f32 {
+        s * self.ratio
+    }
+
     pub fn s2w(&self, x: f32, y: f32) -> (f32, f32) {
         let divisor = 1.0 / self.ratio;
         (

@@ -36,6 +36,7 @@ pub struct Level {
     pub lights: Vec<LightSource>,
     pub spawns: Vec<LevelSpawn>,
     pub bounds: [f32; 4],
+    pub solids: Vec<Vec<[f32; 2]>>,
     collision_grid: HashMap<(isize, isize), Vec<usize>>,
     visibility_grid: HashMap<(isize, isize), HashSet<usize>>,
     light_sources: Vec<LightSource>
@@ -48,6 +49,7 @@ impl Level {
             walls: Vec::new(),
             lights: Vec::new(),
             spawns: vec![LevelSpawn::new(0.0, 0.0)],
+            solids: Vec::new(),
             bounds: [1000000.0, 1000000.0, -100000.0, -1000000.0],
             collision_grid: HashMap::new(),
             visibility_grid: HashMap::new(),
@@ -111,6 +113,22 @@ impl Level {
                     }
                 }
 
+            }
+
+            // Load solids
+            if let Some(&toml::Value::Array(ref solids)) = value.get("solids") {
+                // TODO create spatial index for these and allow querying to avoid drawing them all at
+                // once
+                for solid in solids {
+                    if let &toml::Value::Array(ref points) = solid {
+                        let points: Vec<f32> = points.into_iter().map(|p| p.as_integer().unwrap() as f32).collect();
+                        let mut pairs = Vec::new();
+                        for i in 0..points.len() / 2 {
+                            pairs.push([points[i * 2], points[i * 2 + 1]]);
+                        }
+                        level.solids.push(pairs);
+                    }
+                }
             }
 
         }

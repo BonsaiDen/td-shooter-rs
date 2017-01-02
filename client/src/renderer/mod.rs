@@ -426,12 +426,12 @@ impl Renderer {
         self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
     }
 
-    pub fn add_particle(&mut self, index: usize, p: &Particle) {
+    pub fn add_particle(&mut self, scale: f32, index: usize, p: &Particle) {
 
         let v = index * 2;
         self.particle_position[v] = p.x;
         self.particle_position[v + 1] = p.y;
-        self.particle_scale[v] = p.size;
+        self.particle_scale[v] = p.size * scale;
 
         let lp = 1.0 / p.lifetime * p.remaining;
         let a = if lp <= p.fadeout {
@@ -666,7 +666,7 @@ fn create_pipeline(
 
 ) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
 
-    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
+    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace, RasterMethod};
     use gfx::traits::*;
     use shaders_graphics2d::colored;
 
@@ -712,6 +712,8 @@ fn create_pipeline(
 
         let mut r = Rasterizer::new_fill();
         r.cull_face = CullFace::Front;
+        // TODO add pipeline to toggle triangle rendering mode
+        //r.method = RasterMethod::Line(1);
         r.samples = Some(MultiSample);
 
         factory.create_pipeline_from_program(

@@ -360,8 +360,8 @@ impl Client {
 
         // Particles
         {
-            let context = self.camera.context();
-            self.particle_system.render(&context.transform, renderer);
+            let (scale, context) = (self.camera.scalar(0.4), self.camera.context());
+            self.particle_system.render(scale, &context.transform, renderer);
         }
 
         // Lights
