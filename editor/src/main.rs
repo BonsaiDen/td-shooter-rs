@@ -71,33 +71,6 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
                 lines.push((line, dr));
             }
 
-            /*
-            for (i, &(line, d)) in lines.iter().enumerate() {
-                for (j, &(other, od)) in lines.iter().enumerate() {
-                    if j != i && d == od {
-
-                        // Overlap Start Start
-                        if line[0] == other[0] && line[1] == other[1] {
-                            println!("Overlapping start<>start");
-
-                        // Overlap End End
-                        } else if line[2] == other[2] && line[3] == other[3] {
-                            println!("Overlapping end<>end");
-
-                        // Overlap Start End
-                        } else if line[0] == other[2] && line[1] == other[3] {
-                            println!("Overlapping start<>end");
-
-                        // Overlap End Start
-                        } else if line[2] == other[0] && line[3] == other[1] {
-                            println!("Overlapping end<>start");
-                        }
-
-                    }
-                }
-            }
-            */
-
             for (l, _) in lines {
 
                 let p = [
@@ -195,57 +168,88 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
 fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
 
     let (w, h) = img.dimensions();
-    let mut paths = Vec::new();
-    let mut bounds = [w as i32, h as i32, 0, 0];
     let mut pixel_usage: HashSet<(i32, i32)> = HashSet::new();
 
-    for y in 0..h {
-        for x in 0..w {
+    let (bounds, mut paths) = extract_paths(
+        img,
+        &mut pixel_usage,
+        false,
+        &[0, 0, w as i32, h as i32]
+    );
+
+    let (_, mut solid_paths) = extract_paths(
+        img,
+        &mut pixel_usage,
+        true,
+        &bounds
+    );
+
+    paths.append(&mut solid_paths);
+
+    (bounds, paths)
+
+}
+
+
+fn extract_paths(
+    img: &image::DynamicImage,
+    pixel_usage: &mut HashSet<(i32, i32)>,
+    solids: bool,
+    outer_bounds: &[i32; 4]
+
+) -> ([i32; 4], Vec<TracedPath>) {
+
+    let mut paths = Vec::new();
+    let mut bounds = [
+        outer_bounds[2], outer_bounds[3],
+        outer_bounds[0], outer_bounds[1]
+    ];
+
+    for y in outer_bounds[1]..outer_bounds[3] {
+        for x in outer_bounds[0]..outer_bounds[2] {
 
             // Ignores pixels which are already part of a path
             if !pixel_usage.contains(&(x as i32, y as i32)) {
 
                 // Start tracing a new path
-                let path_type = get_path_type(&img.get_pixel(x, y));
+                let path_type = get_path_type(x, y, img, solids, outer_bounds);
                 if let Some(path_type) = path_type {
-
 
                     let mut px = x as i32;
                     let mut py = y as i32;
 
                     pixel_usage.insert((px, py));
 
-
-                    let (w, h) = (w as i32, h as i32);
+                    let (w, h) = (outer_bounds[2], outer_bounds[3]);
                     let mut pixels = Vec::new();
                     let mut first_pixel = true;
                     let mut lr = 0;
                     loop {
 
                         // Check top right bottom left first
-                        let m = if is_valid_path_pixel(px, py - 1, &img, &pixel_usage, w, h, path_type) {
+                        let m = if is_valid_path_pixel(px, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px, py - 1, 0, Direction::Vertical))
 
-                        } else if is_valid_path_pixel(px + 1, py, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px + 1, py, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px + 1, py, 90, Direction::Horizontal))
 
-                        } else if is_valid_path_pixel(px, py + 1, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px, py + 1, 180, Direction::Vertical))
 
-                        } else if is_valid_path_pixel(px - 1, py, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px - 1, py, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px - 1, py, 270, Direction::Horizontal))
 
                         // Check topright bottomright bottomleft topleft second
-                        } else if is_valid_path_pixel(px + 1, py - 1, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px + 1, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                        } else if is_valid_path_pixel(px + 1, py + 1, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px + 1, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                        } else if is_valid_path_pixel(px - 1, py + 1, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px - 1, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                        } else if is_valid_path_pixel(px - 1, py - 1, &img, &pixel_usage, w, h, path_type) {
+                        } else if is_valid_path_pixel(px - 1, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
                             Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                         } else {
@@ -273,29 +277,29 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
                         } else {
 
                             // Merge with adjacent paths at the end
-                            let m = if lr == 0 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type) {
+                            let m = if lr == 0 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px, py - 1, 0, Direction::Vertical))
 
-                            } else if lr == 90 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type) {
+                            } else if lr == 90 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py, 90, Direction::Horizontal))
 
-                            } else if lr == 180 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type) {
+                            } else if lr == 180 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px, py + 1, 180, Direction::Vertical))
 
-                            } else if lr == 270 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type) {
+                            } else if lr == 270 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py, 270, Direction::Horizontal))
 
                             // Check topright bottomright bottomleft topleft second
-                            } else if lr == 45 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type) {
+                            } else if lr == 45 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                            } else if lr == 135 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type) {
+                            } else if lr == 135 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                            } else if lr == 225 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type) {
+                            } else if lr == 225 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                            } else if lr == 315 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type) {
+                            } else if lr == 315 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                             } else {
@@ -308,29 +312,29 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
 
                             // Merge with adjacent paths at the end
                             let (px, py, lr, _) = pixels[0];
-                            let m = if lr == 180 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type) {
+                            let m = if lr == 180 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px, py - 1, 0, Direction::Vertical))
 
-                            } else if lr == 270 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type) {
+                            } else if lr == 270 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py, 90, Direction::Horizontal))
 
-                            } else if lr == 00 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type) {
+                            } else if lr == 00 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px, py + 1, 180, Direction::Vertical))
 
-                            } else if lr == 90 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type) {
+                            } else if lr == 90 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py, 270, Direction::Horizontal))
 
                             // Check topright bottomright bottomleft topleft second
-                            } else if lr == 225 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type) {
+                            } else if lr == 225 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                            } else if lr == 315 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type) {
+                            } else if lr == 315 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                            } else if lr == 45 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type) {
+                            } else if lr == 45 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                            } else if lr == 135 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type) {
+                            } else if lr == 135 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
                                 Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                             } else {
@@ -340,7 +344,6 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
                             if let Some((nx, ny, r, d)) = m {
                                 pixels.insert(0, (nx, ny, r, d));
                             }
-
 
                             break;
 
@@ -366,7 +369,7 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
 
 
 // Types -----------------------------------------------------------------------
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum TracedPathType {
     Wall,
     Light,
@@ -374,6 +377,7 @@ enum TracedPathType {
     Solid
 }
 
+#[derive(Debug)]
 struct TracedPath {
     typ: TracedPathType,
     pixels: Vec<(i32, i32, u32, Direction)>
@@ -421,13 +425,15 @@ fn is_valid_path_pixel(
     img: &image::DynamicImage,
     usage: &HashSet<(i32, i32)>,
     w: i32, h: i32,
-    path_type: TracedPathType
+    path_type: TracedPathType,
+    check_solids: bool,
+    bounds: &[i32; 4]
 
 ) -> bool {
 
     if x >= 0 && x < w && y >= 0 && y < h {
         if !usage.contains(&(x, y)) {
-            if let Some(p) = get_path_type(&img.get_pixel(x as u32, y as u32)) {
+            if let Some(p) = get_path_type(x, y, img, check_solids, bounds) {
                 p == path_type
 
             } else {
@@ -448,12 +454,14 @@ fn is_potential_path_pixel(
     x: i32, y: i32,
     img: &image::DynamicImage,
     w: i32, h: i32,
-    path_type: TracedPathType
+    path_type: TracedPathType,
+    check_solids: bool,
+    bounds: &[i32; 4]
 
 ) -> bool {
 
     if x >= 0 && x < w && y >= 0 && y < h {
-        if let Some(p) = get_path_type(&img.get_pixel(x as u32, y as u32)) {
+        if let Some(p) = get_path_type(x, y, img, check_solids, bounds) {
             p == path_type
 
         } else {
@@ -466,18 +474,23 @@ fn is_potential_path_pixel(
 
 }
 
-fn get_path_type(pixel: &image::Rgba<u8>) -> Option<TracedPathType> {
+fn get_path_type(x: i32, y: i32, img: &image::DynamicImage, solids: bool, bounds: &[i32; 4]) -> Option<TracedPathType> {
+
+    let pixel = img.get_pixel(x as u32, y as u32);
     let (r, g, b) = (pixel.data[0], pixel.data[1], pixel.data[2]);
-    if r == 255 && g == 255 && b == 255 {
+    if solids && r == 255 && g == 0 && b == 255 {
+        if any_wall_or_edge(x, y, img, bounds) {
+            Some(TracedPathType::Solid)
+
+        } else {
+            None
+        }
+
+    } else if r == 255 && g == 255 && b == 255 {
         Some(TracedPathType::Wall)
 
     } else if r == 255 && g == 255 && b == 0 {
         Some(TracedPathType::Light)
-
-    // TODO Automatically parse:
-    // > pixel IS pink AND (neighbor is out of bounds OR neighbor is a wall)
-    } else if r == 0 && g == 255 && b == 0 {
-        Some(TracedPathType::Solid)
 
     } else if r == 0 && g == 255 && b == 255 {
         Some(TracedPathType::Spawn)
@@ -485,5 +498,23 @@ fn get_path_type(pixel: &image::Rgba<u8>) -> Option<TracedPathType> {
     } else {
         None
     }
+}
+
+fn any_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]) -> bool {
+    is_wall_or_edge(x, y - 1, img, bounds)
+        || is_wall_or_edge(x - 1,     y, img, bounds)
+        || is_wall_or_edge(x + 1, y, img, bounds)
+        || is_wall_or_edge(x, y + 1, img, bounds)
+}
+
+fn is_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]) -> bool {
+    if x < bounds[0] || x >= bounds[2] || y <= bounds[1] || y > bounds[3] {
+        true
+
+    } else {
+        let pixel = img.get_pixel(x as u32, y as u32);
+        pixel.data[0] == 255 && pixel.data[1] == 255 && pixel.data[2] == 255
+    }
+
 }
 
