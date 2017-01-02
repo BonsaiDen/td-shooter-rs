@@ -3,12 +3,13 @@ use std::f32::consts;
 use std::collections::HashSet;
 
 
-// Statics --------------------------------------------------------------------
-pub const COLLISION_GRID_SPACING: f32 = 100.0;
-
-
 // Internal Dependencies ------------------------------------------------------
+use ::entity::PLAYER_RADIUS;
 use super::{Level, MAX_LEVEL_SIZE};
+
+
+// Statics --------------------------------------------------------------------
+pub const COLLISION_GRID_SPACING: f32 = PLAYER_RADIUS * 4.0;
 
 
 // Traits ---------------------------------------------------------------------
@@ -292,8 +293,6 @@ pub fn line_segment_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) 
     let (ax, ay) = (line[0], line[1]);
     let (bx, by) = (line[2], line[3]);
     let (dx, dy) = (bx - ax, by - ay);
-
-    println!("{}@{} --> {}/{} r{}", cx, cy, bx, by, r);
 
     let a = dx * dx + dy * dy;
     let b = 2.0 * (dx * (ax - cx) + dy * (ay - cy));

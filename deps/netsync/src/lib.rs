@@ -237,7 +237,6 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
     pub fn get_absolute(&self, tick: u8) -> P {
         let ticks_ago = cmp::max(0, self.last_input_tick as isize - tick as isize) as usize;
-        println!("get absolute: {}  last input: {} -> ago: {}", tick, self.last_input_tick, ticks_ago);
         self.get_relative(ticks_ago)
     }
 

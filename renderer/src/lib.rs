@@ -1,22 +1,30 @@
+// Crates ---------------------------------------------------------------------
+#[macro_use]
+extern crate gfx;
+extern crate gfx_window_glutin;
+extern crate gfx_device_gl;
+extern crate glutin;
+extern crate glutin_window;
+extern crate shaders_graphics2d;
+extern crate shader_version;
+extern crate clock_ticks;
+extern crate draw_state;
+extern crate graphics;
+extern crate piston;
+
+
 // STD Dependencies -----------------------------------------------------------
 use std::iter;
 use std::time::Duration;
 
 
-// External Dependencies ------------------------------------------------------
-use clock_ticks;
-
-
 // Glutin Dependencies --------------------------------------------------------
-use glutin;
 use glutin_window::GlutinWindow;
-use shader_version::{ OpenGL, Shaders };
+use shader_version::{OpenGL, Shaders};
 use shader_version::glsl::GLSL;
 
 
 // GFX Dependencies -----------------------------------------------------------
-use gfx_device_gl;
-use gfx;
 use gfx::Device;
 use gfx::Factory;
 use gfx::traits::FactoryExt;
@@ -39,15 +47,12 @@ use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
 
 
 // Modules --------------------------------------------------------------------
-mod shapes;
-pub use self::shapes::*;
+mod util;
+mod shape;
+pub use self::shape::*;
 
 mod stencil;
 pub use self::stencil::*;
-
-
-// Internal Dependencies ------------------------------------------------------
-use ::particle_system::Particle;
 
 
 // Statics --------------------------------------------------------------------
@@ -154,7 +159,6 @@ gfx_pipeline_base!( pipe_colored {
     blend_target: gfx::BlendTarget<gfx::format::Srgba8>,
     stencil_target: gfx::StencilTarget<gfx::format::DepthStencil>,
     blend_ref: gfx::BlendRef,
-    scissor: gfx::Scissor,
 });
 
 
@@ -452,24 +456,19 @@ impl Renderer {
         self.draw_triangle_list(&context.transform, &Line::vertices(p, width));
     }
 
-    pub fn add_particle(&mut self, scale: f32, index: usize, p: &Particle) {
+    pub fn add_particle(
+        &mut self,
+        scale: f32, index: usize,
+        x: f32, y: f32, size: f32,
+        color: &[f32; 4]
+    ) {
 
         let v = index * 2;
-        self.particle_position[v] = p.x;
-        self.particle_position[v + 1] = p.y;
-        self.particle_scale[v] = p.size * scale;
+        self.particle_position[v] = x;
+        self.particle_position[v + 1] = y;
+        self.particle_scale[v] = size * scale;
 
-        let lp = 1.0 / p.lifetime * p.remaining;
-        let a = if lp <= p.fadeout {
-            1.0 / (p.lifetime * p.fadeout) * p.remaining.max(0.0)
-
-        } else {
-            1.0
-        };
-
-        self.particle_color[index] = gamma_srgb_to_linear([
-            p.color[0], p.color[1], p.color[2], p.color[3] * a
-        ]);
+        self.particle_color[index] = gamma_srgb_to_linear(*color);
 
     }
 
@@ -597,9 +596,6 @@ impl Renderer {
 
         if self.buffer_offset > 0 {
 
-            use draw_state::target::Rect;
-            use std::u16;
-
             self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
                 view: self.buffer_matrix
             });
@@ -626,8 +622,7 @@ impl Renderer {
                     self.output_stencil.clone(),
                     (stencil_val, stencil_val)
                 ),
-                blend_ref: [1.0; 4],
-                scissor: Rect { x: 0, y: 0, w: u16::MAX, h: u16::MAX }
+                blend_ref: [1.0; 4]
             };
 
             let slice = gfx::Slice {
@@ -757,8 +752,7 @@ fn create_pipeline(
                 color: (),
                 blend_target: ("o_Color", color_mask, blend_preset),
                 stencil_target: stencil,
-                blend_ref: (),
-                scissor: (),
+                blend_ref: ()
             }
 
         ).unwrap()

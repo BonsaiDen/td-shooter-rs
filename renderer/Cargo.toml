@@ -1,0 +1,20 @@
+[package]
+name = "renderer"
+version = "0.1.0"
+authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
+
+
+[dependencies]
+clock_ticks = "*"
+
+piston = "0.26.0"
+piston2d-graphics = "0.19.0"
+draw_state = "0.6.0"
+piston-shaders_graphics2d = "0.2.1"
+shader_version = "0.2.1"
+gfx = "0.13.0"
+gfx_window_glutin = "0.13"
+gfx_device_gl = "0.12.0"
+pistoncore-glutin_window = "0.31.0"
+glutin = "0.6.2"
+

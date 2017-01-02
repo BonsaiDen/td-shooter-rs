@@ -91,12 +91,29 @@ impl ParticleSystem {
                     self.first_available_particle = particle.id;
 
                 } else {
-                    renderer.add_particle(scale, particle_index, &particle);
+
+                    let lp = 1.0 / particle.lifetime * particle.remaining;
+                    let a = if lp <= particle.fadeout {
+                        1.0 / (particle.lifetime * particle.fadeout) * particle.remaining.max(0.0)
+
+                    } else {
+                        1.0
+                    };
+
+                    particle.color[3] = a;
+                    renderer.add_particle(
+                        scale, particle_index,
+                        particle.x, particle.y,
+                        particle.size,
+                        &particle.color
+                    );
+
                     particle_index += 1;
                     max_used_particle = cmp::max(
                         particle.id + 1,
                         max_used_particle
                     );
+
                 }
 
             }

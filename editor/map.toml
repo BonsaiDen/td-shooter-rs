@@ -21,9 +21,9 @@ x = 34
 y = 19
 
 [[lights]]
-radius = 18
+radius = 49
 x = 159
-y = 39
+y = 44
 
 [[spawns]]
 x = 149

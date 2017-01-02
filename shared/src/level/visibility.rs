@@ -198,7 +198,12 @@ impl Level {
 
     }
 
-    fn get_visibility_segments(&self, x: f32, y: f32, walls: &HashSet<usize>) -> (Vec<Segment>, Vec<Endpoint>) {
+    fn get_visibility_segments(
+        &self,
+        x: f32, y: f32,
+        walls: &HashSet<usize>
+
+    ) -> (Vec<Segment>, Vec<Endpoint>) {
 
         // Go through all walls in range
         let mut endpoints = Vec::new();
@@ -208,6 +213,7 @@ impl Level {
             let wall = &self.walls[*i];
 
             // Calculate endpoints
+            // TODO can we exclude walls outside of our viewing cone?
             let r1 = endpoint_angle(wall.points[0], wall.points[1], x, y);
             let r2 = endpoint_angle(wall.points[2], wall.points[3], x, y);
 
@@ -293,7 +299,7 @@ impl Level {
 
                 // Get current open segment to check if it changed later on
                 // TODO optimize all of these
-                let open_segment_index = open_segments.get(0).map_or(-1, |i| *i);
+                let open_segment_index = open_segments.first().map_or(-1, |i| *i);
 
                 if endpoint.begins_segment {
 
@@ -304,7 +310,10 @@ impl Level {
                         x, y,
                         &segments[endpoint.segment_index],
                         &segments[segment_index as usize]
-                    )  {
+
+                    ) {
+                        // TODO potential lockup here?
+                        // should not happen since we exit with the assignment of -1?
                         index += 1;
                         segment_index = open_segments.get(index).map_or(-1, |i| *i);
                     }
@@ -324,7 +333,7 @@ impl Level {
 
                 // Check if open segment has changed
                 // TODO Clean up access
-                if open_segment_index != open_segments.get(0).map_or(-1, |i| *i) {
+                if open_segment_index != open_segments.first().map_or(-1, |i| *i) {
 
                     if pass == 1 {
 
@@ -391,22 +400,18 @@ fn interpolate_point(ax: f32, ay: f32, bx: f32, by: f32, f: f32) -> (f32, f32) {
 
 fn segment_in_front_of(x: f32, y: f32, a: &Segment, b: &Segment) -> bool {
 
-    let a1 = point_left_of(a, interpolate_point(b.p1.x, b.p1.y, b.p2.x, b.p2.y, 0.01));
-    let a2 = point_left_of(a, interpolate_point(b.p2.x, b.p2.y, b.p1.x, b.p1.y, 0.01));
-    let a3 = point_left_of(a, (x, y));
     let b1 = point_left_of(b, interpolate_point(a.p1.x, a.p1.y, a.p2.x, a.p2.y, 0.01));
     let b2 = point_left_of(b, interpolate_point(a.p2.x, a.p2.y, a.p1.x, a.p1.y, 0.01));
-    let b3 = point_left_of(b, (x, y));
 
-    if b1 == b2 && b2 != b3 {
-        true
-
-    } else if a1 == a2 && a2 == a3 {
+    if b1 == b2 && b2 != point_left_of(b, (x, y)) {
         true
 
     } else {
-        false
+        let a1 = point_left_of(a, interpolate_point(b.p1.x, b.p1.y, b.p2.x, b.p2.y, 0.01));
+        let a2 = point_left_of(a, interpolate_point(b.p2.x, b.p2.y, b.p1.x, b.p1.y, 0.01));
+        a1 == a2 && a2 == point_left_of(a, (x, y))
     }
+
 }
 
 fn get_triangle_points(

@@ -7,7 +7,10 @@ use graphics::Transformed;
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
 use ::renderer::{Renderer, LightPoylgon, Circle};
-use ::shared::level::{Level, LightSource, LevelVisibility, line_intersect_circle_test};
+use ::shared::level::{
+    Level, LightSource, LevelVisibility,
+    line_segment_intersect_circle_test
+};
 
 
 // Cached Light Source for Fast Rendering -------------------------------------
@@ -34,7 +37,7 @@ impl CachedLightSource {
         // in the first pass of the stencil buffer
         let mut clipped_walls = 0;
         for w in &level.walls {
-            if line_intersect_circle_test(&w.points, light.x, light.y, light.radius) {
+            if line_segment_intersect_circle_test(&w.points, light.x, light.y, light.radius) {
                 clipped_walls += 1;
             }
         }

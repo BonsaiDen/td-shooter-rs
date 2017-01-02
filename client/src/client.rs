@@ -17,13 +17,13 @@ use shared::action::Action;
 use shared::color::ColorName;
 use shared::level::LevelCollision;
 use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL};
+use renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 
 use ::level::Level;
 use ::camera::Camera;
 use ::entity::{Entity, Registry};
 use ::particle_system::ParticleSystem;
 use ::effect::{Effect, LaserBeam, LaserBeamHit};
-use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 
 
 // Client Implementation ------------------------------------------------------
@@ -39,7 +39,7 @@ pub struct Client {
     camera: Camera,
     effects: Vec<Box<Effect>>,
     particle_system: ParticleSystem,
-    debug_draw: bool,
+    debug_level: u8,
 
     // Player Colors
     // TODO optimize these?
@@ -70,7 +70,7 @@ impl Client {
             camera: Camera::new(width, height),
             effects: Vec::new(),
             particle_system: ParticleSystem::new(MAX_PARTICLES),
-            debug_draw: false,
+            debug_level: 0,
 
             // Colors
             player_colors: [[0f32; 4]; 2],
@@ -105,7 +105,7 @@ impl Client {
                     // TODO play laser SFX
                     self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
 
-                    if self.debug_draw {
+                    if self.debug_level == 1 {
                         self.effects.push(Box::new(LaserBeam::from_point(
                             &mut self.particle_system,
                             ColorName::Grey,
@@ -125,7 +125,7 @@ impl Client {
             }
         }
         if let Some(value) = e.mouse_scroll_args() {
-            if self.debug_draw {
+            if self.debug_level > 0 {
                 self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
             }
         }
@@ -133,7 +133,10 @@ impl Client {
         if let Some(Button::Keyboard(key)) = e.press_args() {
 
             if key == Key::G {
-                self.debug_draw = !self.debug_draw;
+                self.debug_level += 1;
+                if self.debug_level == 5 {
+                    self.debug_level = 0;
+                }
             }
 
             if key == Key::P {
@@ -323,7 +326,7 @@ impl Client {
             &self.camera,
             self.player_data.x,
             self.player_data.y,
-            self.debug_draw
+            self.debug_level
         );
 
         {
@@ -366,7 +369,7 @@ impl Client {
         level.render_lights(
             renderer,
             &self.camera,
-            self.debug_draw
+            self.debug_level
         );
 
         // Visibility / shadows
@@ -374,7 +377,7 @@ impl Client {
             renderer,
             &self.camera,
             &self.player_data,
-            self.debug_draw
+            self.debug_level
         );
 
         // Level Walls
@@ -383,7 +386,7 @@ impl Client {
             &self.camera,
             self.player_data.x,
             self.player_data.y,
-            self.debug_draw
+            self.debug_level
         );
 
         // HUD

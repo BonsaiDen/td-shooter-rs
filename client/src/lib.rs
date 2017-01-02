@@ -8,17 +8,9 @@
 
 
 // Crates ---------------------------------------------------------------------
-#[macro_use]
-extern crate gfx;
-extern crate gfx_window_glutin;
-extern crate gfx_device_gl;
-extern crate glutin_window;
-extern crate shaders_graphics2d;
-extern crate shader_version;
-extern crate draw_state;
 extern crate graphics;
 extern crate piston;
-extern crate glutin;
+extern crate renderer;
 
 extern crate rand;
 extern crate clock_ticks;
@@ -35,7 +27,6 @@ mod client;
 mod effect;
 mod entity;
 mod level;
-mod renderer;
 mod particle_system;
 
 
@@ -51,8 +42,8 @@ use piston::event_loop::*;
 
 
 // Internal Dependencies ------------------------------------------------------
-use renderer::Renderer;
 use ::entity::{Entity, Registry};
+use renderer::Renderer;
 use shared::UPDATES_PER_SECOND;
 use shared::level::Level as SharedLevel;
 use level::Level;
@@ -76,7 +67,7 @@ pub fn run(updates_per_second: u64, mut network: cobalt::ClientStream) {
     // Events
     let mut events = renderer.events();
     events.set_ups(UPDATES_PER_SECOND);
-    events.set_max_fps(90);
+    events.set_max_fps(60);
 
     // Level
     let level = Level::new(SharedLevel::load());

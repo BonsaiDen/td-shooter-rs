@@ -106,7 +106,7 @@ impl Level {
         camera: &Camera,
         _: f32,
         _: f32,
-        _: bool
+        _: u8
     ) {
 
         // Background layer
@@ -124,7 +124,7 @@ impl Level {
         &self,
         renderer: &mut Renderer,
         camera: &Camera,
-        _: bool
+        debug_level: u8
     ) {
 
         // TODO there are potential issues with lights that are very close
@@ -132,13 +132,18 @@ impl Level {
         // the visibility cone of another light
 
         // Render light clipping visibility cones into stencil
-        renderer.set_stencil_mode(StencilMode::Replace(254));
+        if debug_level != 3 {
+            renderer.set_stencil_mode(StencilMode::Replace(254));
+        }
         for light in &self.lights {
             light.render_visibility_stencil(renderer, camera);
         }
 
         // Render light circles into stencil combining with the cones
-        renderer.set_stencil_mode(StencilMode::Add);
+        if debug_level != 3 {
+            renderer.set_stencil_mode(StencilMode::Add);
+        }
+
         for light in &self.lights {
             light.render_light_stencil(renderer, camera);
         }
@@ -146,12 +151,14 @@ impl Level {
         // Render light color circles based on stencil
         let bounds = camera.b2w();
         let s = 1.0 - ((renderer.t() as f32 * 0.003).cos() * 0.03).abs();
-        renderer.set_stencil_mode(StencilMode::InsideLightCircle);
-        renderer.set_color([0.9 * s, 0.7, 0.0, 0.15]);
-        renderer.rectangle(
-            camera.context(),
-            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
-        );
+        if debug_level != 3 {
+            renderer.set_stencil_mode(StencilMode::InsideLightCircle);
+            renderer.set_color([0.9 * s, 0.7, 0.0, 0.15]);
+            renderer.rectangle(
+                camera.context(),
+                &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+            );
+        }
 
         // Render inner light circles
         renderer.set_color([0.9 * s, 0.6, 0.0, 0.2]);
@@ -174,7 +181,7 @@ impl Level {
         renderer: &mut Renderer,
         camera: &Camera,
         data: &PlayerData,
-        _: bool
+        debug_level: u8
     ) {
 
         let bounds = camera.b2w();
@@ -188,7 +195,13 @@ impl Level {
         if data.hp > 0 {
 
             // Render player visibility cone but only where there
-            renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
+            if debug_level != 4 {
+                renderer.set_stencil_mode(StencilMode::ReplaceNonLightCircle);
+
+            } else {
+                renderer.set_stencil_mode(StencilMode::None);
+                renderer.set_color([1.0, 1.0, 0.0, 0.5]);
+            }
             renderer.light_polygon(&context, data.x, data.y, &endpoints);
 
             // Render player visibility circle
@@ -196,18 +209,23 @@ impl Level {
                 -PLAYER_VISBILITY_CONE_OFFSET as f64,
                 0.0
             );
-            renderer.set_stencil_mode(StencilMode::Add);
+
+            if debug_level != 4 {
+                renderer.set_stencil_mode(StencilMode::Add);
+            }
             self.visibility_circle.render(renderer, &q);
 
         }
 
         // Render shadows
-        renderer.set_stencil_mode(StencilMode::OutsideVisibleArea);
-        renderer.set_color([0.0, 0.0, 0.0, 0.75]);
-        renderer.rectangle(
-            camera.context(),
-            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
-        );
+        if debug_level != 4 {
+            renderer.set_stencil_mode(StencilMode::OutsideVisibleArea);
+            renderer.set_color([0.0, 0.0, 0.0, 0.75]);
+            renderer.rectangle(
+                camera.context(),
+                &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+            );
+        }
 
         renderer.set_stencil_mode(StencilMode::None);
 
@@ -219,7 +237,7 @@ impl Level {
         camera: &Camera,
         _: f32,
         _: f32,
-        debug_draw: bool
+        debug_level: u8
     ) {
 
         renderer.set_color([0.8, 0.8, 0.8, 1.0]);
@@ -234,12 +252,13 @@ impl Level {
         }
 
         // Solids
-        if debug_draw {
+        if debug_level == 2 {
             renderer.set_color([1.0, 0.0, 1.0, 1.0]);
 
         } else {
             renderer.set_color([0.0, 0.0, 0.0, 1.0]);
         }
+
         for solid in &self.solids {
             if aabb_intersect(&solid.aabb, &bounds) {
                 solid.render(renderer, context);
