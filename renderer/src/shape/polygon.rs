@@ -3,8 +3,8 @@ use graphics::Context;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::util::triangulate;
 use ::Renderer;
+use super::util::triangulate;
 
 
 // Concave Polygon ------------------------------------------------------------

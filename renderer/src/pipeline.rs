@@ -1,6 +1,13 @@
-// GFX Dependencies -----------------------------------------------------------
+// External Dependencies ------------------------------------------------------
 use gfx;
 use gfx_device_gl;
+use gfx::pso::PipelineState;
+use shader_version::{OpenGL, Shaders};
+use shader_version::glsl::GLSL;
+
+
+// Internal Dependencies ------------------------------------------------------
+use ::data::*;
 
 
 // Stencil Mode ---------------------------------------------------------------
@@ -16,8 +23,8 @@ pub enum StencilMode {
 }
 
 
-// Stencil Pipeline -----------------------------------------------------------
-pub struct ColoredStencil<T> {
+// Rendering Pipeline with Stencil Modes --------------------------------------
+pub struct RenderPipeline<T> {
     none: T,
     add: T,
     clear_light_cones: T,
@@ -27,12 +34,13 @@ pub struct ColoredStencil<T> {
     outside_visible: T,
 }
 
-impl<T> ColoredStencil<T> {
+impl<T> RenderPipeline<T> {
 
     pub fn new<F>(
         factory: &mut gfx_device_gl::Factory,
         f: F
-    ) -> ColoredStencil<T> where F: Fn(
+
+    ) -> RenderPipeline<T> where F: Fn(
         &mut gfx_device_gl::Factory,
         gfx::state::Blend,
         gfx::state::Stencil,
@@ -43,7 +51,7 @@ impl<T> ColoredStencil<T> {
         use gfx::preset::blend;
         use gfx::state::{Comparison, Stencil, StencilOp};
 
-        ColoredStencil {
+        RenderPipeline {
 
             none: f(factory, blend::ALPHA, Stencil::new(
                 Comparison::Always,
@@ -114,6 +122,86 @@ impl<T> ColoredStencil<T> {
             StencilMode::InsideLightCircle => (&mut self.inside_visible, 255),
             StencilMode::OutsideVisibleArea => (&mut self.outside_visible, 255)
         }
+    }
+
+
+    // Statics ----------------------------------------------------------------
+    pub fn create(
+        opengl: OpenGL,
+        factory: &mut gfx_device_gl::Factory,
+        primitive: gfx::Primitive,
+        method: gfx::state::RasterMethod
+
+    ) -> RenderPipeline<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
+
+        use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
+        use gfx::traits::*;
+        use shaders_graphics2d::colored;
+
+        let glsl = opengl.to_glsl();
+
+        let shader_program = if primitive == gfx::Primitive::TriangleList {
+            factory.link_program(
+                Shaders::new()
+                    .set(GLSL::V1_20, TRIANGLE_VERTEX_SHADER_120)
+                    .set(GLSL::V1_50, TRIANGLE_VERTEX_SHADER_150)
+                    .get(glsl).unwrap(),
+
+                Shaders::new()
+                    .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
+                    .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
+                    .get(glsl).unwrap(),
+
+            ).unwrap()
+
+        } else {
+            factory.link_program(
+                Shaders::new()
+                    .set(GLSL::V1_20, POINT_VERTEX_SHADER_120)
+                    .set(GLSL::V1_50, POINT_VERTEX_SHADER_150)
+                    .get(glsl).unwrap(),
+
+                Shaders::new()
+                    .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
+                    .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
+                    .get(glsl).unwrap(),
+
+            ).unwrap()
+        };
+
+        let polygon_pipeline = |
+            factory: &mut gfx_device_gl::Factory,
+            blend_preset: Blend,
+            stencil: Stencil,
+            color_mask: gfx::state::ColorMask,
+
+        | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
+
+            let mut r = Rasterizer::new_fill();
+            r.cull_face = CullFace::Front;
+            r.method = method;
+            r.samples = Some(MultiSample);
+
+            factory.create_pipeline_from_program(
+                &shader_program,
+                primitive,
+                r,
+                pipe_colored::Init {
+                    pos: (),
+                    scale: (),
+                    locals: "Locals",
+                    color: (),
+                    blend_target: ("o_Color", color_mask, blend_preset),
+                    stencil_target: stencil,
+                    blend_ref: ()
+                }
+
+            ).unwrap()
+
+        };
+
+        RenderPipeline::new(factory, polygon_pipeline)
+
     }
 
 }

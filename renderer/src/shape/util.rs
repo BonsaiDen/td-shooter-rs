@@ -1,11 +1,11 @@
 // Geometry utilities ---------------------------------------------------------
 pub fn triangulate(mut points: Vec<[f32; 2]>) -> Vec<f32> {
 
+    // Ear cutting requires the polygon's points to be in anti-clockwise order
     if is_clockwise(&points) {
         points = points.into_iter().rev().collect();
     }
 
-    // Triangulate anti-clockwise polygons.
     let mut triangles = Vec::new();
     while points.len() >= 3 {
         if let Some(triangle) = get_ear(&mut points) {

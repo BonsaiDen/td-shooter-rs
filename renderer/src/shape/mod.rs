@@ -4,6 +4,7 @@ mod circle_arc;
 mod light_polygon;
 mod line;
 mod polygon;
+mod util;
 
 
 // Re-Exports -----------------------------------------------------------------

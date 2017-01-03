@@ -20,8 +20,7 @@ use std::time::Duration;
 
 // Glutin Dependencies --------------------------------------------------------
 use glutin_window::GlutinWindow;
-use shader_version::{OpenGL, Shaders};
-use shader_version::glsl::GLSL;
+use shader_version::OpenGL;
 
 
 // GFX Dependencies -----------------------------------------------------------
@@ -47,119 +46,19 @@ use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
 
 
 // Modules --------------------------------------------------------------------
-mod util;
+mod data;
 mod shape;
-pub use self::shape::*;
+mod pipeline;
 
-mod stencil;
-pub use self::stencil::*;
+use self::data::*;
+use self::pipeline::RenderPipeline;
+pub use self::shape::*;
+pub use self::pipeline::StencilMode;
 
 
 // Statics --------------------------------------------------------------------
 pub const MAX_PARTICLES: usize = 400;
-const POS_COMPONENTS: usize = 2;
 const CHUNKS: usize = 100;
-
-static TRIANGLE_VERTEX_SHADER_120: &'static [u8] = br#"
-    #version 120
-    attribute vec4 color;
-    attribute vec2 pos;
-
-    varying vec4 v_Color;
-    uniform mat4 u_View;
-
-    void main() {
-        v_Color = color;
-        gl_Position = u_View * vec4(pos, 0.0, 1.0);
-    }
-"#;
-
-static TRIANGLE_VERTEX_SHADER_150: &'static [u8] = br#"
-    #version 150 core
-    in vec4 color;
-    in vec2 pos;
-
-    out vec4 v_Color;
-
-    uniform Locals {
-        mat4 u_View;
-    };
-
-    void main() {
-        v_Color = color;
-        gl_Position = u_View * vec4(pos, 0.0, 1.0);
-    }
-"#;
-
-static POINT_VERTEX_SHADER_120: &'static [u8] = br#"
-    #version 120
-    attribute vec4 color;
-    attribute vec2 pos;
-    attribute vec2 scale;
-
-    varying vec4 v_Color;
-    uniform mat4 u_View;
-
-    void main() {
-        v_Color = color;
-        gl_PointSize = scale.x;
-        gl_Position = u_View * vec4(pos, 0.0, 1.0);
-
-    }
-"#;
-
-static POINT_VERTEX_SHADER_150: &'static [u8] = br#"
-    #version 150 core
-    in vec4 color;
-    in vec2 pos;
-    in vec2 scale;
-
-    out vec4 v_Color;
-
-    uniform Locals {
-        mat4 u_View;
-    };
-
-    void main() {
-        v_Color = color;
-        gl_PointSize = scale.x;
-        gl_Position = u_View * vec4(pos, 0.0, 1.0);
-    }
-"#;
-
-
-// Rendering Pipeline ---------------------------------------------------------
-gfx_defines! {
-    vertex PositionFormat {
-        pos: [f32; 2] = "pos",
-    }
-
-    vertex ScaleFormat {
-        pos: [f32; 2] = "scale",
-    }
-
-    constant Locals {
-        view: [[f32; 4]; 4] = "u_View",
-    }
-
-    vertex ColorFormat {
-        color: [f32; 4] = "color",
-    }
-
-    vertex TexCoordsFormat {
-        uv: [f32; 2] = "uv",
-    }
-}
-
-gfx_pipeline_base!( pipe_colored {
-    pos: gfx::VertexBuffer<PositionFormat>,
-    scale: gfx::VertexBuffer<ScaleFormat>,
-    locals: gfx::ConstantBuffer<Locals>,
-    color: gfx::VertexBuffer<ColorFormat>,
-    blend_target: gfx::BlendTarget<gfx::format::Srgba8>,
-    stencil_target: gfx::StencilTarget<gfx::format::DepthStencil>,
-    blend_ref: gfx::BlendRef,
-});
 
 
 // Renderer Implementation ----------------------------------------------------
@@ -196,9 +95,9 @@ pub struct Renderer {
     buffer_locals: gfx::handle::Buffer<gfx_device_gl::Resources, Locals>,
     buffer_offset: usize,
 
-    list_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
-    wire_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
-    point_pipeline: ColoredStencil<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    list_pipeline: RenderPipeline<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    wire_pipeline: RenderPipeline<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
+    point_pipeline: RenderPipeline<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
 }
 
 impl Renderer {
@@ -266,19 +165,19 @@ impl Renderer {
         ).expect("Could not create `buffer_color`");
 
         // Pipelines
-        let list_pipeline = create_pipeline(
+        let list_pipeline = RenderPipeline::<()>::create(
             opengl, &mut factory,
             gfx::Primitive::TriangleList,
             gfx::state::RasterMethod::Fill
         );
 
-        let wire_pipeline = create_pipeline(
+        let wire_pipeline = RenderPipeline::<()>::create(
             opengl, &mut factory,
             gfx::Primitive::TriangleList,
             gfx::state::RasterMethod::Line(1)
         );
 
-        let point_pipeline = create_pipeline(
+        let point_pipeline = RenderPipeline::<()>::create(
             opengl, &mut factory,
             gfx::Primitive::PointList,
             gfx::state::RasterMethod::Fill
@@ -683,83 +582,5 @@ fn create_main_targets(dim: gfx::texture::Dimensions) -> (
     );
 
     (Typed::new(output_color), Typed::new(output_stencil))
-}
-
-fn create_pipeline(
-    opengl: OpenGL,
-    factory: &mut gfx_device_gl::Factory,
-    primitive: gfx::Primitive,
-    method: gfx::state::RasterMethod
-
-) -> ColoredStencil<gfx::PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>> {
-
-    use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
-    use gfx::traits::*;
-    use shaders_graphics2d::colored;
-
-    let glsl = opengl.to_glsl();
-
-    let shader_program = if primitive == gfx::Primitive::TriangleList {
-        factory.link_program(
-            Shaders::new()
-                .set(GLSL::V1_20, TRIANGLE_VERTEX_SHADER_120)
-                .set(GLSL::V1_50, TRIANGLE_VERTEX_SHADER_150)
-                .get(glsl).unwrap(),
-
-            Shaders::new()
-                .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
-                .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
-                .get(glsl).unwrap(),
-
-        ).unwrap()
-
-    } else {
-        factory.link_program(
-            Shaders::new()
-                .set(GLSL::V1_20, POINT_VERTEX_SHADER_120)
-                .set(GLSL::V1_50, POINT_VERTEX_SHADER_150)
-                .get(glsl).unwrap(),
-
-            Shaders::new()
-                .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
-                .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
-                .get(glsl).unwrap(),
-
-        ).unwrap()
-    };
-
-    let polygon_pipeline = |
-        factory: &mut gfx_device_gl::Factory,
-        blend_preset: Blend,
-        stencil: Stencil,
-        color_mask: gfx::state::ColorMask,
-
-    | -> PipelineState<gfx_device_gl::Resources, pipe_colored::Meta> {
-
-        let mut r = Rasterizer::new_fill();
-        r.cull_face = CullFace::Front;
-        r.method = method;
-        r.samples = Some(MultiSample);
-
-        factory.create_pipeline_from_program(
-            &shader_program,
-            primitive,
-            r,
-            pipe_colored::Init {
-                pos: (),
-                scale: (),
-                locals: "Locals",
-                color: (),
-                blend_target: ("o_Color", color_mask, blend_preset),
-                stencil_target: stencil,
-                blend_ref: ()
-            }
-
-        ).unwrap()
-
-    };
-
-    ColoredStencil::new(factory, polygon_pipeline)
-
 }
 
