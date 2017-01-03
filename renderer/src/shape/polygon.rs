@@ -42,3 +42,25 @@ impl Polygon {
 
 }
 
+
+// Convex Polygon -------------------------------------------------------------
+#[derive(Debug)]
+pub struct SimplePolygon {
+    vertices: Vec<f32>
+}
+
+impl SimplePolygon {
+
+    pub fn new(vertices: Vec<f32>) -> SimplePolygon {
+        SimplePolygon {
+            vertices: vertices
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer, context: &Context) {
+        renderer.draw_triangle_list(&context.transform, &self.vertices);
+    }
+
+}
+
+

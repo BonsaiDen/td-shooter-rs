@@ -30,16 +30,14 @@ pub const MAX_LEVEL_SIZE: f32 = 512.0;
 
 
 // Level Abstraction ----------------------------------------------------------
-#[derive(Debug, Default)]
 pub struct Level {
     pub walls: Vec<LevelWall>,
     pub lights: Vec<LightSource>,
     pub spawns: Vec<LevelSpawn>,
     pub bounds: [f32; 4],
     pub solids: Vec<Vec<[f32; 2]>>,
-    collision_grid: HashMap<(isize, isize), Vec<usize>>,
-    visibility_grid: HashMap<(isize, isize), HashSet<usize>>,
-    light_sources: Vec<LightSource>
+    collision_grid: HashMap<(isize, isize), HashSet<usize>>,
+    visibility_grid: HashMap<(isize, isize), HashSet<usize>>
 }
 
 impl Level {
@@ -52,8 +50,7 @@ impl Level {
             solids: Vec::new(),
             bounds: [1000000.0, 1000000.0, -100000.0, -1000000.0],
             collision_grid: HashMap::new(),
-            visibility_grid: HashMap::new(),
-            light_sources: Vec::new()
+            visibility_grid: HashMap::new()
         }
     }
 
@@ -122,7 +119,7 @@ impl Level {
                 for solid in solids {
                     if let &toml::Value::Array(ref points) = solid {
                         let points: Vec<f32> = points.into_iter().map(|p| p.as_integer().unwrap() as f32).collect();
-                        let mut pairs = Vec::new();
+                        let mut pairs = Vec::with_capacity(points.len() / 2);
                         for i in 0..points.len() / 2 {
                             pairs.push([points[i * 2], points[i * 2 + 1]]);
                         }
@@ -141,6 +138,7 @@ impl Level {
     fn add_wall(&mut self, wall: LevelWall) {
 
         {
+
             let aabb = &wall.aabb;
             let (top_left, bottom_right) = (
                 self.w2g(aabb[0], aabb[1]),
@@ -155,9 +153,10 @@ impl Level {
 
             for y in (top_left.1 - 1)..bottom_right.1 + 1 {
                 for x in (top_left.0 - 1)..bottom_right.0 + 1 {
-                    self.collision_grid.entry((x, y)).or_insert_with(Vec::new).push(self.walls.len());
+                    self.collision_grid.entry((x, y)).or_insert_with(HashSet::new).insert(self.walls.len());
                 }
             }
+
         }
 
         self.walls.push(wall);

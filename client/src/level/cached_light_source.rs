@@ -6,7 +6,7 @@ use graphics::Transformed;
 
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
-use ::renderer::{Renderer, LightPoylgon, Circle};
+use ::renderer::{Renderer, SimplePolygon, Circle};
 use ::shared::level::{
     Level, LightSource, LevelVisibility,
     line_segment_intersect_circle_test
@@ -21,16 +21,13 @@ pub struct CachedLightSource {
     s: f64,
     aabb: [f32; 4],
     clipped_walls: usize,
-    light_polygon: LightPoylgon,
+    light_polygon: SimplePolygon,
     light_circle: Circle
 }
 
 impl CachedLightSource {
 
     pub fn from_light(level: &Level, light: &LightSource) -> CachedLightSource {
-
-        // TODO can we actually optimize these?
-        let points = level.calculate_visibility(light.x, light.y, light.radius * 1.4);
 
         // Figure out if we actually intersect with any walls
         // if not we can render a simple circle instead of the visibility polygon
@@ -42,6 +39,13 @@ impl CachedLightSource {
             }
         }
 
+        let light_polygon = if clipped_walls > 0 {
+            level.calculate_visibility(light.x, light.y, light.radius * 1.4)
+
+        } else {
+            Vec::new()
+        };
+
         println!("[Level] Light clipped {} walls.", clipped_walls);
 
         CachedLightSource {
@@ -50,7 +54,7 @@ impl CachedLightSource {
             y: light.y,
             s: rand::thread_rng().next_f64(),
             clipped_walls: clipped_walls,
-            light_polygon: LightPoylgon::new(light.x, light.y, &points),
+            light_polygon: SimplePolygon::new(light_polygon),
             light_circle: Circle::new(16, 0.0, 0.0, light.radius)
         }
     }

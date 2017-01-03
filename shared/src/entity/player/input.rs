@@ -40,7 +40,7 @@ impl NetworkInput for PlayerInput {
             self.buttons,
             rad_to_u16(self.r)
 
-        ), SizeLimit::Infinite).unwrap()
+        ), SizeLimit::Bounded(4)).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Option<(usize, Self)> where Self: Sized {

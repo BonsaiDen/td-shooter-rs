@@ -82,7 +82,7 @@ impl NetworkProperty for PlayerData {
             rad_to_u16(self.r),
             self.hp
 
-        ), SizeLimit::Infinite).unwrap()
+        ), SizeLimit::Bounded(12)).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> Self where Self: Sized {

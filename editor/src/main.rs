@@ -220,36 +220,35 @@ fn extract_paths(
 
                     pixel_usage.insert((px, py));
 
-                    let (w, h) = (outer_bounds[2], outer_bounds[3]);
                     let mut pixels = Vec::new();
                     let mut first_pixel = true;
                     let mut lr = 0;
                     loop {
 
                         // Check top right bottom left first
-                        let m = if is_valid_path_pixel(px, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        let m = if is_valid_path_pixel(px, py - 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px, py - 1, 0, Direction::Vertical))
 
-                        } else if is_valid_path_pixel(px + 1, py, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px + 1, py, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px + 1, py, 90, Direction::Horizontal))
 
-                        } else if is_valid_path_pixel(px, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px, py + 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px, py + 1, 180, Direction::Vertical))
 
-                        } else if is_valid_path_pixel(px - 1, py, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px - 1, py, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px - 1, py, 270, Direction::Horizontal))
 
                         // Check topright bottomright bottomleft topleft second
-                        } else if is_valid_path_pixel(px + 1, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px + 1, py - 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                        } else if is_valid_path_pixel(px + 1, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px + 1, py + 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                        } else if is_valid_path_pixel(px - 1, py + 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px - 1, py + 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                        } else if is_valid_path_pixel(px - 1, py - 1, &img, &pixel_usage, w, h, path_type, solids, outer_bounds) {
+                        } else if is_valid_path_pixel(px - 1, py - 1, &img, &pixel_usage, path_type, solids, outer_bounds) {
                             Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                         } else {
@@ -277,29 +276,29 @@ fn extract_paths(
                         } else {
 
                             // Merge with adjacent paths at the end
-                            let m = if lr == 0 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            let m = if lr == 0 && is_potential_path_pixel(px, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px, py - 1, 0, Direction::Vertical))
 
-                            } else if lr == 90 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 90 && is_potential_path_pixel(px + 1, py, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py, 90, Direction::Horizontal))
 
-                            } else if lr == 180 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 180 && is_potential_path_pixel(px, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px, py + 1, 180, Direction::Vertical))
 
-                            } else if lr == 270 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 270 && is_potential_path_pixel(px - 1, py, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py, 270, Direction::Horizontal))
 
                             // Check topright bottomright bottomleft topleft second
-                            } else if lr == 45 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 45 && is_potential_path_pixel(px + 1, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                            } else if lr == 135 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 135 && is_potential_path_pixel(px + 1, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                            } else if lr == 225 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 225 && is_potential_path_pixel(px - 1, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                            } else if lr == 315 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 315 && is_potential_path_pixel(px - 1, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                             } else {
@@ -312,29 +311,29 @@ fn extract_paths(
 
                             // Merge with adjacent paths at the end
                             let (px, py, lr, _) = pixels[0];
-                            let m = if lr == 180 && is_potential_path_pixel(px, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            let m = if lr == 180 && is_potential_path_pixel(px, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px, py - 1, 0, Direction::Vertical))
 
-                            } else if lr == 270 && is_potential_path_pixel(px + 1, py, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 270 && is_potential_path_pixel(px + 1, py, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py, 90, Direction::Horizontal))
 
-                            } else if lr == 00 && is_potential_path_pixel(px, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 00 && is_potential_path_pixel(px, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px, py + 1, 180, Direction::Vertical))
 
-                            } else if lr == 90 && is_potential_path_pixel(px - 1, py, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 90 && is_potential_path_pixel(px - 1, py, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py, 270, Direction::Horizontal))
 
                             // Check topright bottomright bottomleft topleft second
-                            } else if lr == 225 && is_potential_path_pixel(px + 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 225 && is_potential_path_pixel(px + 1, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py - 1, 45, Direction::DiagonalOne))
 
-                            } else if lr == 315 && is_potential_path_pixel(px + 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 315 && is_potential_path_pixel(px + 1, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px + 1, py + 1, 135, Direction::DiagonalTwo))
 
-                            } else if lr == 45 && is_potential_path_pixel(px - 1, py + 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 45 && is_potential_path_pixel(px - 1, py + 1, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py + 1, 225, Direction::DiagonalOne))
 
-                            } else if lr == 135 && is_potential_path_pixel(px - 1, py - 1, &img, w, h, path_type, solids, outer_bounds) {
+                            } else if lr == 135 && is_potential_path_pixel(px - 1, py - 1, &img, path_type, solids, outer_bounds) {
                                 Some((px - 1, py - 1, 315, Direction::DiagonalTwo))
 
                             } else {
@@ -424,7 +423,6 @@ fn is_valid_path_pixel(
     x: i32, y: i32,
     img: &image::DynamicImage,
     usage: &HashSet<(i32, i32)>,
-    w: i32, h: i32,
     path_type: TracedPathType,
     check_solids: bool,
     bounds: &[i32; 4]
@@ -453,7 +451,6 @@ fn is_valid_path_pixel(
 fn is_potential_path_pixel(
     x: i32, y: i32,
     img: &image::DynamicImage,
-    w: i32, h: i32,
     path_type: TracedPathType,
     check_solids: bool,
     bounds: &[i32; 4]

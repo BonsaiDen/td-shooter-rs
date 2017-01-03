@@ -26,7 +26,7 @@ pub const LEVEL_MAX_VISIBILITY_DISTANCE: f32 = 130.0;
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelVisibility {
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))>;
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32>;
     fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool;
     fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool;
@@ -35,9 +35,9 @@ pub trait LevelVisibility {
 
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
         if let Some(walls) = self.visibility_grid.get(&self.w2v(x, y)) {
-            self.get_visibility_for_walls(x, y, radius, &walls)
+            self.get_visibility_polygon(x, y, radius, &walls)
 
         } else {
             Vec::new()
@@ -154,13 +154,7 @@ impl Level {
 
                 visibility_grid.insert(
                     (x, y),
-                    self.get_visibility_for_walls(
-                        cx,
-                        cy,
-                        LEVEL_MAX_VISIBILITY_DISTANCE,
-                        &walls
-
-                    ).into_iter().map(|v| v.0).collect()
+                    self.get_visiblity_indicies(cx, cy, &walls)
                 );
 
             }
@@ -206,8 +200,8 @@ impl Level {
     ) -> (Vec<Segment>, Vec<Endpoint>) {
 
         // Go through all walls in range
-        let mut endpoints = Vec::new();
-        let mut segments = Vec::new();
+        let mut endpoints = Vec::with_capacity(walls.len() * 2);
+        let mut segments = Vec::with_capacity(walls.len());
         for i in walls {
 
             let wall = &self.walls[*i];
@@ -278,20 +272,18 @@ impl Level {
 
     }
 
-    fn get_visibility_for_walls(
+    fn get_visiblity_indicies(
         &self,
         x: f32,
         y: f32,
-        max_distance: f32,
         walls: &HashSet<usize>
 
-    ) -> Vec<(usize, (f32, f32), (f32, f32))> {
+    ) -> Vec<usize> {
 
         let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
 
-        let mut open_segments: Vec<isize> = Vec::new();
-        let mut visibility = Vec::new();
-        let mut r = 0.0;
+        let mut indicies = Vec::with_capacity(segments.len() * 3);
+        let mut open_segments: Vec<isize> = Vec::with_capacity(8);
 
         for pass in 0..2 {
 
@@ -334,17 +326,90 @@ impl Level {
                 // Check if open segment has changed
                 // TODO Clean up access
                 if open_segment_index != open_segments.first().map_or(-1, |i| *i) {
+                    if pass == 1 {
+                        indicies.push(
+                            segments.get(open_segment_index as usize).map_or(0, |s| s.wall_index),
+                        );
+                    }
+                }
+
+            }
+
+        }
+
+        indicies
+
+    }
+
+    fn get_visibility_polygon(
+        &self,
+        x: f32,
+        y: f32,
+        max_distance: f32,
+        walls: &HashSet<usize>
+
+    ) -> Vec<f32> {
+
+        let x = (x * 10000.0).round() * 0.0001;
+        let y = (y * 10000.0).round() * 0.0001;
+
+        let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
+
+        let mut r = 0.0;
+        let mut points = Vec::with_capacity(segments.len() * 3);
+        let mut open_segments: Vec<isize> = Vec::with_capacity(8);
+
+        for pass in 0..2 {
+
+            for endpoint in &endpoints {
+
+                // Get current open segment to check if it changed later on
+                // TODO optimize all of these
+                let open_segment_index = open_segments.first().map_or(-1, |i| *i);
+
+                if endpoint.begins_segment {
+
+                    let mut index = 0;
+                    // TODO Clean up access
+                    let mut segment_index = open_segments.get(index).map_or(-1, |i| *i);
+                    while segment_index != -1 && segment_in_front_of(
+                        x, y,
+                        &segments[endpoint.segment_index],
+                        &segments[segment_index as usize]
+
+                    ) {
+                        // TODO potential lockup here?
+                        // should not happen since we exit with the assignment of -1?
+                        index += 1;
+                        segment_index = open_segments.get(index).map_or(-1, |i| *i);
+                    }
+
+                    if segment_index == -1 {
+                        open_segments.push(endpoint.segment_index as isize);
+
+                    } else {
+                        open_segments.insert(index, endpoint.segment_index as isize);
+                    }
+
+                } else {
+                    open_segments.retain(|index| {
+                        *index != endpoint.segment_index as isize
+                    });
+                }
+
+                // Check if open segment has changed
+                // TODO Clean up access
+                if open_segment_index != open_segments.first().map_or(-1, |i| *i) {
 
                     if pass == 1 {
-
                         let segment = segments.get(open_segment_index as usize);
-                        let points = get_triangle_points(x, y, r, endpoint.r, segment, max_distance);
-                        visibility.push((
-                            segment.map_or(0, |s| s.wall_index),
-                            points.0,
-                            points.1
-                        ));
-
+                        points.push(x);
+                        points.push(y);
+                        add_triangle_points(
+                            x, y, r,
+                            endpoint.r, segment, max_distance,
+                            &mut points
+                        );
                     }
 
                     r = endpoint.r;
@@ -355,7 +420,7 @@ impl Level {
 
         }
 
-        visibility
+        points
 
     }
 
@@ -391,6 +456,7 @@ fn point_left_of(segment: &Segment, point: (f32, f32)) -> bool {
     cross < 0.0
 }
 
+#[inline(always)]
 fn interpolate_point(ax: f32, ay: f32, bx: f32, by: f32, f: f32) -> (f32, f32) {
     (
         ax * (1.0 - f) + bx * f,
@@ -414,13 +480,14 @@ fn segment_in_front_of(x: f32, y: f32, a: &Segment, b: &Segment) -> bool {
 
 }
 
-fn get_triangle_points(
+fn add_triangle_points(
     x: f32, y: f32,
     r1: f32, r2: f32,
     segment: Option<&Segment>,
-    max_distance: f32
+    max_distance: f32,
+    points: &mut Vec<f32>
 
-) -> ((f32, f32), (f32, f32)) {
+) {
 
     let p1 = (x, y);
     let mut p2 = (x + r1.cos(), y + r1.sin());
@@ -441,18 +508,23 @@ fn get_triangle_points(
         p4.1 = y + r2.sin() * max_distance * 1.4;
     }
 
-    let p_begin = line_intersection(p3, p4, p1, p2);
+    add_intersection_points(p3, p4, p1, p2, points);
 
     p2.0 = x + r2.cos();
     p2.1 = y + r2.sin();
 
-    let p_end = line_intersection(p3, p4, p1, p2);
+    add_intersection_points(p3, p4, p1, p2, points);
 
-    (p_begin, p_end)
 }
 
 
-fn line_intersection(a: (f32, f32), b: (f32, f32), c: (f32, f32), d: (f32, f32)) -> (f32, f32) {
+fn add_intersection_points(
+    a: (f32, f32),
+    b: (f32, f32),
+    c: (f32, f32),
+    d: (f32, f32),
+    points: &mut Vec<f32>
+) {
 
     let s = (
         (d.0 - c.0) * (a.1 - c.1) - (d.1 - c.1) * (a.0 - c.0)
@@ -461,10 +533,8 @@ fn line_intersection(a: (f32, f32), b: (f32, f32), c: (f32, f32), d: (f32, f32))
         (d.1 - c.1) * (b.0 - a.0) - (d.0 - c.0) * (b.1 - a.1)
     );
 
-    (
-        a.0 + s * (b.0 - a.0),
-        a.1 + s * (b.1 - a.1)
-    )
+    points.push(((a.0 + s * (b.0 - a.0)) * 10000.0).round() * 0.0001);
+    points.push(((a.1 + s * (b.1 - a.1)) * 10000.0).round() * 0.0001);
 
 }
 

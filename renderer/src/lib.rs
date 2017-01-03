@@ -325,16 +325,8 @@ impl Renderer {
 
 
     // Direct Shape Drawing ---------------------------------------------------
-    pub fn light_polygon(
-        &mut self,
-        context: &Context,
-        x: f32, y: f32,
-        endpoints: &[(usize, (f32, f32), (f32, f32))]
-    ) {
-        self.draw_triangle_list(
-            &context.transform,
-            &LightPoylgon::vertices(x, y, endpoints)
-        );
+    pub fn polygon(&mut self, context: &Context, vertices: &[f32]) {
+        self.draw_triangle_list(&context.transform, &vertices);
     }
 
     pub fn rectangle(&mut self, context: &Context, rect: &[f32; 4]) {

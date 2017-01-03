@@ -9,7 +9,7 @@ use super::{Level, MAX_LEVEL_SIZE};
 
 
 // Statics --------------------------------------------------------------------
-pub const COLLISION_GRID_SPACING: f32 = PLAYER_RADIUS * 4.0;
+pub const COLLISION_GRID_SPACING: f32 = 50.0;
 
 
 // Traits ---------------------------------------------------------------------
@@ -252,8 +252,6 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
     // compute the value t of the closest point to the circle center (Cx, Cy)
     let t = dx * (cx - ax) + dy * (cy - ay);
 
-    // This is the projection of C on the line from A to B.
-
     // compute the coordinates of the point E on line and closest to C
     let (ex, ey) = (t * dx + ax, t * dy + ay);
 
@@ -288,7 +286,6 @@ pub fn line_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Optio
 }
 
 pub fn line_segment_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) -> Option<[f32; 8]> {
-
 
     let (ax, ay) = (line[0], line[1]);
     let (bx, by) = (line[2], line[3]);

@@ -20,7 +20,6 @@ use self::cached_light_source::CachedLightSource;
 
 
 // Client Level ---------------------------------------------------------------
-#[derive(Debug)]
 pub struct Level {
     level: SharedLevel,
     visibility_circle: CircleArc,
@@ -202,7 +201,7 @@ impl Level {
                 renderer.set_stencil_mode(StencilMode::None);
                 renderer.set_color([1.0, 1.0, 0.0, 0.5]);
             }
-            renderer.light_polygon(&context, data.x, data.y, &endpoints);
+            renderer.polygon(&context, &endpoints);
 
             // Render player visibility circle
             let q = context.trans(data.x as f64, data.y as f64).rot_rad(data.r as f64).trans(
@@ -244,11 +243,13 @@ impl Level {
 
         let bounds = camera.b2w();
         let context = camera.context();
-        let walls = self.level.get_walls_in_bounds(&bounds);
 
+        let walls = self.level.get_walls_in_bounds(&bounds);
         for i in &walls {
             let wall = &self.walls[*i];
-            wall.render(renderer, &context);
+            if aabb_intersect(&wall.aabb, &bounds) {
+                wall.render(renderer, &context);
+            }
         }
 
         // Solids
@@ -261,7 +262,7 @@ impl Level {
 
         for solid in &self.solids {
             if aabb_intersect(&solid.aabb, &bounds) {
-                solid.render(renderer, context);
+                //solid.render(renderer, context);
             }
         }
 
@@ -278,7 +279,7 @@ fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
 // Traits ---------------------------------------------------------------------
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<(usize, (f32, f32), (f32, f32))> {
+    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
         self.level.calculate_visibility(x, y, radius)
     }
 
