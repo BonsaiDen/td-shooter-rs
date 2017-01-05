@@ -252,7 +252,6 @@ impl Level {
             }
         }
 
-        // Solids
         if debug_level == 2 {
             renderer.set_color([1.0, 0.0, 1.0, 1.0]);
 
@@ -260,9 +259,10 @@ impl Level {
             renderer.set_color([0.0, 0.0, 0.0, 1.0]);
         }
 
+        // Solids
         for solid in &self.solids {
             if aabb_intersect(&solid.aabb, &bounds) {
-                //solid.render(renderer, context);
+                solid.render(renderer, context);
             }
         }
 

@@ -305,12 +305,12 @@ impl Renderer {
 
     // Rendering Operations ---------------------------------------------------
     pub fn set_color(&mut self, color: [f32; 4]) {
-        self.color = color;
+        self.flush();
+        self.color = gamma_srgb_to_linear(color);
     }
 
     pub fn clear_color(&mut self, color: [f32; 4]) {
-        let color = gamma_srgb_to_linear(color);
-        self.encoder.clear(&self.output_color, color);
+        self.encoder.clear(&self.output_color, gamma_srgb_to_linear(color));
     }
 
     pub fn set_stencil_mode(&mut self, mode: StencilMode) {
@@ -422,7 +422,6 @@ impl Renderer {
     fn draw(&mut self, primitive: gfx::Primitive, m: &Matrix2d, vertices: &[f32]) {
 
         let n = vertices.len() / POS_COMPONENTS;
-        let color = gamma_srgb_to_linear(self.color);
         self.pre_draw(primitive, m, n);
 
         {
@@ -436,18 +435,6 @@ impl Renderer {
                         n
                     ),
                     self.buffer_offset
-
-                ).unwrap();
-            }
-
-            for i in 0..n {
-                self.encoder.update_buffer(
-                    &self.buffer_color, &[
-                        ColorFormat {
-                            color: color
-                        }
-                    ],
-                    self.buffer_offset + i
 
                 ).unwrap();
             }
@@ -488,7 +475,8 @@ impl Renderer {
         if self.buffer_offset > 0 {
 
             self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
-                view: self.buffer_matrix
+                view: self.buffer_matrix,
+                color: self.color
             });
 
             let (pso_colored, stencil_val) = if self.primitive == gfx::Primitive::TriangleList {

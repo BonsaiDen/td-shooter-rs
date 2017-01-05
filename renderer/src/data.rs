@@ -16,6 +16,7 @@ gfx_defines! {
 
     constant Locals {
         view: [[f32; 4]; 4] = "u_View",
+        color: [f32; 4] = "u_Color",
     }
 
     vertex ColorFormat {
@@ -41,31 +42,31 @@ gfx_pipeline_base!( pipe_colored {
 // Shaders --------------------------------------------------------------------
 pub static TRIANGLE_VERTEX_SHADER_120: &'static [u8] = br#"
     #version 120
-    attribute vec4 color;
     attribute vec2 pos;
 
     varying vec4 v_Color;
+    uniform vec4 u_Color;
     uniform mat4 u_View;
 
     void main() {
-        v_Color = color;
+        v_Color = u_Color;
         gl_Position = u_View * vec4(pos, 0.0, 1.0);
     }
 "#;
 
 pub static TRIANGLE_VERTEX_SHADER_150: &'static [u8] = br#"
     #version 150 core
-    in vec4 color;
     in vec2 pos;
 
     out vec4 v_Color;
 
     uniform Locals {
         mat4 u_View;
+        vec4 u_Color;
     };
 
     void main() {
-        v_Color = color;
+        v_Color = u_Color;
         gl_Position = u_View * vec4(pos, 0.0, 1.0);
     }
 "#;
