@@ -1,15 +1,13 @@
 // STD Dependencies -----------------------------------------------------------
 use std::f32::consts;
-use std::collections::HashSet;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::entity::PLAYER_RADIUS;
 use super::{Level, MAX_LEVEL_SIZE};
 
 
 // Statics --------------------------------------------------------------------
-pub const COLLISION_GRID_SPACING: f32 = 50.0;
+pub const COLLISION_GRID_SPACING: f32 = 200.0;
 
 
 // Traits ---------------------------------------------------------------------
@@ -35,13 +33,6 @@ impl LevelCollision for Level {
 
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool) {
 
-        let walls = self.get_walls_in_bounds(&[
-            *x - radius,
-            *y - radius,
-            *x + radius,
-            *y + radius
-        ]);
-
         let mut iterations = 0;
         let mut collisions = 1;
         while collisions > 0 && iterations < 10 {
@@ -49,9 +40,7 @@ impl LevelCollision for Level {
             collisions = 0;
 
             let mut overlap = (0.0, 0.0);
-            for i in &walls {
-
-                let wall = &self.walls[*i];
+            for wall in &self.walls {
 
                 if aabb_intersect_circle(
                     &wall.aabb,
@@ -166,7 +155,7 @@ impl LevelCollision for Level {
     }
 
     fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])> {
-        self.collide_beam_with_walls(&line, &self.get_walls_in_bounds(&line))
+        self.collide_beam_with_walls(&line)
     }
 
 }
@@ -180,12 +169,11 @@ impl Level {
         (gx as isize, gy as isize)
     }
 
-    fn collide_beam_with_walls(&self, line: &[f32; 4], walls: &HashSet<usize>) -> Option<(usize, [f32; 3])> {
+    fn collide_beam_with_walls(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])> {
 
         let mut intersection: Option<(usize, [f32; 3])> = None;
-        for i in walls {
+        for (i, wall) in self.walls.iter().enumerate() {
 
-            let wall = &self.walls[*i];
             if let Some(new) = line_intersect_line(&line, &wall.points) {
 
                 let is_closer = if let Some(existing) = intersection {
@@ -196,7 +184,7 @@ impl Level {
                 };
 
                 if is_closer {
-                    intersection = Some((*i, new));
+                    intersection = Some((i, new));
                 }
 
             }

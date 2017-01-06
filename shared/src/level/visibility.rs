@@ -1,11 +1,6 @@
 // STD Dependencies -----------------------------------------------------------
 use std::f32::consts;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
-
-
-// External Dependencies ------------------------------------------------------
-use clock_ticks;
 
 
 // Internal Dependencies ------------------------------------------------------
@@ -36,12 +31,7 @@ pub trait LevelVisibility {
 impl LevelVisibility for Level {
 
     fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
-        if let Some(walls) = self.visibility_grid.get(&self.w2v(x, y)) {
-            self.get_visibility_polygon(x, y, radius, &walls)
-
-        } else {
-            Vec::new()
-        }
+        self.get_visibility_polygon(x, y, radius)
     }
 
     fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {
@@ -123,88 +113,12 @@ impl Level {
         (gx as isize, gy as isize)
     }
 
-    pub fn pre_calculate_visibility(&mut self) {
-
-        println!("[Level] Bounds {:?}", self.bounds);
-
-        let start = clock_ticks::precise_time_ms();
-
-        let (top_left, bottom_right) = (
-            self.w2v(self.bounds[0], self.bounds[1]),
-            self.w2v(self.bounds[2], self.bounds[3])
-        );
-
-        // Go through all possible visibility cells
-        let mut visibility_grid: HashMap<(isize, isize), Vec<usize>> = HashMap::new();
-        for y in top_left.1..bottom_right.1 + 1 {
-            for x in top_left.0..bottom_right.0 + 1 {
-
-                // Calculate cell center
-                let (cx, cy) = (
-                    (x as f32) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5,
-                    (y as f32) * VISIBILITY_GRID_SPACING + VISIBILITY_GRID_SPACING * 0.5
-                );
-
-                let walls = self.get_walls_in_bounds(&[
-                    cx - LEVEL_MAX_VISIBILITY_DISTANCE,
-                    cy - LEVEL_MAX_VISIBILITY_DISTANCE,
-                    cx + LEVEL_MAX_VISIBILITY_DISTANCE,
-                    cy + LEVEL_MAX_VISIBILITY_DISTANCE
-                ]);
-
-                visibility_grid.insert(
-                    (x, y),
-                    self.get_visiblity_indicies(cx, cy, &walls)
-                );
-
-            }
-        }
-
-        // Merge adjacents visibility cells and filter out duplicate entries
-        let mut merged_grid = HashMap::new();
-        for &(gx, gy) in visibility_grid.keys() {
-
-            let mut visible_walls: HashSet<usize> = HashSet::new();
-
-            // Get current cell and its 8 neighbors
-            for y in (gy - 1)..(gy + 2) {
-                for x in (gx - 1)..(gx + 2) {
-
-                    // Merge all visibile wall indicies
-                    if let Some(wall_indicies) = visibility_grid.get(&(x, y)) {
-                        for index in wall_indicies {
-                            visible_walls.insert(*index);
-                        }
-                    }
-
-                }
-            }
-
-            if !visible_walls.is_empty() {
-                merged_grid.insert((gx, gy), visible_walls);
-            }
-
-        }
-
-        self.visibility_grid = merged_grid;
-
-        println!("[Level] Visibility pre-calculated in {}ms", clock_ticks::precise_time_ms() - start);
-
-    }
-
-    fn get_visibility_segments(
-        &self,
-        x: f32, y: f32,
-        walls: &HashSet<usize>
-
-    ) -> (Vec<Segment>, Vec<Endpoint>) {
+    fn get_visibility_segments(&self, x: f32, y: f32) -> (Vec<Segment>, Vec<Endpoint>) {
 
         // Go through all walls in range
-        let mut endpoints = Vec::with_capacity(walls.len() * 2);
-        let mut segments = Vec::with_capacity(walls.len());
-        for i in walls {
-
-            let wall = &self.walls[*i];
+        let mut endpoints = Vec::with_capacity(self.walls.len() * 2);
+        let mut segments = Vec::with_capacity(self.walls.len());
+        for (i, wall) in self.walls.iter().enumerate() {
 
             // Calculate endpoints
             // TODO can we exclude walls outside of our viewing cone?
@@ -222,9 +136,9 @@ impl Level {
 
             let p1_begins_segment = dr > 0.0;
             let segment = Segment {
-                wall_index: *i,
+                //wall_index: *i,
                 p1: Endpoint {
-                    wall_index: *i,
+                    wall_index: i,
                     segment_index: segments.len(),
                     begins_segment: p1_begins_segment,
                     r: r1,
@@ -232,7 +146,7 @@ impl Level {
                     y: wall.points[1]
                 },
                 p2: Endpoint {
-                    wall_index: *i,
+                    wall_index: i,
                     segment_index: segments.len(),
                     begins_segment: !p1_begins_segment,
                     r: r2,
@@ -272,15 +186,16 @@ impl Level {
 
     }
 
+    /*
     fn get_visiblity_indicies(
         &self,
         x: f32,
         y: f32,
-        walls: &HashSet<usize>
+        walls: &[usize]
 
     ) -> Vec<usize> {
 
-        let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
+        let (segments, endpoints) = self.get_visibility_segments(x, y, walls);
 
         let mut indicies = Vec::with_capacity(segments.len() * 3);
         let mut open_segments: Vec<isize> = Vec::with_capacity(8);
@@ -340,20 +255,14 @@ impl Level {
         indicies
 
     }
+    */
 
-    fn get_visibility_polygon(
-        &self,
-        x: f32,
-        y: f32,
-        max_distance: f32,
-        walls: &HashSet<usize>
-
-    ) -> Vec<f32> {
+    fn get_visibility_polygon(&self, x: f32, y: f32, max_distance: f32) -> Vec<f32> {
 
         let x = (x * 10000.0).round() * 0.0001;
         let y = (y * 10000.0).round() * 0.0001;
 
-        let (segments, endpoints) = self.get_visibility_segments(x, y, &walls);
+        let (segments, endpoints) = self.get_visibility_segments(x, y);
 
         let mut r = 0.0;
         let mut points = Vec::with_capacity(segments.len() * 3);
@@ -439,7 +348,7 @@ struct Endpoint {
 }
 
 struct Segment {
-    wall_index: usize,
+    //wall_index: usize,
     p1: Endpoint,
     p2: Endpoint
 }

@@ -1,7 +1,3 @@
-// STD Dependencies -----------------------------------------------------------
-use std::collections::{HashMap, HashSet};
-
-
 // External Dependencies ------------------------------------------------------
 use toml;
 use rand;
@@ -36,8 +32,7 @@ pub struct Level {
     pub spawns: Vec<LevelSpawn>,
     pub bounds: [f32; 4],
     pub solids: Vec<Vec<[f32; 2]>>,
-    collision_grid: HashMap<(isize, isize), HashSet<usize>>,
-    visibility_grid: HashMap<(isize, isize), HashSet<usize>>
+    wall_indicies: Vec<usize>
 }
 
 impl Level {
@@ -49,8 +44,7 @@ impl Level {
             spawns: vec![LevelSpawn::new(0.0, 0.0)],
             solids: Vec::new(),
             bounds: [1000000.0, 1000000.0, -100000.0, -1000000.0],
-            collision_grid: HashMap::new(),
-            visibility_grid: HashMap::new()
+            wall_indicies: Vec::new()
         }
     }
 
@@ -130,7 +124,6 @@ impl Level {
 
         }
 
-        level.pre_calculate_visibility();
         level
 
     }
@@ -140,10 +133,6 @@ impl Level {
         {
 
             let aabb = &wall.aabb;
-            let (top_left, bottom_right) = (
-                self.w2g(aabb[0], aabb[1]),
-                self.w2g(aabb[2], aabb[3])
-            );
 
             self.bounds[0] = self.bounds[0].min(aabb[0]);
             self.bounds[1] = self.bounds[1].min(aabb[1]);
@@ -151,11 +140,7 @@ impl Level {
             self.bounds[2] = self.bounds[2].max(aabb[2]);
             self.bounds[3] = self.bounds[3].max(aabb[3]);
 
-            for y in (top_left.1 - 1)..bottom_right.1 + 1 {
-                for x in (top_left.0 - 1)..bottom_right.0 + 1 {
-                    self.collision_grid.entry((x, y)).or_insert_with(HashSet::new).insert(self.walls.len());
-                }
-            }
+            self.wall_indicies.push(self.walls.len());
 
         }
 
@@ -163,30 +148,8 @@ impl Level {
 
     }
 
-    pub fn get_walls_in_bounds(
-        &self,
-        bounds: &[f32; 4]
-
-    ) -> HashSet<usize> {
-
-        let (top_left, bottom_right) = (
-            self.w2g(bounds[0].min(bounds[2]), bounds[1].min(bounds[3])),
-            self.w2g(bounds[2].max(bounds[0]), bounds[3].max(bounds[1]))
-        );
-
-        let mut walls = HashSet::new();
-        for y in (top_left.1 - 1)..bottom_right.1 + 1 {
-            for x in (top_left.0 - 1)..bottom_right.0 + 1 {
-                if let Some(indicies) = self.collision_grid.get(&(x, y)) {
-                    for i in indicies {
-                        walls.insert(*i);
-                    }
-                }
-            }
-        }
-
-        walls
-
+    pub fn get_walls_indicies(&self) -> &[usize] {
+        &self.wall_indicies[..]
     }
 
     pub fn load() -> Level {

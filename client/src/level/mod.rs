@@ -244,8 +244,8 @@ impl Level {
         let bounds = camera.b2w();
         let context = camera.context();
 
-        let walls = self.level.get_walls_in_bounds(&bounds);
-        for i in &walls {
+        let walls = self.level.get_walls_indicies();
+        for i in walls {
             let wall = &self.walls[*i];
             if aabb_intersect(&wall.aabb, &bounds) {
                 wall.render(renderer, &context);
