@@ -9,6 +9,10 @@ use bincode::rustc_serialize::{encode, decode, DecodingError};
 use ::entity::PlayerData;
 
 
+// Statics --------------------------------------------------------------------
+pub const LASER_BEAM_DURATION: u64 = 150;
+
+
 // Network Actions ------------------------------------------------------------
 #[derive(Debug, RustcEncodable, RustcDecodable, Clone)]
 pub enum Action {
@@ -16,8 +20,8 @@ pub enum Action {
     // TODO use smaller values
     // TODO create helper for f32 <> u16
     CreateLaserBeam(u8, f32, f32, f32, f32),
-    LaserBeamHit(u8, f32, f32),
-    LaserBeamKill(u8, f32, f32)
+    LaserBeamHit(u8, u8, f32, f32),
+    LaserBeamKill(u8, u8, f32, f32)
 }
 
 impl Action {

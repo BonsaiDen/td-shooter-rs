@@ -26,7 +26,7 @@ use ::level::Level;
 use ::camera::Camera;
 use ::entity::{Entity, Registry};
 use ::particle_system::ParticleSystem;
-use ::effect::{Effect, LaserBeam, LaserBeamHit};
+use ::effect::{Effect, LaserBeam, LaserBeamHit, ScreenFlash};
 
 
 // Client Implementation ------------------------------------------------------
@@ -41,12 +41,14 @@ pub struct Client {
     // Rendering
     camera: Camera,
     effects: Vec<Box<Effect>>,
+    screen_effects: Vec<Box<Effect>>,
     particle_system: ParticleSystem,
     debug_level: u8,
 
     // Player Colors
     // TODO optimize these?
     player_colors: [[f32; 4]; 2],
+    player_color: ColorName,
     player_data: PlayerData,
     player_circle: Circle,
     player_cone: CircleArc,
@@ -72,11 +74,13 @@ impl Client {
             // Rendering
             camera: Camera::new(width, height),
             effects: Vec::new(),
+            screen_effects: Vec::new(),
             particle_system: ParticleSystem::new(MAX_PARTICLES),
             debug_level: 0,
 
             // Colors
             player_colors: [[0f32; 4]; 2],
+            player_color: ColorName::Black,
             player_data: PlayerData::default(),
             player_circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
             player_cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
@@ -140,6 +144,13 @@ impl Client {
                 if self.debug_level == 5 {
                     self.debug_level = 0;
                 }
+            }
+
+            if key == Key::F {
+                self.screen_effects.push(Box::new(ScreenFlash::new(
+                    ColorName::from_u8(5),
+                    600
+                )));
             }
 
             if key == Key::P {
@@ -248,6 +259,7 @@ impl Client {
         for action in actions.drain(0..) {
             println!("[Client] Received action from server: {:?}", action);
             match action {
+
                 Action::CreateLaserBeam(color, x, y, r, l) => {
                     self.effects.push(Box::new(LaserBeam::from_point(
                         &mut self.particle_system,
@@ -257,13 +269,46 @@ impl Client {
                         level.collide_beam_wall(x, y, r, l + 1.0)
                     )));
                 },
-                Action::LaserBeamHit(color, x, y) => {
+
+                Action::LaserBeamHit(hit_color, shooter_color, x, y) => {
+
+                    let hit_color = ColorName::from_u8(hit_color);
                     self.effects.push(Box::new(LaserBeamHit::from_point(
                         &mut self.particle_system,
-                        ColorName::from_u8(color),
-                        x, y
+                        hit_color,
+                        x, y,
+                        1.0
                     )));
+
+                    if self.player_color == hit_color {
+                        self.screen_effects.push(Box::new(ScreenFlash::new(
+                            ColorName::from_u8(shooter_color),
+                            600
+                        )));
+                    }
+
                 },
+
+                Action::LaserBeamKill(hit_color, shooter_color, x, y) => {
+
+                    let hit_color = ColorName::from_u8(hit_color);
+
+                    self.effects.push(Box::new(LaserBeamHit::from_point(
+                        &mut self.particle_system,
+                        hit_color,
+                        x, y,
+                        2.0
+                    )));
+
+                    if self.player_color == hit_color {
+                        self.screen_effects.push(Box::new(ScreenFlash::new(
+                            ColorName::from_u8(shooter_color),
+                            2000
+                        )));
+                    }
+
+                },
+
                 _ => {}
             }
         }
@@ -296,6 +341,7 @@ impl Client {
 
             let p = entity.interpolate(u);
             if entity.is_local() {
+                self.player_color = entity.color_name();
                 self.player_data = p.clone();
                 (p, entity.colors(), if entity.is_alive() { 1.0 } else { 0.0 })
 
@@ -345,6 +391,7 @@ impl Client {
             let context = self.camera.context();
             for (p, mut colors, visibility) in players {
                 if visibility > 0.0 {
+
                     visibile_count += 1;
 
                     colors[0][3] = visibility;
@@ -363,11 +410,11 @@ impl Client {
                 }
             }
 
-            println!("Visible players: {} of {}", visibile_count, player_count);
+            //println!("Visible players: {} of {}", visibile_count, player_count);
 
         }
 
-        // Effects
+        // World Effects
         for effect in &self.effects {
             effect.render(renderer, &self.camera);
         }
@@ -403,6 +450,13 @@ impl Client {
             self.player_data.y,
             self.debug_level
         );
+
+        // Screen Effects
+        for effect in &self.screen_effects {
+            effect.render(renderer, &self.camera);
+        }
+
+        self.screen_effects.retain(|e| e.alive(t));
 
         // HUD
         self.render_hud(renderer);

@@ -287,23 +287,31 @@ pub fn line_segment_intersect_circle(line: &[f32; 4], cx: f32, cy: f32, r: f32) 
 
     if det >= 0.0 {
 
-        // compute first intersection point
-        let t = (-b + det.sqrt()) / (2.0 * a);
+        println!("det: {}", det);
 
-        let (fx, fy) = (ax + t * dx, ay + t * dy);
+        // Compute both intersection points
+        let t1 = (-b - det.sqrt()) / (2.0 * a);
+        let t2 = (-b + det.sqrt()) / (2.0 * a);
 
-        // compute second intersection point
-        let t = (-b - det.sqrt()) / (2.0 * a);
-        let (gx, gy) = (ax + t * dx, ay + t * dy);
+        // Check if one of the points lies within the circle
+        println!("{} <-> {}", t1, t2);
+        if (t1 >= 0.0 && t1 <= 0.0) || (t2 >= 0.0 && t2 <= 1.0) {
 
-        // projected end of intersection line
-        let (hx, hy) = (fx + (gx - fx) * 0.5, fy + (gy - fy) * 0.5);
+            let (gx, gy) = (ax + t1 * dx, ay + t1 * dy);
+            let (fx, fy) = (ax + t2 * dx, ay + t2 * dy);
 
-        // Overlap
-        let (ox, oy) = (hx - cx, hy - cy);
-        let o = r - (ox * ox + oy * oy).sqrt();
+            // projected end of intersection line
+            let (hx, hy) = (fx + (gx - fx) * 0.5, fy + (gy - fy) * 0.5);
 
-        Some([fx, fy, gx, gy, hx, hy, o, oy.atan2(ox)])
+            // Overlap
+            let (ox, oy) = (hx - cx, hy - cy);
+            let o = r - (ox * ox + oy * oy).sqrt();
+
+            Some([fx, fy, gx, gy, hx, hy, o, oy.atan2(ox)])
+
+        } else {
+            None
+        }
 
     } else {
         None

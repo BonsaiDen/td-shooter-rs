@@ -18,14 +18,15 @@ type ServerPlayerEntity = PlayerEntity<ServerState<PlayerData, PlayerInput>>;
 
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn owner(&self) -> Option<ConnectionID>;
-    fn update(&mut self, dt: f32, level: &Level);
+    fn is_alive(&self) -> bool;
     fn client_data(&self, tick: u8, tick_delay: u8) -> PlayerData;
-    fn damage(&mut self, amount: u8);
     fn current_data(&self) -> PlayerData;
     fn color_name(&self) -> ColorName;
     fn set_visibility(&mut self, ConnectionID, bool);
     fn get_visibility(&self, connection_id: ConnectionID) -> bool;
     fn fire_beam(&mut self, t: u64) -> bool;
+    fn damage(&mut self, amount: u8);
+    fn update(&mut self, dt: f32, level: &Level);
 }
 
 impl Entity for ServerPlayerEntity {
@@ -34,20 +35,12 @@ impl Entity for ServerPlayerEntity {
         self.owner
     }
 
-    fn update(&mut self, dt: f32, level: &Level) {
-        self.state.update_with(|state, _, input| {
-            PlayerData::update(dt, state, input.unwrap(), level);
-        });
+    fn is_alive(&self) -> bool {
+        self.state.get_relative(0).hp > 0
     }
 
     fn client_data(&self, tick: u8, tick_delay: u8) -> PlayerData {
         self.state.get_absolute(tick, tick_delay)
-    }
-
-    fn damage(&mut self, amount: u8) {
-        self.state.apply(|data| {
-            data.hp = data.hp.saturating_sub(amount);
-        });
     }
 
     fn current_data(&self) -> PlayerData {
@@ -75,6 +68,18 @@ impl Entity for ServerPlayerEntity {
         // The client also limits the firing rate, however we want to make sure
         // that we always accept the firing command if the client limited correclty
         self.fire_beam(PLAYER_BEAM_FIRE_INTERVAL - 15, t)
+    }
+
+    fn damage(&mut self, amount: u8) {
+        self.state.apply(|data| {
+            data.hp = data.hp.saturating_sub(amount);
+        });
+    }
+
+    fn update(&mut self, dt: f32, level: &Level) {
+        self.state.update_with(|state, _, input| {
+            PlayerData::update(dt, state, input.unwrap(), level);
+        });
     }
 
 }

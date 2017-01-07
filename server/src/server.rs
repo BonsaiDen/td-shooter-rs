@@ -142,7 +142,7 @@ impl Server {
 
         let t = clock_ticks::precise_time_ms();
         let mut outgoing_actions: Vec<(ActionVisibility, Action)> = Vec::new();
-        let mut beam_hits: Vec<(ConnectionID, ConnectionID)> = Vec::new();
+        let mut beam_hits: Vec<(ConnectionID, ColorName, ConnectionID)> = Vec::new();
 
         for (conn_id, &mut (_, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
 
@@ -150,6 +150,9 @@ impl Server {
 
                 println!("[Server] Received action from client: {:?}", action);
                 match action {
+
+                    // TODO should we perform a persistent check for the duration
+                    // of the laser beam?
                     Action::FiredLaserBeam(tick, client_r) => {
 
                         // Correct firing angle to be somewhere between server
@@ -159,7 +162,7 @@ impl Server {
                             let mut data = entity.client_data(tick, 0);
                             data.merge_client_angle(client_r);
 
-                            // Ignore action from dead entities
+                            // Ignore action from dead client entities
                             if data.hp > 0 && entity.fire_beam(t) {
                                 Some((data, entity.color_name()))
 
@@ -176,9 +179,9 @@ impl Server {
                             // Create initial laser beam
                             let (beam_line, mut l, r, _) = create_laser_beam(&level, &data);
 
-                            // Get entity dat based on tick delay from client side action
-                            let client_side_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
-                                (entity.owner(), entity.client_data(tick, ENTITY_STATE_DELAY))
+                            // Get entity data for both the current server state and as it was seen on the client when they fired
+                            let client_side_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData, PlayerData), _>(|_, entity| {
+                                (entity.owner(), entity.current_data(), entity.client_data(tick, ENTITY_STATE_DELAY))
                             });
 
                             // TODO handle mirror walls and bounced off beams which hit the player
@@ -188,7 +191,7 @@ impl Server {
                                 l,
                                 &client_side_entities
                             ) {
-                                beam_hits.push((*conn_id, hit_conn_id));
+                                beam_hits.push((*conn_id, color_name, hit_conn_id));
                                 l = hit_l;
                             }
 
@@ -222,11 +225,11 @@ impl Server {
         }
 
         // Handle laser beam hits
-        for (shooter_conn_id, hit_conn_id) in beam_hits {
+        for (shooter_conn_id, shooter_color, hit_conn_id) in beam_hits {
 
             if let Some(entity) = entity_server.entity_get_mut(&self.connections.get(&hit_conn_id).unwrap().1) {
 
-                //entity.damage(64);
+                entity.damage(64);
 
                 // TODO we need a simple timer system
                 // VecDeque, sort to be next first when inserting (insert
@@ -237,22 +240,39 @@ impl Server {
                 // When executing pop while entry timer is <=
                 // clock_ticks::precise_time_ms()
 
-                let data = entity.current_data();
-                let action = if data.hp > 0 {
+                if entity.is_alive() {
+
                     println!("[Server] Beam Hit: {:?} -> {:?}", shooter_conn_id, hit_conn_id);
-                    Action::LaserBeamHit(entity.color_name().to_u8(), data.x, data.y)
+
+                    let data = entity.current_data();
+                    let action = Action::LaserBeamHit(entity.color_name().to_u8(), shooter_color.to_u8(), data.x, data.y);
+
+                    // Send action to all other players, except for the shooter
+                    outgoing_actions.push((ActionVisibility::Entity(data, Some(shooter_conn_id)), action.clone()));
+
+                    // Send another action just for the shooter to ensure he always
+                    // gets the hit marker
+                    outgoing_actions.push((ActionVisibility::Connection(shooter_conn_id), action));
 
                 } else {
+
                     println!("[Server] Beam Kill: {:?} -> {:?}", shooter_conn_id, hit_conn_id);
-                    Action::LaserBeamKill(entity.color_name().to_u8(), data.x, data.y)
+
+                    let data = entity.current_data();
+                    let action = Action::LaserBeamKill(entity.color_name().to_u8(), shooter_color.to_u8(), data.x, data.y);
+
+                    // Send action to all other players, except for the shooter
+                    outgoing_actions.push((ActionVisibility::Entity(data, Some(shooter_conn_id)), action.clone()));
+
+                    // Send another action just for the shooter to ensure he always
+                    // gets the hit marker
+                    outgoing_actions.push((ActionVisibility::Connection(shooter_conn_id), action.clone()));
+
+                    // Also send a action to the killed player, he can't see himself since he is no
+                    // longer alive and would otherwise not receive it
+                    outgoing_actions.push((ActionVisibility::Connection(hit_conn_id), action));
+
                 };
-
-                // Send action to all other players, except for the shooter
-                outgoing_actions.push((ActionVisibility::Entity(data, Some(shooter_conn_id)), action.clone()));
-
-                // Send another action just for the shooter to ensure he always
-                // gets the hit marker
-                outgoing_actions.push((ActionVisibility::Connection(shooter_conn_id), action));
 
             }
 
@@ -496,26 +516,31 @@ fn create_laser_beam(
 
 }
 
+// TODO move out into a module
 fn check_laser_beam_hits(
     conn_id: &ConnectionID,
     beam_line: &[f32; 4],
     l: f32,
-    entities: &[(Option<ConnectionID>, PlayerData)]
+    entities: &[(Option<ConnectionID>, PlayerData, PlayerData)]
 
 ) -> Option<(ConnectionID, f32)> {
 
     // Hit detection against nearest entities
     let mut nearest_entities = Vec::new();
-    for &(entity_conn_id, ref data) in entities {
+    for &(entity_conn_id, ref server_data, ref client_data) in entities {
         if let Some(ref entity_conn_id) = entity_conn_id {
 
-            // Don't let players hit themseves
-            if entity_conn_id != conn_id && data.hp > 0 {
+            // Don't let players hit themselves or entities which are already dead on the server
+            if entity_conn_id != conn_id && server_data.hp > 0 {
 
                 // Ignore entities outside of beam range
-                let distance = util::distance(data.x, data.y, beam_line[0], beam_line[1]);
+                let distance = util::distance(client_data.x, client_data.y, beam_line[0], beam_line[1]);
                 if distance - PLAYER_RADIUS < l {
-                    nearest_entities.push((distance, data.x, data.y, *entity_conn_id));
+                    nearest_entities.push((
+                        distance,
+                        client_data.x, client_data.y,
+                        *entity_conn_id
+                    ));
                 }
 
             }
@@ -537,6 +562,7 @@ fn check_laser_beam_hits(
     });
 
     // Find first entity which is hit by beam
+    println!("Found {} potential targets", nearest_entities.len());
     for &(l, x, y, entity_conn_id) in &nearest_entities {
         if let Some(intersection) = line_segment_intersect_circle(&beam_line, x, y, PLAYER_RADIUS) {
             return Some((entity_conn_id, l - intersection[6]));
