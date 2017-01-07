@@ -11,7 +11,8 @@ use ::entity::{
     PLAYER_VISBILITY_CONE,
     PLAYER_VISBILITY_CONE_OFFSET
 };
-use super::{Level, LevelCollision, line_segment_intersect_circle_test};
+use ::level::{Level, LevelCollision};
+use ::collision::line_segment_intersect_circle_test;
 
 
 // Statics --------------------------------------------------------------------

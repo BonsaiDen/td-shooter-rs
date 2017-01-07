@@ -7,15 +7,12 @@ use graphics::Transformed;
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
 use ::renderer::{Renderer, SimplePolygon, Circle};
-use ::shared::level::{
-    Level, LightSource, LevelVisibility,
-    line_segment_intersect_circle_test
-};
-
+use ::shared::level::{Level, LightSource as SharedLightSource, LevelVisibility};
+use ::shared::collision::line_segment_intersect_circle_test;
 
 // Cached Light Source for Fast Rendering -------------------------------------
 #[derive(Debug)]
-pub struct CachedLightSource {
+pub struct LightSource {
     x: f32,
     y: f32,
     s: f64,
@@ -25,9 +22,9 @@ pub struct CachedLightSource {
     light_circle: Circle
 }
 
-impl CachedLightSource {
+impl LightSource {
 
-    pub fn from_light(level: &Level, light: &LightSource) -> CachedLightSource {
+    pub fn from_light(level: &Level, light: &SharedLightSource) -> LightSource {
 
         // Figure out if we actually intersect with any walls
         // if not we can render a simple circle instead of the visibility polygon
@@ -48,7 +45,7 @@ impl CachedLightSource {
 
         println!("[Level] Light clipped {} walls.", clipped_walls);
 
-        CachedLightSource {
+        LightSource {
             aabb: light.aabb,
             x: light.x,
             y: light.y,

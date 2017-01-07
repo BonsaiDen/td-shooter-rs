@@ -33,8 +33,9 @@ use shared::level::Level;
 
 
 // Modules --------------------------------------------------------------------
-mod server;
 mod entity;
+mod laser_beam;
+mod server;
 
 
 // Server Runner ---------------------------------------------------------------

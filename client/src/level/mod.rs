@@ -15,15 +15,15 @@ use shared::level::{
 
 
 // Modules --------------------------------------------------------------------
-mod cached_light_source;
-use self::cached_light_source::CachedLightSource;
+mod light_source;
+use self::light_source::LightSource;
 
 
 // Client Level ---------------------------------------------------------------
 pub struct Level {
     level: SharedLevel,
     visibility_circle: CircleArc,
-    lights: Vec<CachedLightSource>,
+    lights: Vec<LightSource>,
     solids: Vec<Polygon>,
     walls: Vec<Line>
 }
@@ -34,7 +34,7 @@ impl Level {
 
         // Generate light visualizations
         let cached_lights = level.lights.iter().map(|l| {
-            CachedLightSource::from_light(&level, l)
+            LightSource::from_light(&level, l)
 
         }).collect();
 

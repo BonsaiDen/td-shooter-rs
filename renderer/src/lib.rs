@@ -11,6 +11,7 @@ extern crate clock_ticks;
 extern crate draw_state;
 extern crate graphics;
 extern crate piston;
+//extern crate image;
 
 
 // STD Dependencies -----------------------------------------------------------
@@ -564,3 +565,24 @@ fn create_main_targets(dim: gfx::texture::Dimensions) -> (
     (Typed::new(output_color), Typed::new(output_stencil))
 }
 
+
+/*
+fn load_texture(
+    factory: &mut gfx_device_gl::Factory,
+    data: &[u8]
+
+) -> Result<gfx::handle::ShaderResourceView<gfx_device_gl::Resources, [f32; 4]>, String> {
+
+    use std::io::Cursor;
+    use gfx::format::Rgba8;
+    use gfx::texture as t;
+
+    let img = image::load(Cursor::new(data), image::PNG).unwrap().to_rgba();
+    let (width, height) = img.dimensions();
+    let kind = t::Kind::D2(width as t::Size, height as t::Size, t::AaMode::Single);
+    let (_, view) = factory.create_texture_immutable_u8::<Rgba8>(kind, &[&img]).unwrap();
+
+    Ok(view)
+
+}
+*/

@@ -30,4 +30,5 @@ pub mod level;
 pub mod color;
 pub mod action;
 pub mod entity;
+pub mod collision;
 
