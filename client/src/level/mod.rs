@@ -300,10 +300,6 @@ impl LevelVisibility for Level {
 
 impl LevelCollision for Level {
 
-    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4] {
-        self.level.collision_bounds(x, y)
-    }
-
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool) {
         self.level.collide(x, y, radius, active);
     }

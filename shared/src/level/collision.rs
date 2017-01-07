@@ -17,7 +17,6 @@ pub const COLLISION_GRID_SPACING: f32 = 200.0;
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelCollision {
-    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4];
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool);
     fn collide_beam(&self, x: f32, y: f32, r: f32, l: f32) -> Option<(usize, [f32; 3])>;
     fn collide_beam_wall(&self, x: f32, y: f32, r: f32, l: f32) -> Option<f32>;
@@ -25,16 +24,6 @@ pub trait LevelCollision {
 }
 
 impl LevelCollision for Level {
-
-    fn collision_bounds(&self, x: f32, y: f32) -> [f32; 4] {
-        let (gx, gy) = self.w2g(x, y);
-        [
-            (gx as f32) * COLLISION_GRID_SPACING,
-            (gy as f32) * COLLISION_GRID_SPACING,
-            COLLISION_GRID_SPACING,
-            COLLISION_GRID_SPACING
-        ]
-    }
 
     fn collide(&self, x: &mut f32, y: &mut f32, radius: f32, active: bool) {
 
