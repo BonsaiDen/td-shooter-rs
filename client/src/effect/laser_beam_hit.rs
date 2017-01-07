@@ -1,7 +1,3 @@
-// STD Dependencies -----------------------------------------------------------
-use std::f32::consts;
-
-
 // External Dependencies ------------------------------------------------------
 use clock_ticks;
 use graphics::Transformed;

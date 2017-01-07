@@ -39,20 +39,11 @@ pub struct Client {
 
     // Rendering
     camera: Camera,
+    player: LocalPlayerData,
     effects: Vec<Box<Effect>>,
     screen_effects: Vec<Box<Effect>>,
     particle_system: ParticleSystem,
     debug_level: u8,
-
-    // Player Colors
-    // TODO move into a struct
-    // TODO optimize these?
-    player_colors: [[f32; 4]; 2],
-    player_color: ColorName,
-    player_data: PlayerData,
-    player_circle: Circle,
-    player_cone: CircleArc,
-    player_last_beam_fire: u64,
 
     // Network
     actions: Vec<Action>,
@@ -73,18 +64,11 @@ impl Client {
 
             // Rendering
             camera: Camera::new(width, height),
+            player: LocalPlayerData::new(),
             effects: Vec::new(),
             screen_effects: Vec::new(),
             particle_system: ParticleSystem::new(MAX_PARTICLES),
             debug_level: 0,
-
-            // Colors
-            player_colors: [[0f32; 4]; 2],
-            player_color: ColorName::Black,
-            player_data: PlayerData::default(),
-            player_circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
-            player_cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
-            player_last_beam_fire: 0,
 
             // Network
             actions: Vec::new(),
@@ -106,25 +90,25 @@ impl Client {
         if let Some(Button::Mouse(button)) = e.press_args() {
             if button == MouseButton::Left {
 
-                if t >= self.player_last_beam_fire + PLAYER_BEAM_FIRE_INTERVAL {
+                if t >= self.player.last_beam_fire + PLAYER_BEAM_FIRE_INTERVAL {
 
                     // TODO play laser SFX
-                    self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
+                    self.actions.push(Action::FiredLaserBeam(self.tick, self.player.data.r));
 
                     if self.debug_level == 1 {
                         self.effects.push(Box::new(LaserBeam::from_point(
                             &mut self.particle_system,
                             ColorName::Grey,
-                            self.player_data.x,
-                            self.player_data.y,
-                            self.player_data.r,
+                            self.player.data.x,
+                            self.player.data.y,
+                            self.player.data.r,
                             PLAYER_RADIUS + 0.5,
                             100.0,
                             None
                         )));
                     }
 
-                    self.player_last_beam_fire = t;
+                    self.player.last_beam_fire = t;
 
                 }
 
@@ -243,7 +227,7 @@ impl Client {
         entity_client.update_with(|_, entity| {
             if entity.is_local() {
                 if entity.is_new() {
-                    self.player_colors = entity.colors();
+                    self.player.colors = entity.colors();
                 }
                 if entity.is_alive() {
                     entity.update_local(level, input.clone());
@@ -279,7 +263,7 @@ impl Client {
                         1.0
                     )));
 
-                    if self.player_color == hit_color {
+                    if self.player.color == hit_color {
                         self.screen_effects.push(Box::new(ScreenFlash::new(
                             ColorName::from_u8(shooter_color),
                             600
@@ -299,7 +283,7 @@ impl Client {
                         2.0
                     )));
 
-                    if self.player_color == hit_color {
+                    if self.player.color == hit_color {
                         self.screen_effects.push(Box::new(ScreenFlash::new(
                             ColorName::from_u8(shooter_color),
                             2000
@@ -340,14 +324,14 @@ impl Client {
 
             let p = entity.interpolate(u);
             if entity.is_local() {
-                self.player_color = entity.color_name();
-                self.player_data = p.clone();
+                self.player.color = entity.color_name();
+                self.player.data = p.clone();
                 (p, entity.colors(), if entity.is_alive() { 1.0 } else { 0.0 })
 
             } else {
                 let visibility = entity.update_visibility(
                     level,
-                    &self.player_data,
+                    &self.player.data,
                     &p,
                     t
                 );
@@ -357,16 +341,16 @@ impl Client {
         });
 
         // Camera setup
-        self.camera.center(self.player_data.x, self.player_data.y);
+        self.camera.center(self.player.data.x, self.player.data.y);
         self.camera.limit(level.bounds());
         self.camera.apply(renderer);
 
         // Mouse inputs
         self.world_cursor = self.camera.s2w(self.screen_cursor.0, self.screen_cursor.1);
         self.input_angle = (
-            self.world_cursor.1 - self.player_data.y
+            self.world_cursor.1 - self.player.data.y
 
-        ).atan2(self.world_cursor.0 - self.player_data.x);
+        ).atan2(self.world_cursor.0 - self.player.data.x);
 
         // Clear
         renderer.clear_stencil(0);
@@ -376,8 +360,8 @@ impl Client {
         level.render_background(
             renderer ,
             &self.camera,
-            self.player_data.x,
-            self.player_data.y,
+            self.player.data.x,
+            self.player.data.y,
             self.debug_level
         );
 
@@ -393,13 +377,13 @@ impl Client {
 
                     let q = context.trans(p.x as f64, p.y as f64).rot_rad(p.r as f64);
                     renderer.set_color([0.0, 0.0, 0.0, 0.5]);
-                    self.player_circle.render(renderer, &q.scale(1.1, 1.1));
+                    self.player.circle.render(renderer, &q.scale(1.1, 1.1));
 
                     renderer.set_color(colors[0]);
-                    self.player_circle.render(renderer, &q);
+                    self.player.circle.render(renderer, &q);
 
                     renderer.set_color(colors[1]);
-                    self.player_cone.render(renderer, &q);
+                    self.player.cone.render(renderer, &q);
 
                 }
             }
@@ -430,7 +414,7 @@ impl Client {
         level.render_shadow(
             renderer,
             &self.camera,
-            &self.player_data,
+            &self.player.data,
             self.debug_level
         );
 
@@ -438,8 +422,8 @@ impl Client {
         level.render_walls(
             renderer,
             &self.camera,
-            self.player_data.x,
-            self.player_data.y,
+            self.player.data.x,
+            self.player.data.y,
             self.debug_level
         );
 
@@ -458,7 +442,7 @@ impl Client {
     pub fn render_hud(&mut self, renderer: &mut Renderer) {
 
         let context = renderer.context().clone();
-        renderer.set_color(self.player_colors[0]);
+        renderer.set_color(self.player.colors[0]);
         renderer.rectangle(&context, &[
             self.screen_cursor.0 - 2.0, self.screen_cursor.1 - 2.0,
             4.0, 4.0
@@ -474,11 +458,44 @@ impl Client {
             w - 30.0,
             20.0,
             w - 30.0,
-            (h - 20.0) - (h - 40.0) * (1.0 - 1.0 / PLAYER_MAX_HP as f32 * self.player_data.hp as f32)
+            (h - 20.0) - (h - 40.0) * (1.0 - 1.0 / PLAYER_MAX_HP as f32 * self.player.data.hp as f32)
 
         ], 10.0);
 
     }
 
+}
+
+
+// Helpers --------------------------------------------------------------------
+struct LocalPlayerData {
+
+    // State
+    data: PlayerData,
+    color: ColorName,
+    last_beam_fire: u64,
+
+    // Rendering
+    colors: [[f32; 4]; 2],
+    circle: Circle,
+    cone: CircleArc
+}
+
+impl LocalPlayerData {
+    fn new() -> LocalPlayerData {
+        LocalPlayerData {
+
+            // State
+            data: PlayerData::default(),
+            color: ColorName::Black,
+            last_beam_fire: 0,
+
+            // Rendering
+            colors: [[0f32; 4]; 2],
+            circle: Circle::new(10, 0.0, 0.0, PLAYER_RADIUS),
+            cone: CircleArc::new(10, 0.0, 0.0, PLAYER_RADIUS, 0.0, consts::PI * 0.25),
+
+        }
+    }
 }
 
