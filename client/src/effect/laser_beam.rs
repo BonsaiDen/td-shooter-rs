@@ -13,6 +13,7 @@ use ::effect::Effect;
 use ::camera::Camera;
 use ::renderer::Renderer;
 use ::particle_system::ParticleSystem;
+use shared::action::LASER_BEAM_DURATION;
 use shared::color::{Color, ColorName};
 
 
@@ -33,7 +34,7 @@ impl LaserBeam {
             color_dark: Color::from_name(color).darken(0.5).into_f32(),
             color_light: Color::from_name(color).into_f32(),
             start: clock_ticks::precise_time_ms(),
-            duration: 100
+            duration: LASER_BEAM_DURATION
         }
     }
 
@@ -132,7 +133,7 @@ impl Effect for LaserBeam {
             self.color_dark[2],
             1.0 - a
         ]);
-        renderer.line(context, &self.line, u.sin() * 4.0);
+        renderer.line(context, &self.line, u.sin() * 3.0);
 
         // Focussed beam in the middle
         renderer.set_color([
@@ -141,7 +142,7 @@ impl Effect for LaserBeam {
             self.color_light[2],
             1.0 - a
         ]);
-        renderer.line(context, &self.line, (u * consts::PI).sin() * 0.85)
+        renderer.line(context, &self.line, (u * consts::PI).sin() * 0.7)
 
     }
 
