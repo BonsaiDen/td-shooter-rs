@@ -25,7 +25,6 @@ pub struct LaserBeamHit {
     color_light: [f32; 4],
     start: u64,
     duration: u64,
-    // TODO cache via lazy static!
     circle: Circle
 }
 

@@ -62,7 +62,7 @@ impl Level {
             // Load Walls
             if let Some(&toml::Value::Array(ref walls)) = value.get("walls") {
                 for wall in walls {
-                    if let &toml::Value::Table(ref properties) = wall {
+                    if let toml::Value::Table(ref properties) = *wall {
                         if let Some(&toml::Value::Array(ref points)) = properties.get("line") {
                             level.add_wall(LevelWall::new(
                                 points[0].as_float().unwrap() as f32,
@@ -78,7 +78,7 @@ impl Level {
             // Load Lights
             if let Some(&toml::Value::Array(ref lights)) = value.get("lights") {
                 for light in lights {
-                    if let &toml::Value::Table(ref properties) = light {
+                    if let toml::Value::Table(ref properties) = *light {
                         level.lights.push(LightSource::new(
                             properties.get("x").unwrap().as_integer().unwrap() as f32,
                             properties.get("y").unwrap().as_integer().unwrap() as f32,
@@ -96,7 +96,7 @@ impl Level {
                 }
 
                 for spawn in spawns {
-                    if let &toml::Value::Table(ref properties) = spawn {
+                    if let toml::Value::Table(ref properties) = *spawn {
                         level.spawns.push(LevelSpawn::new(
                             properties.get("x").unwrap().as_integer().unwrap() as f32,
                             properties.get("y").unwrap().as_integer().unwrap() as f32
@@ -108,10 +108,8 @@ impl Level {
 
             // Load solids
             if let Some(&toml::Value::Array(ref solids)) = value.get("solids") {
-                // TODO create spatial index for these and allow querying to avoid drawing them all at
-                // once
                 for solid in solids {
-                    if let &toml::Value::Array(ref points) = solid {
+                    if let toml::Value::Array(ref points) = *solid {
                         let points: Vec<f32> = points.into_iter().map(|p| p.as_integer().unwrap() as f32).collect();
                         let mut pairs = Vec::with_capacity(points.len() / 2);
                         for i in 0..points.len() / 2 {

@@ -64,16 +64,14 @@ impl LevelVisibility for Level {
 
     fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool {
         for light in &self.lights {
-            if light.circle_intersect(x, y, radius) {
-                if self.circle_visible_from(
-                    x,
-                    y,
-                    radius,
-                    light.x,
-                    light.y
-                ) {
-                    return true;
-                }
+            if light.circle_intersect(x, y, radius) && self.circle_visible_from(
+                x,
+                y,
+                radius,
+                light.x,
+                light.y
+            ) {
+                return true;
             }
         }
         false
@@ -187,77 +185,6 @@ impl Level {
         (segments, endpoints)
 
     }
-
-    /*
-    fn get_visiblity_indicies(
-        &self,
-        x: f32,
-        y: f32,
-        walls: &[usize]
-
-    ) -> Vec<usize> {
-
-        let (segments, endpoints) = self.get_visibility_segments(x, y, walls);
-
-        let mut indicies = Vec::with_capacity(segments.len() * 3);
-        let mut open_segments: Vec<isize> = Vec::with_capacity(8);
-
-        for pass in 0..2 {
-
-            for endpoint in &endpoints {
-
-                // Get current open segment to check if it changed later on
-                // TODO optimize all of these
-                let open_segment_index = open_segments.first().map_or(-1, |i| *i);
-
-                if endpoint.begins_segment {
-
-                    let mut index = 0;
-                    // TODO Clean up access
-                    let mut segment_index = open_segments.get(index).map_or(-1, |i| *i);
-                    while segment_index != -1 && segment_in_front_of(
-                        x, y,
-                        &segments[endpoint.segment_index],
-                        &segments[segment_index as usize]
-
-                    ) {
-                        // TODO potential lockup here?
-                        // should not happen since we exit with the assignment of -1?
-                        index += 1;
-                        segment_index = open_segments.get(index).map_or(-1, |i| *i);
-                    }
-
-                    if segment_index == -1 {
-                        open_segments.push(endpoint.segment_index as isize)
-
-                    } else {
-                        open_segments.insert(index, endpoint.segment_index as isize);
-                    }
-
-                } else {
-                    open_segments.retain(|index| {
-                        *index != endpoint.segment_index as isize
-                    })
-                }
-
-                // Check if open segment has changed
-                // TODO Clean up access
-                if open_segment_index != open_segments.first().map_or(-1, |i| *i) {
-                    if pass == 1 {
-                        indicies.push(
-                            segments.get(open_segment_index as usize).map_or(0, |s| s.wall_index),
-                        );
-                    }
-                }
-
-            }
-
-        }
-
-        indicies
-
-    }
-    */
 
     fn get_visibility_polygon(&self, x: f32, y: f32, max_distance: f32) -> Vec<f32> {
 
@@ -437,15 +364,15 @@ fn add_intersection_points(
     points: &mut Vec<f32>
 ) {
 
-    let s = (
+    let es = (
         (d.0 - c.0) * (a.1 - c.1) - (d.1 - c.1) * (a.0 - c.0)
 
     ) / (
         (d.1 - c.1) * (b.0 - a.0) - (d.0 - c.0) * (b.1 - a.1)
     );
 
-    points.push(((a.0 + s * (b.0 - a.0)) * 10000.0).round() * 0.0001);
-    points.push(((a.1 + s * (b.1 - a.1)) * 10000.0).round() * 0.0001);
+    points.push(((a.0 + es * (b.0 - a.0)) * 10000.0).round() * 0.0001);
+    points.push(((a.1 + es * (b.1 - a.1)) * 10000.0).round() * 0.0001);
 
 }
 

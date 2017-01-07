@@ -69,8 +69,7 @@ pub fn create(
 
 }
 
-// TODO move out into a module
-pub fn check_hits(
+pub fn get_player_hits(
     conn_id: &ConnectionID,
     beam_line: &[f32; 4],
     l: f32,

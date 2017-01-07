@@ -119,7 +119,6 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, 
             Some(self.state.send(None))
 
         } else {
-            // TODO make ticks_ago configurable
             let bytes = self.state.send_with(Some(ENTITY_STATE_DELAY), |state| {
 
                 // Hide dead entities

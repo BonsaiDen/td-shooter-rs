@@ -36,6 +36,37 @@ fn main() {
 
 }
 
+fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
+
+    let (w, h) = img.dimensions();
+    let mut pixel_usage: HashSet<(i32, i32)> = HashSet::new();
+
+    let (bounds, mut paths) = extract_paths(
+        img,
+        &mut pixel_usage,
+        false,
+        &[0, 0, w as i32, h as i32]
+    );
+
+    let (_, mut solid_paths) = extract_paths(
+        img,
+        &mut pixel_usage,
+        true,
+        &[
+            bounds[0],
+            bounds[1],
+            bounds[2] + 2,
+            bounds[3] + 2
+        ]
+    );
+
+    println!("{}", solid_paths.len());
+    paths.append(&mut solid_paths);
+
+    (bounds, paths)
+
+}
+
 fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
 
     let mut level = Level::default();
@@ -164,32 +195,6 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
     level
 
 }
-
-fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
-
-    let (w, h) = img.dimensions();
-    let mut pixel_usage: HashSet<(i32, i32)> = HashSet::new();
-
-    let (bounds, mut paths) = extract_paths(
-        img,
-        &mut pixel_usage,
-        false,
-        &[0, 0, w as i32, h as i32]
-    );
-
-    let (_, mut solid_paths) = extract_paths(
-        img,
-        &mut pixel_usage,
-        true,
-        &bounds
-    );
-
-    paths.append(&mut solid_paths);
-
-    (bounds, paths)
-
-}
-
 
 fn extract_paths(
     img: &image::DynamicImage,

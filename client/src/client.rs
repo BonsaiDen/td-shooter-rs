@@ -46,6 +46,7 @@ pub struct Client {
     debug_level: u8,
 
     // Player Colors
+    // TODO move into a struct
     // TODO optimize these?
     player_colors: [[f32; 4]; 2],
     player_color: ColorName,
@@ -108,7 +109,6 @@ impl Client {
 
                 if t >= self.player_last_beam_fire + PLAYER_BEAM_FIRE_INTERVAL {
 
-                    // TODO create laser on server but already play sfx
                     // TODO play laser SFX
                     self.actions.push(Action::FiredLaserBeam(self.tick, self.player_data.r));
 
@@ -384,15 +384,10 @@ impl Client {
 
         {
 
-            let mut visibile_count = 0;
-            let player_count = players.len();
-
             // Players
             let context = self.camera.context();
             for (p, mut colors, visibility) in players {
                 if visibility > 0.0 {
-
-                    visibile_count += 1;
 
                     colors[0][3] = visibility;
                     colors[1][3] = visibility;
@@ -409,8 +404,6 @@ impl Client {
 
                 }
             }
-
-            //println!("Visible players: {} of {}", visibile_count, player_count);
 
         }
 

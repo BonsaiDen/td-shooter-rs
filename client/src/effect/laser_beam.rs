@@ -103,7 +103,6 @@ impl LaserBeam {
 
         }
 
-        // TODO have a small sparkle / rotation / start effect at the source of the beam
         LaserBeam::new(color_name, [
             x + r.cos() * d, y + r.sin() * d,
             x + r.cos() * (d + l), y + r.sin() * (d + l)

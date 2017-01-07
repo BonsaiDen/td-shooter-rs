@@ -68,7 +68,7 @@ impl LevelCollision for Level {
             }
 
             // Avoid edge sliding without player input
-            if active == false && overlap.0.abs() < 0.1 && overlap.1.abs() < 0.1 {
+            if !active && overlap.0.abs() < 0.1 && overlap.1.abs() < 0.1 {
                 break;
             }
 
@@ -78,7 +78,7 @@ impl LevelCollision for Level {
             iterations += 1;
 
             // No need to iterate idle entities multiple times per frame
-            if active == false {
+            if !active {
                 break;
             }
 
@@ -160,7 +160,7 @@ impl LevelCollision for Level {
     }
 
     fn collide_line(&self, line: &[f32; 4]) -> Option<(usize, [f32; 3])> {
-        self.collide_beam_with_walls(&line)
+        self.collide_beam_with_walls(line)
     }
 
 }
@@ -179,7 +179,7 @@ impl Level {
         let mut intersection: Option<(usize, [f32; 3])> = None;
         for (i, wall) in self.walls.iter().enumerate() {
 
-            if let Some(new) = line_intersect_line(&line, &wall.points) {
+            if let Some(new) = line_intersect_line(line, &wall.points) {
 
                 let is_closer = if let Some(existing) = intersection {
                     new[2] < existing.1[2]

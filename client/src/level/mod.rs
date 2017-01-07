@@ -114,7 +114,12 @@ impl Level {
         renderer.set_color([0.3, 0.3, 0.3, 1.0]);
         renderer.rectangle(
             context,
-            &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
+            &[
+                bounds[0],
+                bounds[1],
+                bounds[2] - bounds[0],
+                bounds[3] - bounds[1]
+            ]
         );
 
     }
@@ -261,9 +266,9 @@ impl Level {
 
         // Solids
         for solid in &self.solids {
-            if aabb_intersect(&solid.aabb, &bounds) {
+            //if aabb_intersect(&solid.aabb, &bounds) {
                 solid.render(renderer, context);
-            }
+            //}
         }
 
     }

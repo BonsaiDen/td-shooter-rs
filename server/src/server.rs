@@ -179,7 +179,7 @@ impl Server {
                             });
 
                             // TODO handle mirror walls and bounced off beams which hit the player
-                            if let Some((hit_conn_id, hit_l)) = laser_beam::check_hits(
+                            if let Some((hit_conn_id, hit_l)) = laser_beam::get_player_hits(
                                 conn_id,
                                 &beam_line,
                                 l,
