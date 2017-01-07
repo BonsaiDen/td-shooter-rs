@@ -47,20 +47,20 @@ impl Circle {
         for i in 0..segments {
 
             // Center
-            vertices.push((x * 10000.0).round() * 0.0001);
-            vertices.push((y * 10000.0).round() * 0.0001);
+            vertices.push((x * 1000.0).round() * 0.001);
+            vertices.push((y * 1000.0).round() * 0.001);
 
             // First outer point
             let ar = i as f32 * step;
             let (ax, ay) = (x + ar.cos() * r, y + ar.sin() * r);
-            vertices.push((ax * 10000.0).round() * 0.0001);
-            vertices.push((ay * 10000.0).round() * 0.0001);
+            vertices.push((ax * 1000.0).round() * 0.001);
+            vertices.push((ay * 1000.0).round() * 0.001);
 
             // Second outer point
             let br = ar + step;
             let (bx, by) = (x + br.cos() * r, y + br.sin() * r);
-            vertices.push((bx * 10000.0).round() * 0.0001);
-            vertices.push((by * 10000.0).round() * 0.0001);
+            vertices.push((bx * 1000.0).round() * 0.001);
+            vertices.push((by * 1000.0).round() * 0.001);
 
         }
 
