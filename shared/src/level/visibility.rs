@@ -202,24 +202,32 @@ impl Level {
             for endpoint in &endpoints {
 
                 // Get current open segment to check if it changed later on
-                // TODO optimize all of these
-                let open_segment_index = open_segments.first().map_or(-1, |i| *i);
+                let slen = open_segments.len();
+                let initial_segment_index = if slen > 0 {
+                    open_segments[0]
+
+                } else {
+                    -1
+                };
 
                 if endpoint.begins_segment {
 
                     let mut index = 0;
-                    // TODO Clean up access
-                    let mut segment_index = open_segments.get(index).map_or(-1, |i| *i);
+                    let mut segment_index = initial_segment_index;
+
                     while segment_index != -1 && segment_in_front_of(
                         x, y,
                         &segments[endpoint.segment_index],
                         &segments[segment_index as usize]
 
                     ) {
-                        // TODO potential lockup here?
-                        // should not happen since we exit with the assignment of -1?
                         index += 1;
-                        segment_index = open_segments.get(index).map_or(-1, |i| *i);
+                        segment_index = if index < slen {
+                            open_segments[index]
+
+                        } else {
+                            -1
+                        };
                     }
 
                     if segment_index == -1 {
@@ -235,12 +243,18 @@ impl Level {
                     });
                 }
 
-                // Check if open segment has changed
-                // TODO Clean up access
-                if open_segment_index != open_segments.first().map_or(-1, |i| *i) {
+                // Check if segment has changed
+                let current_segment_index = if !open_segments.is_empty() {
+                    open_segments[0]
+
+                } else {
+                    -1
+                };
+
+                if initial_segment_index != current_segment_index {
 
                     if pass == 1 {
-                        let segment = segments.get(open_segment_index as usize);
+                        let segment = segments.get(initial_segment_index as usize);
                         points.push(x);
                         points.push(y);
                         add_triangle_points(
