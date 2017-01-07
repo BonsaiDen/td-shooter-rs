@@ -19,3 +19,9 @@ pub fn distance(x: f32, y: f32, ox: f32, oy: f32) -> f32 {
     (dx * dx + dy * dy).sqrt()
 }
 
+#[inline(always)]
+pub fn angle(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let (dx, dy) = (ax - bx, ay - by);
+    dy.atan2(dx)
+}
+

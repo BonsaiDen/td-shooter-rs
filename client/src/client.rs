@@ -25,8 +25,7 @@ use renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 use ::level::Level;
 use ::camera::Camera;
 use ::entity::{Entity, Registry};
-use ::particle_system::ParticleSystem;
-use ::effect::{Effect, LaserBeam, LaserBeamHit, ScreenFlash};
+use ::effect::{Effect, LaserBeam, LaserBeamHit, ScreenFlash, ParticleSystem};
 
 
 // Client Implementation ------------------------------------------------------

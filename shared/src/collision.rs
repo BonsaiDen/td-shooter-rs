@@ -1,5 +1,10 @@
 // 2D Collision ---------------------------------------------------------------
 #[inline(always)]
+pub fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
+    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
+}
+
+#[inline(always)]
 pub fn aabb_intersect_circle(aabb: &[f32; 4], x: f32, y: f32, r: f32) -> bool {
 
     // Find closest point

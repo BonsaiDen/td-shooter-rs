@@ -27,7 +27,6 @@ mod client;
 mod effect;
 mod entity;
 mod level;
-mod particle_system;
 
 
 // Statics --------------------------------------------------------------------

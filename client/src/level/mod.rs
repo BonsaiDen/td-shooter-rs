@@ -3,9 +3,10 @@ use graphics::Transformed;
 
 
 // Internal Dependencies ------------------------------------------------------
-use ::renderer::{Renderer, CircleArc, Polygon, Line, StencilMode};
 use ::camera::Camera;
+use ::renderer::{Renderer, CircleArc, Polygon, Line, StencilMode};
 use shared::entity::{PlayerData, PLAYER_VISBILITY_CONE, PLAYER_VISBILITY_CONE_OFFSET};
+use shared::collision::aabb_intersect;
 use shared::level::{
     Level as SharedLevel,
     LevelCollision,
@@ -190,7 +191,7 @@ impl Level {
 
         let bounds = camera.b2w();
         let context = camera.context();
-        let endpoints = self.calculate_visibility(
+        let endpoints = self.visibility_polygon(
             data.x, data.y,
             LEVEL_MAX_VISIBILITY_DISTANCE
         );
@@ -266,30 +267,21 @@ impl Level {
 
         // Solids
         for solid in &self.solids {
-            //if aabb_intersect(&solid.aabb, &bounds) {
+            if aabb_intersect(&solid.aabb, &bounds) {
                 solid.render(renderer, context);
-            //}
+            }
         }
 
     }
 
 }
 
-// Helpers --------------------------------------------------------------------
-fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
-    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
-}
-
 
 // Traits ---------------------------------------------------------------------
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
-        self.level.calculate_visibility(x, y, radius)
-    }
-
-    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {
-        self.level.visibility_bounds(x, y)
+    fn visibility_polygon(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
+        self.level.visibility_polygon(x, y, radius)
     }
 
     fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool {

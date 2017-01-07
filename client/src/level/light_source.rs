@@ -8,7 +8,7 @@ use graphics::Transformed;
 use ::camera::Camera;
 use ::renderer::{Renderer, SimplePolygon, Circle};
 use ::shared::level::{Level, LightSource as SharedLightSource, LevelVisibility};
-use ::shared::collision::line_segment_intersect_circle_test;
+use ::shared::collision::{line_segment_intersect_circle_test, aabb_intersect};
 
 // Cached Light Source for Fast Rendering -------------------------------------
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl LightSource {
         }
 
         let light_polygon = if clipped_walls > 0 {
-            level.calculate_visibility(light.x, light.y, light.radius * 1.4)
+            level.visibility_polygon(light.x, light.y, light.radius * 1.4)
 
         } else {
             Vec::new()
@@ -112,11 +112,5 @@ impl LightSource {
         }
     }
 
-}
-
-
-// Helpers --------------------------------------------------------------------
-fn aabb_intersect(a: &[f32; 4], b: &[f32; 4]) -> bool {
-    !(b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1])
 }
 

@@ -23,8 +23,7 @@ pub const LEVEL_MAX_BEAM_VISIBILITY_DISTANCE: f32 = 3000.0;
 
 // Traits ---------------------------------------------------------------------
 pub trait LevelVisibility {
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32>;
-    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4];
+    fn visibility_polygon(&self, x: f32, y: f32, radius: f32) -> Vec<f32>;
     fn circle_visible_from(&self, cx: f32, cy: f32, radius: f32, x: f32, y: f32) -> bool;
     fn circle_in_light(&self, x: f32, y: f32, radius: f32) -> bool;
     fn player_within_visibility(&self, a: &PlayerData, b: &PlayerData) -> bool;
@@ -32,18 +31,8 @@ pub trait LevelVisibility {
 
 impl LevelVisibility for Level {
 
-    fn calculate_visibility(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
+    fn visibility_polygon(&self, x: f32, y: f32, radius: f32) -> Vec<f32> {
         self.get_visibility_polygon(x, y, radius)
-    }
-
-    fn visibility_bounds(&self, x: f32, y: f32) -> [f32; 4] {
-        let (gx, gy) = self.w2v(x, y);
-        [
-            (gx as f32) * VISIBILITY_GRID_SPACING,
-            (gy as f32) * VISIBILITY_GRID_SPACING,
-            VISIBILITY_GRID_SPACING,
-            VISIBILITY_GRID_SPACING
-        ]
     }
 
     fn circle_visible_from(&self, ox: f32, oy: f32, radius: f32, x: f32, y: f32) -> bool {
@@ -121,9 +110,8 @@ impl Level {
         for (i, wall) in self.walls.iter().enumerate() {
 
             // Calculate endpoints
-            // TODO can we exclude walls outside of our viewing cone?
-            let r1 = endpoint_angle(wall.points[0], wall.points[1], x, y);
-            let r2 = endpoint_angle(wall.points[2], wall.points[3], x, y);
+            let r1 = util::angle(wall.points[0], wall.points[1], x, y);
+            let r2 = util::angle(wall.points[2], wall.points[3], x, y);
 
             let mut dr = r2 - r1;
             if dr <= -consts::PI {
@@ -136,7 +124,6 @@ impl Level {
 
             let p1_begins_segment = dr > 0.0;
             let segment = Segment {
-                //wall_index: *i,
                 p1: Endpoint {
                     wall_index: i,
                     segment_index: segments.len(),
@@ -291,14 +278,8 @@ struct Endpoint {
 }
 
 struct Segment {
-    //wall_index: usize,
     p1: Endpoint,
     p2: Endpoint
-}
-
-fn endpoint_angle(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
-    let (dx, dy) = (ax - bx, ay - by);
-    dy.atan2(dx)
 }
 
 fn point_left_of(segment: &Segment, point: (f32, f32)) -> bool {
