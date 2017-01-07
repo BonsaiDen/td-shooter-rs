@@ -19,14 +19,15 @@ const PLAYER_EXTRAPOLATE_DURATION: f32 = PLAYER_FADE_DURATION * 4.0;
 
 // Client Entity --------------------------------------------------------------
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
+    fn is_new(&mut self) -> bool;
     fn is_local(&self) -> bool;
+    fn is_alive(&self) -> bool;
+    fn color_name(&self) -> ColorName;
+    fn colors(&self) -> [[f32; 4]; 2];
     fn interpolate(&self, u: f32) -> PlayerData;
     fn update_remote(&mut self, level: &Level, t: u64);
     fn update_local(&mut self, level: &Level, input: PlayerInput);
     fn update_visibility(&mut self, level: &Level, data: &PlayerData, p: &PlayerData, t: u64) -> f32;
-    fn color_name(&self) -> ColorName;
-    fn colors(&self) -> [[f32; 4]; 2];
-    fn is_new(&mut self) -> bool;
 }
 
 impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
@@ -43,6 +44,18 @@ impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
 
     fn is_local(&self) -> bool {
         self.local
+    }
+
+    fn is_alive(&self) -> bool {
+        self.state.interpolate(0.0).hp > 0
+    }
+
+    fn color_name(&self) -> ColorName {
+        self.color
+    }
+
+    fn colors(&self) -> [[f32; 4]; 2] {
+        [self.color_light, self.color_dark]
     }
 
     fn interpolate(&self, u: f32) -> PlayerData {
@@ -107,14 +120,6 @@ impl Entity for PlayerEntity<ClientState<PlayerData, PlayerInput>> {
             1.0 - u
         }
 
-    }
-
-    fn color_name(&self) -> ColorName {
-        self.color
-    }
-
-    fn colors(&self) -> [[f32; 4]; 2] {
-        [self.color_light, self.color_dark]
     }
 
 }

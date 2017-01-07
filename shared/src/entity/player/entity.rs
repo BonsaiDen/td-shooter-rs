@@ -13,6 +13,10 @@ use super::{PlayerData, PlayerInput};
 use ::color::{Color, ColorName};
 
 
+// Statics --------------------------------------------------------------------
+pub const ENTITY_STATE_DELAY: u8 = 4;
+
+
 // Entities -------------------------------------------------------------------
 #[derive(Debug)]
 pub struct PlayerEntity<S: NetworkState<PlayerData, PlayerInput>> {
@@ -38,6 +42,8 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
         data: PlayerData
 
     ) -> PlayerEntity<S> {
+
+        println!("Player entity created: {:?}", color);
 
         let mut entity = PlayerEntity {
             color: color,
@@ -98,6 +104,13 @@ impl<S: NetworkState<PlayerData, PlayerInput>> PlayerEntity<S> {
 
 }
 
+impl<S: NetworkState<PlayerData, PlayerInput>> Drop for PlayerEntity<S> {
+    fn drop(&mut self) {
+        println!("Player entity dropped: {:?}", self.color);
+    }
+}
+
+
 // Server Side Entity ---------------------------------------------------------
 impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, PlayerInput>> {
 
@@ -107,7 +120,7 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, 
 
         } else {
             // TODO make ticks_ago configurable
-            let bytes = self.state.send_with(Some(4), |state| {
+            let bytes = self.state.send_with(Some(ENTITY_STATE_DELAY), |state| {
 
                 // Hide dead entities
                 let dead = state.hp == 0;
@@ -131,9 +144,12 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, 
     }
 
     fn merge_bytes(&mut self, connection_slot: Option<&hexahydrate::ConnectionSlot<ConnectionID>>, bytes: &[u8]) {
-        if self.is_owned_by(connection_slot) {
+
+        // Dead entities ignore any inputs
+        if self.is_owned_by(connection_slot) && self.state.get_absolute(0, 0).hp > 0 {
             self.state.receive(bytes);
         }
+
     }
 
     fn kind(&self) -> u8 {

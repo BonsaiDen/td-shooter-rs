@@ -18,7 +18,7 @@ pub const PLAYER_BEAM_FIRE_INTERVAL: u64 = 300;
 
 
 // Re-Exports -----------------------------------------------------------------
-pub use self::entity::PlayerEntity;
+pub use self::entity::{PlayerEntity, ENTITY_STATE_DELAY};
 pub use self::input::PlayerInput;
 pub use self::data::PlayerData;
 

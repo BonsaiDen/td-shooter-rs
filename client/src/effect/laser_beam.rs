@@ -33,7 +33,7 @@ impl LaserBeam {
             color_dark: Color::from_name(color).darken(0.5).into_f32(),
             color_light: Color::from_name(color).into_f32(),
             start: clock_ticks::precise_time_ms(),
-            duration: 300
+            duration: 100
         }
     }
 
@@ -47,11 +47,11 @@ impl LaserBeam {
 
     ) -> LaserBeam {
 
-        // TODO factor out into particles module
+        // TODO factor out into a particles module
 
         // Create particles along beam path
         let step = 4.0;
-        let count = (l / step).floor() as usize;
+        let count = (l / step).floor().max(0.0) as usize;
         let particle_color = Color::from_name(color_name).into_f32();
 
         for i in 0..count {

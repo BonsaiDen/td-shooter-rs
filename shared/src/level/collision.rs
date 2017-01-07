@@ -365,3 +365,16 @@ pub fn line_intersect_line(line: &[f32; 4], other: &[f32; 4]) -> Option<[f32; 3]
 
 }
 
+pub fn aabb_circle_intersection(aabb: &[f32; 4], x: f32, y: f32, r: f32) -> bool {
+
+    // Find closest point
+    let nx = aabb[0].max(x.min(aabb[2]));
+    let ny = aabb[1].max(y.min(aabb[3]));
+
+    // Circle / AABB center distance
+    let (dx, dy) = (x - nx, y - ny);
+
+    (dx * dy + dy * dy) < r * r
+
+}
+

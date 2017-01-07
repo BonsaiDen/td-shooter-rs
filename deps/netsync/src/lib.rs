@@ -222,10 +222,10 @@ pub struct ServerState<P: NetworkProperty, I: NetworkInput> {
 
 impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
-    pub fn get_relative(&self, ticks_ago: usize) -> P {
+    pub fn get_relative(&self, ticks_ago: u8) -> P {
 
         let len = self.buffered_states.len();
-        let ticks_ago = cmp::min(len, ticks_ago);
+        let ticks_ago = cmp::min(len, ticks_ago as usize);
         if let Some(state) = self.buffered_states.get(len - ticks_ago) {
             state.clone()
 
@@ -235,9 +235,9 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
     }
 
-    pub fn get_absolute(&self, tick: u8) -> P {
-        let ticks_ago = cmp::max(0, self.last_input_tick as isize - tick as isize) as usize;
-        self.get_relative(ticks_ago)
+    pub fn get_absolute(&self, tick: u8, tick_delay: u8) -> P {
+        let ticks_ago = cmp::max(0, self.last_input_tick as i16 - tick as i16) as u8;
+        self.get_relative(ticks_ago.saturating_add(tick_delay))
     }
 
     pub fn receive(&mut self, bytes: &[u8]) {
@@ -248,7 +248,15 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
         }
     }
 
-    pub fn send(&self, delay: Option<usize>) -> Vec<u8> {
+    fn receive_input(&mut self, input: I) {
+        if self.first_input || tick_is_more_recent(input.tick(), self.last_input_tick) {
+            self.first_input = false;
+            self.last_input_tick = input.tick();
+            self.buffered_inputs.push_back(input);
+        }
+    }
+
+    pub fn send(&self, delay: Option<u8>) -> Vec<u8> {
 
         if let Some(delay) = delay {
             self.get_relative(delay).to_bytes()
@@ -261,7 +269,7 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
     }
 
-    pub fn send_with<F: FnMut(&mut P)>(&self, delay: Option<usize>, mut modifier: F) -> Vec<u8> {
+    pub fn send_with<F: FnMut(&mut P)>(&self, delay: Option<u8>, mut modifier: F) -> Vec<u8> {
 
         if let Some(delay) = delay {
             let mut state = self.get_relative(delay);
@@ -278,12 +286,8 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
     }
 
-    fn receive_input(&mut self, input: I) {
-        if self.first_input || tick_is_more_recent(input.tick(), self.last_input_tick) {
-            self.first_input = false;
-            self.last_input_tick = input.tick();
-            self.buffered_inputs.push_back(input);
-        }
+    pub fn apply<F: FnMut(&mut P)>(&mut self, mut callback: F) {
+        callback(&mut self.current);
     }
 
 }

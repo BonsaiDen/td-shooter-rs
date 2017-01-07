@@ -16,7 +16,10 @@ use hexahydrate;
 use shared::action::Action;
 use shared::color::ColorName;
 use shared::level::LevelCollision;
-use shared::entity::{PlayerInput, PlayerData, PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL};
+use shared::entity::{
+    PlayerInput, PlayerData,
+    PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL, PLAYER_MAX_HP
+};
 use renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 
 use ::level::Level;
@@ -202,7 +205,9 @@ impl Client {
                                 actions.push(action);
                             }
                         },
-                        _ => {}
+                        _ => {
+
+                        }
                     }
                 },
                 cobalt::ClientEvent::ConnectionLost => {
@@ -230,7 +235,9 @@ impl Client {
                 if entity.is_new() {
                     self.player_colors = entity.colors();
                 }
-                entity.update_local(level, input.clone());
+                if entity.is_alive() {
+                    entity.update_local(level, input.clone());
+                }
 
             } else {
                 entity.update_remote(level, t);
@@ -290,7 +297,7 @@ impl Client {
             let p = entity.interpolate(u);
             if entity.is_local() {
                 self.player_data = p.clone();
-                (p, entity.colors(), 1.0)
+                (p, entity.colors(), if entity.is_alive() { 1.0 } else { 0.0 })
 
             } else {
                 let visibility = entity.update_visibility(
@@ -330,10 +337,15 @@ impl Client {
         );
 
         {
+
+            let mut visibile_count = 0;
+            let player_count = players.len();
+
             // Players
             let context = self.camera.context();
             for (p, mut colors, visibility) in players {
                 if visibility > 0.0 {
+                    visibile_count += 1;
 
                     colors[0][3] = visibility;
                     colors[1][3] = visibility;
@@ -350,6 +362,9 @@ impl Client {
 
                 }
             }
+
+            println!("Visible players: {} of {}", visibile_count, player_count);
+
         }
 
         // Effects
@@ -408,6 +423,14 @@ impl Client {
         renderer.line(&context, &[0.0,   h,   w,   h], 2.0);
         renderer.line(&context, &[0.0, 0.0, 0.0,   h], 2.0);
         renderer.line(&context, &[w,   0.0,   w,   h], 2.0);
+
+        renderer.line(&context, &[
+            w - 30.0,
+            20.0,
+            w - 30.0,
+            (h - 20.0) - (h - 40.0) * (1.0 - 1.0 / PLAYER_MAX_HP as f32 * self.player_data.hp as f32)
+
+        ], 10.0);
 
     }
 

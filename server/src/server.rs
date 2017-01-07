@@ -16,18 +16,20 @@ use netsync::ServerState;
 // Internal Dependencies ------------------------------------------------------
 use ::entity::Entity;
 use shared::util;
-use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP};
-use shared::action::Action;
+use shared::entity::{PLAYER_RADIUS, PLAYER_MAX_HP, ENTITY_STATE_DELAY};
+use shared::action::{Action, ActionVisibility};
 use shared::level::{
     Level, LevelCollision, LevelVisibility, LevelSpawn,
-    line_segment_intersect_circle
+    line_segment_intersect_circle,
+    aabb_circle_intersection,
+    LEVEL_MAX_BEAM_VISIBILITY_DISTANCE
 };
 use shared::color::ColorName;
 use shared::entity::{PlayerInput, PlayerData, PlayerEntity};
 
 
 // Statics --------------------------------------------------------------------
-const LASER_BEAM_LENGTH: f32 = 70.0;
+const LASER_BEAM_LENGTH: f32 = 90.0;
 
 
 // Server Implementation ------------------------------------------------------
@@ -68,7 +70,7 @@ impl Server {
 
         let actions = self.apply_actions(entity_server, level);
         self.update_entities_after(entity_server, level);
-        self.send(entity_server, server, &actions);
+        self.send(entity_server, server, level, &actions);
 
         // This sleeps to achieve the desired server tick rate
         server.flush().ok();
@@ -136,10 +138,10 @@ impl Server {
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
         level: &Level
 
-    ) -> Vec<(Option<ConnectionID>, Action)> {
+    ) -> Vec<(ActionVisibility, Action)> {
 
         let t = clock_ticks::precise_time_ms();
-        let mut outgoing_actions: Vec<(Option<ConnectionID>, Action)> = Vec::new();
+        let mut outgoing_actions: Vec<(ActionVisibility, Action)> = Vec::new();
         let mut beam_hits: Vec<(ConnectionID, ConnectionID)> = Vec::new();
 
         for (conn_id, &mut (_, ref entity_slot, _, ref mut incoming_actions)) in &mut self.connections {
@@ -154,7 +156,7 @@ impl Server {
                         // and client side value
                         let entity = if let Some(entity) = entity_server.entity_get_mut(entity_slot) {
 
-                            let mut data = entity.data(tick);
+                            let mut data = entity.client_data(tick, 0);
                             data.merge_client_angle(client_r);
 
                             // Ignore action from dead entities
@@ -176,7 +178,7 @@ impl Server {
 
                             // Get entity dat based on tick delay from client side action
                             let client_side_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData), _>(|_, entity| {
-                                (entity.owner(), entity.data(tick))
+                                (entity.owner(), entity.client_data(tick, ENTITY_STATE_DELAY))
                             });
 
                             // TODO handle mirror walls and bounced off beams which hit the player
@@ -192,10 +194,15 @@ impl Server {
 
                             // Send beam firing action to all players
                             outgoing_actions.push((
-                                None,
-                                // TODO don't send beams to client in case
-                                // they are outside the locally expected viewport
-                                // bounds
+                                ActionVisibility::WithinRange {
+                                    aabb: [
+                                       beam_line[0].min(beam_line[2]),
+                                       beam_line[1].min(beam_line[3]),
+                                       beam_line[0].max(beam_line[2]),
+                                       beam_line[1].max(beam_line[3])
+                                    ],
+                                    r: LEVEL_MAX_BEAM_VISIBILITY_DISTANCE
+                                },
                                 Action::CreateLaserBeam(
                                     color_name.to_u8(),
                                     beam_line[0],
@@ -219,21 +226,33 @@ impl Server {
 
             if let Some(entity) = entity_server.entity_get_mut(&self.connections.get(&hit_conn_id).unwrap().1) {
 
-                println!("[Server] Beam Hit: {:?} -> {:?}", shooter_conn_id, hit_conn_id);
+                //entity.damage(64);
 
-                // TODO reduce entity HP and if it reaches 0 setup respawn timer
-                let data = entity.data(0);
+                // TODO we need a simple timer system
+                // VecDeque, sort to be next first when inserting (insert
+                // clock_ticks::precise_time_ms() + delay)
+                // Need to put a move closure
+                // execute before receiving any client input (or after server tick delay, has
+                // the same effect just different position)
+                // When executing pop while entry timer is <=
+                // clock_ticks::precise_time_ms()
 
-                // Send hit notification to both involved players
-                outgoing_actions.push((
-                    Some(shooter_conn_id),
+                let data = entity.current_data();
+                let action = if data.hp > 0 {
+                    println!("[Server] Beam Hit: {:?} -> {:?}", shooter_conn_id, hit_conn_id);
                     Action::LaserBeamHit(entity.color_name().to_u8(), data.x, data.y)
-                ));
 
-                outgoing_actions.push((
-                    Some(hit_conn_id),
-                    Action::LaserBeamHit(entity.color_name().to_u8(), data.x, data.y)
-                ));
+                } else {
+                    println!("[Server] Beam Kill: {:?} -> {:?}", shooter_conn_id, hit_conn_id);
+                    Action::LaserBeamKill(entity.color_name().to_u8(), data.x, data.y)
+                };
+
+                // Send action to all other players, except for the shooter
+                outgoing_actions.push((ActionVisibility::Entity(data, Some(shooter_conn_id)), action.clone()));
+
+                // Send another action just for the shooter to ensure he always
+                // gets the hit marker
+                outgoing_actions.push((ActionVisibility::Connection(shooter_conn_id), action));
 
             }
 
@@ -262,13 +281,13 @@ impl Server {
                 let player_data = player_entity.current_data();
 
                 // Check to which other entities the player is visible
-                for &(entity_conn_id, ref entity_data) in &entity_data {
-                    if let Some(ref entity_conn_id) = entity_conn_id {
+                for &(other_conn_id, ref entity_data) in &entity_data {
+                    if let Some(ref other_conn_id) = other_conn_id {
 
-                        // Ignore self-visibility
-                        if entity_conn_id != conn_id {
+                        // Ignores self-visibility
+                        if other_conn_id != conn_id {
                             player_entity.set_visibility(
-                                *entity_conn_id,
+                                *other_conn_id,
                                 level.player_within_visibility(
                                     entity_data, &player_data
                                 )
@@ -289,22 +308,47 @@ impl Server {
         &mut self,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
         server: &mut cobalt::ServerStream,
-        actions: &[(Option<ConnectionID>, Action)]
+        level: &Level,
+        actions: &[(ActionVisibility, Action)]
     ) {
 
-        for (conn_id, &mut (ref slot, _, _, _)) in &mut self.connections {
+        for (conn_id, &mut (ref slot, ref entity_slot, _, _)) in &mut self.connections {
 
+            // Send out entity state updates
             for packet in entity_server.connection_send(slot, 512).unwrap() {
                 server.send(conn_id, cobalt::MessageKind::Instant, packet).ok();
             }
 
-            for &(connection_filter, ref action) in actions {
+            // Send out actions
+            let entity = entity_server.entity_get(entity_slot);
+            for &(ref visibility, ref action) in actions {
 
-                let send_to_connection = if connection_filter.is_none() {
-                    true
+                let send_to_connection = match *visibility {
+                    ActionVisibility::Any => true,
+                    ActionVisibility::Connection(filter_conn_id) => *conn_id == filter_conn_id,
+                    ActionVisibility::Entity(ref other_data, filter_conn_id) => {
+                        if filter_conn_id.is_some() && filter_conn_id.unwrap() == *conn_id {
+                            false
 
-                } else {
-                    connection_filter.unwrap() == *conn_id
+                        } else if let Some(entity) = entity {
+                            level.player_within_visibility(
+                                &entity.current_data(),
+                                other_data
+                            )
+
+                        } else {
+                            false
+                        }
+                    },
+                    ActionVisibility::WithinRange { aabb, r } => {
+                        if let Some(entity) = entity {
+                            let data = entity.current_data();
+                            aabb_circle_intersection(&aabb, data.x, data.y, r)
+
+                        } else {
+                            false
+                        }
+                    }
                 };
 
                 if send_to_connection {
@@ -312,6 +356,7 @@ impl Server {
                         conn_id,
                         cobalt::MessageKind::Reliable,
                         action.to_bytes()
+
                     ).ok();
                 }
 

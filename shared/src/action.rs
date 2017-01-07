@@ -1,17 +1,23 @@
 // External Dependencies ------------------------------------------------------
+use cobalt::ConnectionID;
 use hexahydrate::NETWORK_BYTE_OFFSET;
 use bincode::SizeLimit;
 use bincode::rustc_serialize::{encode, decode, DecodingError};
 
 
+// Internal Dependencies ------------------------------------------------------
+use ::entity::PlayerData;
+
+
 // Network Actions ------------------------------------------------------------
-#[derive(Debug, RustcEncodable, RustcDecodable)]
+#[derive(Debug, RustcEncodable, RustcDecodable, Clone)]
 pub enum Action {
     FiredLaserBeam(u8, f32),
     // TODO use smaller values
     // TODO create helper for f32 <> u16
     CreateLaserBeam(u8, f32, f32, f32, f32),
-    LaserBeamHit(u8, f32, f32)
+    LaserBeamHit(u8, f32, f32),
+    LaserBeamKill(u8, f32, f32)
 }
 
 impl Action {
@@ -29,6 +35,28 @@ impl Action {
         } else {
             Err(DecodingError::SizeLimit)
         }
+    }
+
+}
+
+
+// Network action visibility --------------------------------------------------
+pub enum ActionVisibility {
+
+    /// Always send to any connection
+    Any,
+
+    /// Only when a connection is the one specified by the ConnectionID
+    Connection(ConnectionID),
+
+    /// Only when a connection can see the entity owned by the specified ConnectionID.
+    /// The second parameter is a optional exclusion of a specific connection.
+    Entity(PlayerData, Option<ConnectionID>),
+
+    /// Only when the specified radius around a connection's entity intersects with the specified bounds
+    WithinRange {
+        aabb: [f32; 4],
+        r: f32
     }
 
 }
