@@ -3,7 +3,6 @@
 extern crate server;
 extern crate client;
 extern crate shared;
-extern crate cobalt;
 extern crate clap;
 
 
@@ -48,17 +47,7 @@ fn main() {
         server::run(UPDATES_PER_SECOND, matches.value_of("addr").unwrap().to_string(), Level::load());
     }
 
-    let mut network = cobalt::ClientStream::new(cobalt::Config {
-        send_rate: UPDATES_PER_SECOND as u32,
-        packet_drop_threshold: 2000,
-        connection_drop_threshold: 5000,
-        connection_init_threshold: 1500,
-        .. Default::default()
-    });
-
-    network.connect(matches.value_of("addr").unwrap()).expect("Already connected!");
-
-    client::run(UPDATES_PER_SECOND, network);
+    client::run(UPDATES_PER_SECOND, matches.value_of("addr").unwrap());
 
 }
 

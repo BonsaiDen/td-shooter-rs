@@ -43,8 +43,6 @@ impl LightSource {
             Vec::new()
         };
 
-        println!("[Level] Light clipped {} walls.", clipped_walls);
-
         LightSource {
             aabb: light.aabb,
             x: light.x,

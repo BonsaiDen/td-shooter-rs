@@ -28,7 +28,12 @@ pub static UPDATES_PER_SECOND: u64 = 30;
 pub mod util;
 pub mod level;
 pub mod color;
+mod timer;
 pub mod action;
 pub mod entity;
 pub mod collision;
+
+
+// Re-Exports ------------------------------------------------------------------
+pub use self::timer::Timer;
 

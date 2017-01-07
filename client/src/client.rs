@@ -13,6 +13,13 @@ use hexahydrate;
 
 
 // Internal Dependencies ------------------------------------------------------
+use ::Timer;
+use ::level::Level;
+use ::camera::Camera;
+use ::entity::{Entity, Registry};
+use ::effect::{Effect, LaserBeam, LaserBeamHit, ScreenFlash, ParticleSystem};
+use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
+
 use shared::action::Action;
 use shared::color::ColorName;
 use shared::level::LevelCollision;
@@ -20,12 +27,6 @@ use shared::entity::{
     PlayerInput, PlayerData,
     PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL, PLAYER_MAX_HP
 };
-use renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
-
-use ::level::Level;
-use ::camera::Camera;
-use ::entity::{Entity, Registry};
-use ::effect::{Effect, LaserBeam, LaserBeamHit, ScreenFlash, ParticleSystem};
 
 
 // Client Implementation ------------------------------------------------------
@@ -46,13 +47,14 @@ pub struct Client {
     debug_level: u8,
 
     // Network
-    actions: Vec<Action>,
-    tick: u8
+    tick: u8,
+    addr: String,
+    actions: Vec<Action>
 }
 
 impl Client {
 
-    pub fn new(width: u32, height: u32) -> Client {
+    pub fn new(addr: &str, width: u32, height: u32) -> Client {
 
         Client {
 
@@ -71,14 +73,16 @@ impl Client {
             debug_level: 0,
 
             // Network
-            actions: Vec::new(),
-            tick: 0
+            tick: 0,
+            addr: addr.to_string(),
+            actions: Vec::new()
 
         }
     }
 
     pub fn input(
         &mut self,
+        _: &mut Timer,
         renderer: &mut Renderer,
         _: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         _: &Level,
@@ -170,20 +174,32 @@ impl Client {
 
     }
 
+    pub fn reset(
+        &mut self,
+        entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
+        client: &mut cobalt::ClientStream,
+    ) {
+        self.player.data.hp = 0;
+        entity_client.reset();
+        client.close().ok();
+    }
+
     pub fn update(
         &mut self,
+        timer: &mut Timer,
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         client: &mut cobalt::ClientStream,
         level: &Level,
         dt: f32
     ) {
 
-        let input = PlayerInput::new(
-            self.tick,
-            self.buttons,
-            self.input_angle,
-            dt
-        );
+        // Ignore inputs when player is currently dead
+        let input = if self.player.data.hp == 0 {
+            PlayerInput::new(self.tick, 0, self.input_angle, dt)
+
+        } else {
+            PlayerInput::new(self.tick, self.buttons, self.input_angle, dt)
+        };
 
         // Receive messages
         let mut actions = Vec::new();
@@ -205,18 +221,23 @@ impl Client {
                     }
                 },
                 cobalt::ClientEvent::ConnectionLost => {
-                    println!("[Client] Lost connection to server!");
-                    entity_client.reset();
-                    client.close().ok();
+                    println!("[Client] Connection to server was lost!");
+                    self.reset(entity_client, client);
+                    client.connect(self.addr.as_str()).ok();
                 },
                 cobalt::ClientEvent::ConnectionClosed(_) => {
-                    println!("[Client] Closed connection to server.");
-                    entity_client.reset();
-                    client.close().ok();
+                    println!("[Client] Connection to server was closed.");
+                    self.reset(entity_client, client);
+                    client.connect(self.addr.as_str()).ok();
                 },
                 cobalt::ClientEvent::ConnectionFailed => {
-                    entity_client.reset();
                     println!("[Client] Failed to connect to server!");
+                    self.reset(entity_client, client);
+                    timer.schedule(|client, _, network, _| {
+                        println!("[Client] Trying to reconnect...");
+                        network.connect(client.addr.as_str()).ok();
+
+                    }, 1000);
                 },
                 _ => {}
             }
@@ -229,9 +250,7 @@ impl Client {
                 if entity.is_new() {
                     self.player.colors = entity.colors();
                 }
-                if entity.is_alive() {
-                    entity.update_local(level, input.clone());
-                }
+                entity.update_local(level, input.clone());
 
             } else {
                 entity.update_remote(level, t);
@@ -266,7 +285,7 @@ impl Client {
                     if self.player.color == hit_color {
                         self.screen_effects.push(Box::new(ScreenFlash::new(
                             ColorName::from_u8(shooter_color),
-                            600
+                            500
                         )));
                     }
 

@@ -13,6 +13,7 @@ use netsync::ServerState;
 
 
 // Internal Dependencies ------------------------------------------------------
+use ::Timer;
 use ::laser_beam;
 use ::entity::Entity;
 use shared::color::ColorName;
@@ -21,7 +22,7 @@ use shared::level::{
     LEVEL_MAX_BEAM_VISIBILITY_DISTANCE
 };
 use shared::collision::aabb_intersect_circle;
-use shared::entity::{PLAYER_MAX_HP, ENTITY_STATE_DELAY};
+use shared::entity::{PLAYER_MAX_HP, PLAYER_RESPAWN_INTERVAL, ENTITY_STATE_DELAY};
 use shared::action::{Action, ActionVisibility};
 use shared::entity::{PlayerInput, PlayerData, PlayerEntity};
 
@@ -54,6 +55,7 @@ impl Server {
 
     pub fn update(
         &mut self,
+        timer: &mut Timer,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
         server: &mut cobalt::ServerStream,
         level: &Level
@@ -62,7 +64,7 @@ impl Server {
         self.receive(entity_server, server, level);
         self.update_entities_before(entity_server, level);
 
-        let actions = self.apply_actions(entity_server, level);
+        let actions = self.apply_actions(timer, entity_server, level);
         self.update_entities_after(entity_server, level);
         self.send(entity_server, server, level, &actions);
 
@@ -129,6 +131,7 @@ impl Server {
 
     fn apply_actions(
         &mut self,
+        timer: &mut Timer,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
         level: &Level
 
@@ -142,7 +145,6 @@ impl Server {
 
             while let Some(action) = incoming_actions.pop_front() {
 
-                println!("[Server] Received action from client: {:?}", action);
                 match action {
 
                     // TODO should we perform a persistent check for the duration
@@ -257,7 +259,7 @@ impl Server {
                     let action = Action::LaserBeamKill(entity.color_name().to_u8(), shooter_color.to_u8(), data.x, data.y);
 
                     // Send action to all other players, except for the shooter
-                    outgoing_actions.push((ActionVisibility::Entity(data, Some(shooter_conn_id)), action.clone()));
+                    outgoing_actions.push((ActionVisibility::Entity(data.clone(), Some(shooter_conn_id)), action.clone()));
 
                     // Send another action just for the shooter to ensure he always
                     // gets the hit marker
@@ -266,6 +268,20 @@ impl Server {
                     // Also send a action to the killed player, he can't see himself since he is no
                     // longer alive and would otherwise not receive it
                     outgoing_actions.push((ActionVisibility::Connection(hit_conn_id), action));
+
+                    // Re-spawn logic
+                    timer.schedule(move |server, entity_server, _, level| {
+
+                        let spawn = server.find_player_spawn(entity_server, level);
+
+                        if let Some(conn) = server.connections.get(&hit_conn_id) {
+                            if let Some(entity) = entity_server.entity_get_mut(&conn.1) {
+                                println!("[Server] Respawning player...");
+                                entity.respawn(spawn);
+                            }
+                        }
+
+                    }, PLAYER_RESPAWN_INTERVAL);
 
                 };
 

@@ -6,9 +6,10 @@ use netsync::{ServerState, NetworkState};
 
 // Internal Dependencies ------------------------------------------------------
 use ::shared::color::ColorName;
-use ::shared::level::Level;
+use ::shared::level::{Level, LevelSpawn};
 use ::shared::entity::{
     PlayerInput, PlayerData, PlayerEntity,
+    PLAYER_MAX_HP,
     PLAYER_BEAM_FIRE_INTERVAL
 };
 
@@ -26,6 +27,7 @@ pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn get_visibility(&self, connection_id: ConnectionID) -> bool;
     fn fire_beam(&mut self, t: u64) -> bool;
     fn damage(&mut self, amount: u8);
+    fn respawn(&mut self, spawn: LevelSpawn);
     fn update(&mut self, dt: f32, level: &Level);
 }
 
@@ -73,6 +75,14 @@ impl Entity for ServerPlayerEntity {
     fn damage(&mut self, amount: u8) {
         self.state.apply(|data| {
             data.hp = data.hp.saturating_sub(amount);
+        });
+    }
+
+    fn respawn(&mut self, spawn: LevelSpawn) {
+        self.state.apply(|data| {
+            data.hp = PLAYER_MAX_HP;
+            data.x = spawn.x;
+            data.y = spawn.y;
         });
     }
 
