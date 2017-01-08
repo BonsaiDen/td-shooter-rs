@@ -64,7 +64,7 @@ impl Server {
         self.receive(entity_server, server, level);
         self.update_entities_before(entity_server, level);
 
-        let actions = self.apply_actions(timer, entity_server, level);
+        let actions = self.apply_actions(timer, entity_server, server, level);
         self.update_entities_after(entity_server, level);
         self.send(entity_server, server, level, &actions);
 
@@ -133,6 +133,7 @@ impl Server {
         &mut self,
         timer: &mut Timer,
         entity_server: &mut hexahydrate::Server<Entity, ConnectionID>,
+        server: &mut cobalt::ServerStream,
         level: &Level
 
     ) -> Vec<(ActionVisibility, Action)> {
@@ -155,12 +156,21 @@ impl Server {
                         // and client side value
                         let entity = if let Some(entity) = entity_server.entity_get_mut(entity_slot) {
 
-                            let mut data = entity.client_data(tick, 0);
+                            let tick_diff = entity.tick_diff(tick, 0);
+                            let state_diff = entity.tick_diff(tick, ENTITY_STATE_DELAY);
+                            println!(
+                                "[Server] Beam RTT {} Input Tick Delay: {} Local State Delay: {}",
+                                server.connection_mut(&conn_id).unwrap().rtt(),
+                                tick_diff,
+                                state_diff
+                            );
+
+                            let mut data = entity.relative_data(tick_diff);
                             data.merge_client_angle(client_r);
 
                             // Ignore action from dead client entities
                             if data.hp > 0 && entity.fire_beam(t) {
-                                Some((data, entity.color_name()))
+                                Some((data, entity.color_name(), state_diff))
 
                             } else {
                                 None
@@ -170,14 +180,14 @@ impl Server {
                             None
                         };
 
-                        if let Some((data, color_name)) = entity {
+                        if let Some((data, color_name, ticks_ago)) = entity {
 
                             // Create initial laser beam
                             let (beam_line, mut l, r, _) = laser_beam::create(&level, &data);
 
                             // Get entity data for both the current server state and as it was seen on the client when they fired
                             let client_side_entities = entity_server.map_entities::<(Option<ConnectionID>, PlayerData, PlayerData), _>(|_, entity| {
-                                (entity.owner(), entity.current_data(), entity.client_data(tick, ENTITY_STATE_DELAY))
+                                (entity.owner(), entity.current_data(), entity.relative_data(ticks_ago))
                             });
 
                             // TODO handle mirror walls and bounced off beams which hit the player

@@ -36,8 +36,8 @@ pub fn line(
             p.y = y + r.sin() * o + c * 2.5;
             p.direction = a * consts::PI * 2.0;
             p.size = 3.0 * b;
-            p.size_ms = -1.0 * b;
-            p.velocity = 3.0 * b;
+            p.size_ms = -0.5 + -1.0 * b;
+            p.velocity = 3.5 * b;
             p.lifetime = (0.75 + 1.5 * a) * 0.8;
             p.remaining = p.lifetime;
 
@@ -70,8 +70,8 @@ pub fn impact(
             p.direction = ir;
             p.size = 4.5 * b;
             p.size_ms = -3.5 * b;
-            p.velocity = 15.0 + 6.0 * b;
-            p.lifetime = (0.75 + 1.5 * a) * 0.3;
+            p.velocity = 20.0 + 11.0 * b;
+            p.lifetime = (0.75 + 1.5 * a) * 0.2;
             p.remaining = p.lifetime;
 
         }
@@ -105,9 +105,9 @@ pub fn circle(
             p.x = x + r.cos() * radius + c * 2.5;
             p.y = y + r.sin() * radius + c * 2.5;
             p.direction = r;
-            p.size = 3.0 * b * scale;
-            p.size_ms = -1.2 * b * scale;
-            p.velocity = 7.5 * b * scale;
+            p.size = 4.0 * b * scale;
+            p.size_ms = -1.0 + -2.5 * b * scale;
+            p.velocity = 3.5 + 8.5 * b * scale;
             p.lifetime = (0.75 + 1.5 * a) * 0.3 * scale;
             p.remaining = p.lifetime;
 

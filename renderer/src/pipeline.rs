@@ -8,6 +8,7 @@ use shader_version::glsl::GLSL;
 
 // Internal Dependencies ------------------------------------------------------
 use ::data::*;
+use ::texture::*;
 
 
 // Stencil Mode ---------------------------------------------------------------
@@ -136,7 +137,6 @@ impl<T> RenderPipeline<T> {
 
         use gfx::state::{Blend, Stencil, Rasterizer, MultiSample, CullFace};
         use gfx::traits::*;
-        use shaders_graphics2d::colored;
 
         let glsl = opengl.to_glsl();
 
@@ -148,8 +148,8 @@ impl<T> RenderPipeline<T> {
                     .get(glsl).unwrap(),
 
                 Shaders::new()
-                    .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
-                    .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
+                    .set(GLSL::V1_20, TEXTURE_FRAGMENT_SHADER_120)
+                    .set(GLSL::V1_50, TEXTURE_FRAGMENT_SHADER_150)
                     .get(glsl).unwrap(),
 
             ).unwrap()
@@ -162,8 +162,8 @@ impl<T> RenderPipeline<T> {
                     .get(glsl).unwrap(),
 
                 Shaders::new()
-                    .set(GLSL::V1_20, colored::FRAGMENT_GLSL_120)
-                    .set(GLSL::V1_50, colored::FRAGMENT_GLSL_150_CORE)
+                    .set(GLSL::V1_20, DEFAULT_FRAGMENT_SHADER_120)
+                    .set(GLSL::V1_50, DEFAULT_FRAGMENT_SHADER_150)
                     .get(glsl).unwrap(),
 
             ).unwrap()
@@ -190,6 +190,7 @@ impl<T> RenderPipeline<T> {
                     pos: (),
                     scale: (),
                     locals: "Locals",
+                    texture: "TextureLocals",
                     color: (),
                     blend_target: ("o_Color", color_mask, blend_preset),
                     stencil_target: stencil,

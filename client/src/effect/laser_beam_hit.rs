@@ -41,7 +41,7 @@ impl LaserBeamHit {
         scale: f32
 
     ) -> LaserBeamHit {
-        particle::circle(ps, color, x, y, PLAYER_RADIUS, scale, 16);
+        particle::circle(ps, color, x, y, PLAYER_RADIUS, scale, 32);
         LaserBeamHit::new(color, x, y, scale)
     }
 

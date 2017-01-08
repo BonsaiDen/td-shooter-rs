@@ -133,13 +133,6 @@ impl Client {
                 }
             }
 
-            if key == Key::F {
-                self.screen_effects.push(Box::new(ScreenFlash::new(
-                    ColorName::from_u8(5),
-                    600
-                )));
-            }
-
             if key == Key::P {
                 let enabled = renderer.wireframe();
                 renderer.set_wireframe(!enabled);

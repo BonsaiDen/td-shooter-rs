@@ -138,17 +138,23 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
         // Construct concave polygons from solids
         } else if p.typ == TracedPathType::Solid {
 
+            //let lh = 0;
+            //let lw = 0;
+            let mut directions = Vec::new();
             let mut points = Vec::new();
             let (mut ox, mut oy, mut or, _) = p.pixels[0];
             let (mut lx, mut ly, _, _) = p.pixels[0];
 
+            let ir = or;
+            directions.push(ir);
             points.push(ox - lw);
             points.push(oy - lh);
 
             for &(x, y, r, _) in &p.pixels {
                 if r != or {
-                    let (dx, dy) = (ox - lx, oy - ly);
+                    let (dx, dy) = (lx - ox, ly - oy);
                     if ((dx * dx + dy * dy) as f32).sqrt() > 0.0 {
+                        directions.push(direction_from_delta(dx, dy));
                         points.push(lx - lw);
                         points.push(ly - lh);
                     }
@@ -158,6 +164,15 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
                 }
                 lx = x;
                 ly = y;
+            }
+
+
+            let l = points.len() / 2;
+            for i in 0..l {
+                let (pr, nr) = (directions[i], directions[(i + 1) % l]);
+                let e = extrusion(pr, nr);
+                points[i * 2] += e.0;
+                points[i * 2 + 1] += e.1;
             }
 
             if points.len() >= 8 {
@@ -434,6 +449,7 @@ fn extract_paths(
 }
 
 
+
 // Types -----------------------------------------------------------------------
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum TracedPathType {
@@ -486,6 +502,91 @@ struct Light {
 
 
 // Helpers --------------------------------------------------------------------
+fn direction_from_delta(dx: i32, dy: i32) -> u32 {
+
+    // Vertical
+    if dx == 0 {
+        if dy > 0 {
+            270
+
+        } else {
+            90
+        }
+
+    // Horizontal
+    } else if dy == 0 {
+        if dx > 0 {
+            180
+
+        } else {
+            0
+        }
+
+    // Diagonal
+    } else if dx > 0 {
+
+        if dy > 0 {
+            225
+
+        } else {
+            135
+        }
+
+    } else {
+        if dy < 0 {
+            45
+
+        } else {
+            315
+        }
+    }
+
+}
+
+fn extrusion(pr: u32, nr: u32) -> (i32, i32) {
+
+    match (pr, nr) {
+
+        // 90° Edges
+        (  0,  90) => (-1,  1),
+        ( 90, 180) => (-1, -1),
+
+        (180, 270) => ( 1, -1),
+        (270,   0) => ( 1,  1),
+
+        // 45° In
+        (  0,  45) => ( 0,  1),
+        ( 45,  90) => (-1,  0),
+
+        ( 90, 135) => (-1,  0),
+        (135, 180) => ( 0, -1),
+
+        (180, 225) => ( 0, -1),
+        (225, 270) => ( 1,  0),
+
+        (270, 315) => ( 1,  0),
+        (315,   0) => ( 0,  1),
+
+        // 45° Out
+
+        ( 90,  45) => (-1,  0),
+        ( 45,   0) => ( 0,  1),
+
+        (180, 135) => ( 0, -1),
+        (135,  90) => (-1,  0),
+
+        (  0, 315) => ( 0,  1),
+        (315, 270) => ( 1,  0),
+
+        (270, 225) => ( 1,  0),
+        (225, 180) => ( 0, -1),
+
+        _ => unreachable!()
+
+    }
+}
+
+
 fn is_valid_path_pixel(
     x: i32, y: i32,
     img: &image::DynamicImage,

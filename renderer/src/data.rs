@@ -19,6 +19,10 @@ gfx_defines! {
         color: [f32; 4] = "u_Color",
     }
 
+    constant TextureLocals {
+        texture: [f32; 4] = "u_Texture",
+    }
+
     vertex ColorFormat {
         color: [f32; 4] = "color",
     }
@@ -32,6 +36,7 @@ gfx_pipeline_base!( pipe_colored {
     pos: gfx::VertexBuffer<PositionFormat>,
     scale: gfx::VertexBuffer<ScaleFormat>,
     locals: gfx::ConstantBuffer<Locals>,
+    texture: gfx::ConstantBuffer<TextureLocals>,
     color: gfx::VertexBuffer<ColorFormat>,
     blend_target: gfx::BlendTarget<gfx::format::Srgba8>,
     stencil_target: gfx::StencilTarget<gfx::format::DepthStencil>,
@@ -48,9 +53,12 @@ pub static TRIANGLE_VERTEX_SHADER_120: &'static [u8] = br#"
     uniform vec4 u_Color;
     uniform mat4 u_View;
 
+    varying vec2 v_TexCoord;
+
     void main() {
         v_Color = u_Color;
         gl_Position = u_View * vec4(pos, 0.0, 1.0);
+        v_TexCoord = pos * vec2(0.5) + vec2(0.5);
     }
 "#;
 
@@ -59,6 +67,7 @@ pub static TRIANGLE_VERTEX_SHADER_150: &'static [u8] = br#"
     in vec2 pos;
 
     out vec4 v_Color;
+    out vec2 v_TexCoord;
 
     uniform Locals {
         mat4 u_View;
@@ -68,6 +77,7 @@ pub static TRIANGLE_VERTEX_SHADER_150: &'static [u8] = br#"
     void main() {
         v_Color = u_Color;
         gl_Position = u_View * vec4(pos, 0.0, 1.0);
+        v_TexCoord = pos * vec2(0.5) + vec2(0.5);
     }
 "#;
 
@@ -104,6 +114,26 @@ pub static POINT_VERTEX_SHADER_150: &'static [u8] = br#"
         v_Color = color;
         gl_PointSize = scale.x;
         gl_Position = u_View * vec4(pos, 0.0, 1.0);
+    }
+"#;
+
+pub static DEFAULT_FRAGMENT_SHADER_120: &'static [u8] = br#"
+    #version 120
+    varying vec4 v_Color;
+
+    void main() {
+        gl_FragColor = v_Color;
+    }
+"#;
+
+pub static DEFAULT_FRAGMENT_SHADER_150: &'static [u8] = br#"
+    #version 150 core
+    in vec4 v_Color;
+
+    out vec4 o_Color;
+
+    void main() {
+        o_Color = v_Color;
     }
 "#;
 

@@ -145,7 +145,7 @@ impl hexahydrate::Entity<ConnectionID> for PlayerEntity<ServerState<PlayerData, 
     fn merge_bytes(&mut self, connection_slot: Option<&hexahydrate::ConnectionSlot<ConnectionID>>, bytes: &[u8]) {
 
         // Dead entities ignore any inputs
-        if self.is_owned_by(connection_slot) && self.state.get_absolute(0, 0).hp > 0 {
+        if self.is_owned_by(connection_slot) && self.state.get_relative(0).hp > 0 {
             self.state.receive(bytes);
         }
 

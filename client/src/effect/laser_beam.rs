@@ -46,11 +46,11 @@ impl LaserBeam {
     ) -> LaserBeam {
 
         // Particles along the beam
-        particle::line(ps, color, x, y, r, l, 4.0);
+        particle::line(ps, color, x, y, r, l, 3.0);
 
         // Particles ejected from a wall impact
         if let Some(wr) = wall_angle {
-            particle::impact(ps, color, x, y, r, wr, l, 15);
+            particle::impact(ps, color, x, y, r, wr, l, 25);
         }
 
         LaserBeam::new(color, [

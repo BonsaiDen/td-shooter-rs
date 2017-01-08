@@ -173,7 +173,7 @@ impl Particle {
     }
 
     fn step(&mut self, dt: f32) -> bool {
-        if self.remaining <= 0.0 {
+        if self.remaining <= 0.0 || self.size <= 0.0 {
             self.active = false;
             false
 

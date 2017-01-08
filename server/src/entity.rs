@@ -20,7 +20,8 @@ type ServerPlayerEntity = PlayerEntity<ServerState<PlayerData, PlayerInput>>;
 pub trait Entity: hexahydrate::Entity<ConnectionID> {
     fn owner(&self) -> Option<ConnectionID>;
     fn is_alive(&self) -> bool;
-    fn client_data(&self, tick: u8, tick_delay: u8) -> PlayerData;
+    fn tick_diff(&self, tick: u8, tick_delay: u8) -> u8;
+    fn relative_data(&self, ticks_ago: u8) -> PlayerData;
     fn current_data(&self) -> PlayerData;
     fn color_name(&self) -> ColorName;
     fn set_visibility(&mut self, ConnectionID, bool);
@@ -41,8 +42,12 @@ impl Entity for ServerPlayerEntity {
         self.state.get_relative(0).hp > 0
     }
 
-    fn client_data(&self, tick: u8, tick_delay: u8) -> PlayerData {
-        self.state.get_absolute(tick, tick_delay)
+    fn tick_diff(&self, tick: u8, tick_delay: u8) -> u8 {
+        self.state.get_client_tick_diff(tick, tick_delay)
+    }
+
+    fn relative_data(&self, ticks_ago: u8) -> PlayerData {
+        self.state.get_relative(ticks_ago)
     }
 
     fn current_data(&self) -> PlayerData {

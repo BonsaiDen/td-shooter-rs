@@ -5,7 +5,6 @@ extern crate gfx_window_glutin;
 extern crate gfx_device_gl;
 extern crate glutin;
 extern crate glutin_window;
-extern crate shaders_graphics2d;
 extern crate shader_version;
 extern crate clock_ticks;
 extern crate draw_state;
@@ -48,11 +47,13 @@ use graphics::BACK_END_MAX_VERTEX_COUNT as BUFFER_SIZE;
 // Modules --------------------------------------------------------------------
 mod data;
 mod shape;
+mod texture;
 mod pipeline;
 
 use self::data::*;
 use self::pipeline::RenderPipeline;
 pub use self::shape::*;
+pub use self::texture::*;
 pub use self::pipeline::StencilMode;
 
 
@@ -69,6 +70,7 @@ pub struct Renderer {
     height: f32,
     context: Context,
     color: [f32; 4],
+    texture: [f32; 4],
     stencil_mode: StencilMode,
     t: u64,
     dt: f32,
@@ -93,6 +95,7 @@ pub struct Renderer {
     buffer_scale: gfx::handle::Buffer<gfx_device_gl::Resources, ScaleFormat>,
     buffer_color: gfx::handle::Buffer<gfx_device_gl::Resources, ColorFormat>,
     buffer_locals: gfx::handle::Buffer<gfx_device_gl::Resources, Locals>,
+    buffer_texture: gfx::handle::Buffer<gfx_device_gl::Resources, TextureLocals>,
     buffer_offset: usize,
 
     list_pipeline: RenderPipeline<PipelineState<gfx_device_gl::Resources, pipe_colored::Meta>>,
@@ -143,6 +146,7 @@ impl Renderer {
 
         // Buffers
         let buffer_locals = factory.create_constant_buffer(1);
+        let buffer_texture = factory.create_constant_buffer(1);
         let buffer_pos = factory.create_buffer_dynamic(
             BUFFER_SIZE * CHUNKS,
             gfx::buffer::Role::Vertex,
@@ -192,6 +196,7 @@ impl Renderer {
             width: width as f32,
             height: height as f32,
             color: [0.0; 4],
+            texture: [0.0; 4],
             context: Context::new(),
             stencil_mode: StencilMode::None,
             t: clock_ticks::precise_time_ms(),
@@ -218,6 +223,7 @@ impl Renderer {
             buffer_scale: buffer_scale,
             buffer_color: buffer_color,
             buffer_locals: buffer_locals,
+            buffer_texture: buffer_texture,
             buffer_offset: 0,
 
             list_pipeline: list_pipeline,
@@ -307,6 +313,12 @@ impl Renderer {
     }
 
     // Rendering Operations ---------------------------------------------------
+    pub fn set_texture(&mut self, texture: Texture) {
+        self.flush();
+        let (typ, arg, _) = texture.into_tuple();
+        self.texture = [typ as f32, arg, 0.0, 0.0];
+    }
+
     pub fn set_color(&mut self, color: [f32; 4]) {
         self.flush();
         self.color = gamma_srgb_to_linear(color);
@@ -479,7 +491,11 @@ impl Renderer {
 
             self.encoder.update_constant_buffer(&self.buffer_locals, &Locals {
                 view: self.buffer_matrix,
-                color: self.color
+                color: self.color,
+            });
+
+            self.encoder.update_constant_buffer(&self.buffer_texture, &TextureLocals {
+                texture: self.texture
             });
 
             let (pso_colored, stencil_val) = if self.primitive == gfx::Primitive::TriangleList {
@@ -499,6 +515,7 @@ impl Renderer {
                 scale: self.buffer_scale.clone(),
                 color: self.buffer_color.clone(),
                 locals: self.buffer_locals.clone(),
+                texture: self.buffer_texture.clone(),
                 blend_target: self.output_color.clone(),
                 stencil_target: (
                     self.output_stencil.clone(),

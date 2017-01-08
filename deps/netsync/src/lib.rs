@@ -235,9 +235,9 @@ impl<P: NetworkProperty, I: NetworkInput> ServerState<P, I> {
 
     }
 
-    pub fn get_absolute(&self, tick: u8, tick_delay: u8) -> P {
+    pub fn get_client_tick_diff(&self, tick: u8, tick_delay: u8) -> u8 {
         let ticks_ago = cmp::max(0, self.last_input_tick as i16 - tick as i16) as u8;
-        self.get_relative(ticks_ago.saturating_add(tick_delay))
+        ticks_ago.saturating_add(tick_delay)
     }
 
     pub fn receive(&mut self, bytes: &[u8]) {

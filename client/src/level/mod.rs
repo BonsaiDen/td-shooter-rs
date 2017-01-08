@@ -4,7 +4,7 @@ use graphics::Transformed;
 
 // Internal Dependencies ------------------------------------------------------
 use ::camera::Camera;
-use ::renderer::{Renderer, CircleArc, Polygon, Line, StencilMode};
+use ::renderer::{Renderer, CircleArc, Polygon, Line, StencilMode, Texture};
 use shared::entity::{PlayerData, PLAYER_VISBILITY_CONE, PLAYER_VISBILITY_CONE_OFFSET};
 use shared::collision::aabb_intersect;
 use shared::level::{
@@ -112,7 +112,8 @@ impl Level {
         // Background layer
         let bounds = self.level.bounds;
         let context = camera.context();
-        renderer.set_color([0.3, 0.3, 0.3, 1.0]);
+        renderer.set_texture(Texture::Floor(0.023));
+        renderer.set_color([0.25, 0.25, 0.25, 1.0]);
         renderer.rectangle(
             context,
             &[
@@ -122,6 +123,8 @@ impl Level {
                 bounds[3] - bounds[1]
             ]
         );
+
+        renderer.set_texture(Texture::None);
 
     }
 
@@ -155,10 +158,10 @@ impl Level {
 
         // Render light color circles based on stencil
         let bounds = camera.b2w();
-        let s = 1.0 - ((renderer.t() as f32 * 0.003).cos() * 0.03).abs();
+        let s = 1.0 - ((renderer.t() as f32 * 0.0015).cos() * 0.03).abs();
         if debug_level != 3 {
             renderer.set_stencil_mode(StencilMode::InsideLightCircle);
-            renderer.set_color([0.9 * s, 0.7, 0.0, 0.15]);
+            renderer.set_color([0.95 * s, 0.8, 0.0, 0.025]);
             renderer.rectangle(
                 camera.context(),
                 &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
@@ -166,7 +169,7 @@ impl Level {
         }
 
         // Render inner light circles
-        renderer.set_color([0.9 * s, 0.6, 0.0, 0.2]);
+        renderer.set_color([0.95 * s, 0.7, 0.0, 0.05]);
         for light in &self.lights {
             light.render_light_circle(renderer, camera);
         }
@@ -224,12 +227,15 @@ impl Level {
 
         // Render shadows
         if debug_level != 4 {
+            let t = renderer.t();
             renderer.set_stencil_mode(StencilMode::OutsideVisibleArea);
-            renderer.set_color([0.0, 0.0, 0.0, 0.75]);
+            renderer.set_texture(Texture::Static(t as f32 * 0.0001));
+            renderer.set_color([0.0, 0.0, 0.0, 0.85]);
             renderer.rectangle(
                 camera.context(),
                 &[bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1]],
             );
+            renderer.set_texture(Texture::None);
         }
 
         renderer.set_stencil_mode(StencilMode::None);
@@ -245,7 +251,12 @@ impl Level {
         debug_level: u8
     ) {
 
-        renderer.set_color([0.8, 0.8, 0.8, 1.0]);
+        if debug_level == 2 {
+            renderer.set_color([1.0, 0.0, 1.0, 1.0]);
+
+        } else {
+            renderer.set_color([0.75, 0.75, 0.75, 1.0]);
+        }
 
         let bounds = camera.b2w();
         let context = camera.context();
@@ -258,19 +269,14 @@ impl Level {
             }
         }
 
-        if debug_level == 2 {
-            renderer.set_color([1.0, 0.0, 1.0, 1.0]);
-
-        } else {
-            renderer.set_color([0.0, 0.0, 0.0, 1.0]);
-        }
-
         // Solids
+        renderer.set_texture(Texture::Floor(0.0125));
         for solid in &self.solids {
             if aabb_intersect(&solid.aabb, &bounds) {
                 solid.render(renderer, context);
             }
         }
+        renderer.set_texture(Texture::None);
 
     }
 
