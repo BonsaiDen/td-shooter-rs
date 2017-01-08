@@ -9,7 +9,7 @@ use std::cmp;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 
 // External Dependencies ------------------------------------------------------
@@ -41,6 +41,7 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
     let (w, h) = img.dimensions();
     let mut pixel_usage: HashSet<(i32, i32)> = HashSet::new();
 
+    // Find walls, spawns and lights
     let (bounds, mut paths) = extract_paths(
         img,
         &mut pixel_usage,
@@ -48,6 +49,7 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
         &[0, 0, w as i32, h as i32]
     );
 
+    // Find solids
     let (_, mut solid_paths) = extract_paths(
         img,
         &mut pixel_usage,
@@ -55,12 +57,11 @@ fn find_paths(img: &image::DynamicImage) -> ([i32; 4], Vec<TracedPath>) {
         &[
             bounds[0],
             bounds[1],
-            bounds[2] + 2,
-            bounds[3] + 2
+            bounds[2] + 1,
+            bounds[3] + 1
         ]
     );
 
-    println!("{}", solid_paths.len());
     paths.append(&mut solid_paths);
 
     (bounds, paths)
@@ -123,9 +124,14 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
                     p
                 };
 
-                level.walls.push(Wall {
-                    line: line
-                });
+                let (dx, dy) = (line[2] - line[0], line[3] - line[1]);
+
+                // Avoid adding diagonal walls with spanning just two pixels
+                if (dx * dx + dy * dy).sqrt() > 1.5 {
+                    level.walls.push(Wall {
+                        line: line
+                    });
+                }
 
             }
 
@@ -154,7 +160,9 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
                 ly = y;
             }
 
-            level.solids.push(points);
+            if points.len() >= 8 {
+                level.solids.push(points);
+            }
 
         // Calculate bounds and center of lights and spawns
         } else {
@@ -188,6 +196,58 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
                 });
             }
 
+        }
+
+    }
+
+    // Next up merge wall endpoints which meet up, this is done in order to avoid
+    // visual glitches with visibility and light cone rendering (they would
+    // otherwise shine through the cracks)
+    let endpoint_list: Vec<(i32, i32)> = level.walls.iter().flat_map(|w| vec![(w.line[0] as i32, w.line[1] as i32), (w.line[2] as i32, w.line[3] as i32)]).collect();
+    let mut count: HashMap<(i32, i32), usize> = HashMap::new();
+    for e in &endpoint_list {
+        count.insert(*e, 0);
+    }
+
+    for e in endpoint_list {
+        *count.get_mut(&e).unwrap() += 1;
+    }
+
+    // Extract all endpoints where lines actually meet up
+    let mut endpoints = HashSet::new();
+    for (e, c) in count {
+        if c >= 2 {
+            endpoints.insert(e);
+        }
+    }
+    for w in &mut level.walls {
+
+        let a = (w.line[0] as i32, w.line[1] as i32);
+        let b = (w.line[2] as i32, w.line[3] as i32);
+
+        // Vertical
+        if a.0 == b.0 {
+            let d = (a.0, a.1 - 1);
+            if endpoints.contains(&d) {
+                w.line[1] -= 1.0;
+            }
+
+            let e = (b.0, b.1 + 1);
+            if endpoints.contains(&e) {
+                w.line[3] += 1.0;
+            }
+
+        // Horizontal
+        } else {
+            let d = (a.0 - 1, a.1);
+            if endpoints.contains(&d) {
+                w.line[0] -= 1.0;
+            }
+
+            let e = (b.0 + 1, b.1);
+            if endpoints.contains(&e) {
+                w.line[2] += 1.0;
+            }
         }
 
     }
@@ -228,6 +288,8 @@ fn extract_paths(
                     let mut pixels = Vec::new();
                     let mut first_pixel = true;
                     let mut lr = 0;
+
+                    // TODO prevent consuming pixels paths with len < 4
                     loop {
 
                         // Check top right bottom left first
@@ -510,7 +572,7 @@ fn any_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]
 }
 
 fn is_wall_or_edge(x: i32, y: i32, img: &image::DynamicImage, bounds: &[i32; 4]) -> bool {
-    if x < bounds[0] || x > bounds[2] || y < bounds[1] || y > bounds[3] {
+    if x < bounds[0] || x >= bounds[2] || y < bounds[1] || y >= bounds[3] {
         true
 
     } else {
