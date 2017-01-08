@@ -54,7 +54,7 @@ impl Level {
         spawns
     }
 
-    pub fn from_toml(string: &str) -> Level {
+    pub fn from_toml(string: &str, scale: f32) -> Level {
 
         let mut level = Level::new();
         if let Some(value) = toml::Parser::new(string).parse() {
@@ -65,10 +65,10 @@ impl Level {
                     if let toml::Value::Table(ref properties) = *wall {
                         if let Some(&toml::Value::Array(ref points)) = properties.get("line") {
                             level.add_wall(LevelWall::new(
-                                points[0].as_float().unwrap() as f32,
-                                points[1].as_float().unwrap() as f32,
-                                points[2].as_float().unwrap() as f32,
-                                points[3].as_float().unwrap() as f32
+                                (points[0].as_float().unwrap() as f32) * scale,
+                                (points[1].as_float().unwrap() as f32) * scale,
+                                (points[2].as_float().unwrap() as f32) * scale,
+                                (points[3].as_float().unwrap() as f32) * scale
                             ));
                         }
                     }
@@ -80,9 +80,9 @@ impl Level {
                 for light in lights {
                     if let toml::Value::Table(ref properties) = *light {
                         level.lights.push(LightSource::new(
-                            properties.get("x").unwrap().as_integer().unwrap() as f32,
-                            properties.get("y").unwrap().as_integer().unwrap() as f32,
-                            properties.get("radius").unwrap().as_integer().unwrap() as f32
+                            (properties.get("x").unwrap().as_integer().unwrap() as f32) * scale,
+                            (properties.get("y").unwrap().as_integer().unwrap() as f32) * scale,
+                            (properties.get("radius").unwrap().as_integer().unwrap() as f32) * scale
                         ));
                     }
                 }
@@ -98,8 +98,8 @@ impl Level {
                 for spawn in spawns {
                     if let toml::Value::Table(ref properties) = *spawn {
                         level.spawns.push(LevelSpawn::new(
-                            properties.get("x").unwrap().as_integer().unwrap() as f32,
-                            properties.get("y").unwrap().as_integer().unwrap() as f32
+                            (properties.get("x").unwrap().as_integer().unwrap() as f32) * scale,
+                            (properties.get("y").unwrap().as_integer().unwrap() as f32) * scale
                         ));
                     }
                 }
@@ -113,7 +113,7 @@ impl Level {
                         let points: Vec<f32> = points.into_iter().map(|p| p.as_integer().unwrap() as f32).collect();
                         let mut pairs = Vec::with_capacity(points.len() / 2);
                         for i in 0..points.len() / 2 {
-                            pairs.push([points[i * 2], points[i * 2 + 1]]);
+                            pairs.push([points[i * 2] * scale, points[i * 2 + 1] * scale]);
                         }
                         level.solids.push(pairs);
                     }
@@ -152,7 +152,7 @@ impl Level {
 
     pub fn load() -> Level {
         let data = include_str!("../../../editor/map.toml");
-        Level::from_toml(data)
+        Level::from_toml(data, 1.50)
     }
 
 }

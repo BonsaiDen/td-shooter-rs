@@ -85,7 +85,7 @@ pub fn run(updates_per_second: u64, addr: &str) {
     let level = Level::new(SharedLevel::load());
 
     // Game Client
-    let mut client = Client::new(addr, BASE_WIDTH, BASE_HEIGHT);
+    let mut client = Client::new(&mut renderer, addr, BASE_WIDTH, BASE_HEIGHT);
     let mut entity_client = hexahydrate::Client::<Entity, ConnectionID, Registry>::new(
         Registry,
         (updates_per_second * 2) as usize
@@ -128,6 +128,7 @@ pub fn run(updates_per_second: u64, addr: &str) {
                     &mut renderer, &mut entity_client, &level
                 );
                 renderer.end();
+                renderer.finalize();
             },
             _ => { }
         }

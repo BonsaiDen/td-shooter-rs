@@ -11,7 +11,6 @@ extern crate clock_ticks;
 extern crate draw_state;
 extern crate graphics;
 extern crate piston;
-//extern crate image;
 
 
 // STD Dependencies -----------------------------------------------------------
@@ -65,7 +64,6 @@ const CHUNKS: usize = 100;
 // Renderer Implementation ----------------------------------------------------
 pub struct Renderer {
 
-    window: GlutinWindow,
     updates_per_second: u64,
     width: f32,
     height: f32,
@@ -82,6 +80,7 @@ pub struct Renderer {
     particle_scale: Vec<f32>,
     particle_color: Vec<[f32; 4]>,
 
+    window: GlutinWindow,
     device: gfx_device_gl::Device,
     encoder: gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
     primitive: gfx::Primitive,
@@ -189,7 +188,6 @@ impl Renderer {
 
         Renderer {
 
-            window: window,
             updates_per_second: updates_per_second,
             width: width as f32,
             height: height as f32,
@@ -207,6 +205,7 @@ impl Renderer {
             particle_scale: iter::repeat(0.0).take(MAX_PARTICLES * 2).collect(),
             particle_color: iter::repeat([0f32; 4]).take(MAX_PARTICLES).collect(),
 
+            window: window,
             device: device,
             encoder: encoder,
             primitive: gfx::Primitive::TriangleList,
@@ -288,8 +287,11 @@ impl Renderer {
     }
 
     pub fn end(&mut self) {
-
         self.flush();
+    }
+
+    pub fn finalize(&mut self) {
+
         self.encoder.flush(&mut self.device);
         self.device.cleanup();
 
@@ -364,6 +366,7 @@ impl Renderer {
 
     }
 
+    // Particle Drawing -------------------------------------------------------
     pub fn render_particles(&mut self, m: &Matrix2d, count: usize) {
 
         // TODO switch to a fully vertex shader based particle system
@@ -413,7 +416,6 @@ impl Renderer {
         }
 
     }
-
 
     // Internal ---------------------------------------------------------------
     fn draw_triangle_list(&mut self, m: &Matrix2d, vertices: &[f32]) {
@@ -565,24 +567,3 @@ fn create_main_targets(dim: gfx::texture::Dimensions) -> (
     (Typed::new(output_color), Typed::new(output_stencil))
 }
 
-
-/*
-fn load_texture(
-    factory: &mut gfx_device_gl::Factory,
-    data: &[u8]
-
-) -> Result<gfx::handle::ShaderResourceView<gfx_device_gl::Resources, [f32; 4]>, String> {
-
-    use std::io::Cursor;
-    use gfx::format::Rgba8;
-    use gfx::texture as t;
-
-    let img = image::load(Cursor::new(data), image::PNG).unwrap().to_rgba();
-    let (width, height) = img.dimensions();
-    let kind = t::Kind::D2(width as t::Size, height as t::Size, t::AaMode::Single);
-    let (_, view) = factory.create_texture_immutable_u8::<Rgba8>(kind, &[&img]).unwrap();
-
-    Ok(view)
-
-}
-*/

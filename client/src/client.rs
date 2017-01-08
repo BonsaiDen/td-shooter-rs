@@ -54,7 +54,7 @@ pub struct Client {
 
 impl Client {
 
-    pub fn new(addr: &str, width: u32, height: u32) -> Client {
+    pub fn new(_: &mut Renderer, addr: &str, width: u32, height: u32) -> Client {
 
         Client {
 
@@ -473,11 +473,12 @@ impl Client {
         renderer.line(&context, &[0.0, 0.0, 0.0,   h], 2.0);
         renderer.line(&context, &[w,   0.0,   w,   h], 2.0);
 
+        let lh = (h - 40.0) * (1.0 - 1.0 / PLAYER_MAX_HP as f32 * self.player.data.hp as f32);
         renderer.line(&context, &[
             w - 30.0,
-            20.0,
+            20.0 + lh,
             w - 30.0,
-            (h - 20.0) - (h - 40.0) * (1.0 - 1.0 / PLAYER_MAX_HP as f32 * self.player.data.hp as f32)
+            (h - 20.0)
 
         ], 10.0);
 
