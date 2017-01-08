@@ -156,17 +156,22 @@ impl Server {
                         // and client side value
                         let entity = if let Some(entity) = entity_server.entity_get_mut(entity_slot) {
 
+                            // Difference for firing angle interpolation
                             let tick_diff = entity.tick_diff(tick, 0);
+
+                            // Tick difference for state rollback
                             let state_diff = entity.tick_diff(tick, ENTITY_STATE_DELAY);
+
+                            let mut data = entity.relative_data(tick_diff);
+                            data.merge_client_angle(client_r);
+
                             println!(
-                                "[Server] Beam RTT {} Input Tick Delay: {} Local State Delay: {}",
+                                "[Server] {} Beam RTT {} Input Delay: {} State Delay: {}",
+                                server.connection_mut(&conn_id).unwrap().peer_addr(),
                                 server.connection_mut(&conn_id).unwrap().rtt(),
                                 tick_diff,
                                 state_diff
                             );
-
-                            let mut data = entity.relative_data(tick_diff);
-                            data.merge_client_angle(client_r);
 
                             // Ignore action from dead client entities
                             if data.hp > 0 && entity.fire_beam(t) {

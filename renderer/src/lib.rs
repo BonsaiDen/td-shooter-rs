@@ -381,7 +381,6 @@ impl Renderer {
     // Particle Drawing -------------------------------------------------------
     pub fn render_particles(&mut self, m: &Matrix2d, count: usize) {
 
-        // TODO switch to a fully vertex shader based particle system
         self.pre_draw(gfx::Primitive::PointList, m, count);
 
         {

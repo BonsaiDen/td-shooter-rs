@@ -56,8 +56,8 @@ impl NetworkProperty for PlayerData {
             self.clone()
 
         } else {
-            let dx = self.x - last.x;
-            let dy = self.y - last.y;
+            let dx = (self.x - last.x).max(-PLAYER_SPEED * 3.0).min(PLAYER_SPEED * 3.0);
+            let dy = (self.y - last.y).max(-PLAYER_SPEED * 3.0).min(PLAYER_SPEED * 3.0);
             let r = self.r - last.r;
             let dr = r.sin().atan2(r.cos());
 
