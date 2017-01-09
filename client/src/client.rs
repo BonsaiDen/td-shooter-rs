@@ -1,8 +1,10 @@
 // STD Dependencies -----------------------------------------------------------
+use std::io::Read;
 use std::f32::consts;
 
 
 // External Dependencies ------------------------------------------------------
+use hyper;
 use clock_ticks;
 use piston::input::*;
 use graphics::Transformed;
@@ -22,7 +24,7 @@ use ::renderer::{Circle, CircleArc, Renderer, MAX_PARTICLES};
 
 use shared::action::Action;
 use shared::color::ColorName;
-use shared::level::LevelCollision;
+use shared::level::{Level as SharedLevel, LevelCollision};
 use shared::entity::{
     PlayerInput, PlayerData,
     PLAYER_RADIUS, PLAYER_BEAM_FIRE_INTERVAL, PLAYER_MAX_HP
@@ -48,6 +50,7 @@ pub struct Client {
 
     // Network
     tick: u8,
+    ready: bool,
     addr: String,
     actions: Vec<Action>
 }
@@ -74,6 +77,7 @@ impl Client {
 
             // Network
             tick: 0,
+            ready: false,
             addr: addr.to_string(),
             actions: Vec::new()
 
@@ -118,6 +122,7 @@ impl Client {
 
             }
         }
+
         if let Some(value) = e.mouse_scroll_args() {
             if self.debug_level > 0 {
                 self.camera.z = (self.camera.z + (value[1] as f32) * 0.1).min(10.0).max(0.0);
@@ -172,6 +177,7 @@ impl Client {
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         client: &mut cobalt::ClientStream,
     ) {
+        self.ready = false;
         self.player.data.hp = 0;
         entity_client.reset();
         client.close().ok();
@@ -182,17 +188,9 @@ impl Client {
         timer: &mut Timer,
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         client: &mut cobalt::ClientStream,
-        level: &Level,
+        level: &mut Level,
         dt: f32
     ) {
-
-        // Ignore inputs when player is currently dead
-        let input = if self.player.data.hp == 0 {
-            PlayerInput::new(self.tick, 0, self.input_angle, dt)
-
-        } else {
-            PlayerInput::new(self.tick, self.buttons, self.input_angle, dt)
-        };
 
         // Receive messages
         let mut actions = Vec::new();
@@ -200,6 +198,16 @@ impl Client {
             match event {
                 cobalt::ClientEvent::Connection => {
                     println!("[Client] Now connected to server.");
+
+                    if let Ok(toml) = download_map(self.addr.as_str()) {
+                        println!("[Client] Map downloaded");
+                        level.load(SharedLevel::from_toml_string(toml.as_str()));
+                        self.actions.push(Action::JoinGame);
+                        self.ready = true;
+
+                    } else {
+                        println!("[Client] Map download failed!");
+                    }
                 },
                 cobalt::ClientEvent::Message(packet) => {
                     match entity_client.receive(packet) {
@@ -235,6 +243,39 @@ impl Client {
                 _ => {}
             }
         }
+
+        // Prevent any updates if not ready to play
+        if self.ready {
+            self.update_connected(timer, entity_client, client, level, dt, actions);
+        }
+
+        // Send actions to server
+        for action in self.actions.drain(0..) {
+            client.send(cobalt::MessageKind::Reliable, action.to_bytes()).ok();
+        }
+
+        client.flush().ok();
+        self.tick = self.tick.wrapping_add(1);
+
+    }
+
+    fn update_connected(
+        &mut self,
+        _: &mut Timer,
+        entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
+        client: &mut cobalt::ClientStream,
+        level: &Level,
+        dt: f32,
+        mut actions: Vec<Action>
+    ) {
+
+        // Ignore inputs when player is currently dead
+        let input = if self.player.data.hp == 0 {
+            PlayerInput::new(self.tick, 0, self.input_angle, dt)
+
+        } else {
+            PlayerInput::new(self.tick, self.buttons, self.input_angle, dt)
+        };
 
         // Update entities
         let t = clock_ticks::precise_time_ms();
@@ -313,14 +354,6 @@ impl Client {
             client.send(cobalt::MessageKind::Instant, packet).ok();
         }
 
-        // Send actions to server
-        for action in self.actions.drain(0..) {
-            client.send(cobalt::MessageKind::Reliable, action.to_bytes()).ok();
-        }
-
-        client.flush().ok();
-        self.tick = self.tick.wrapping_add(1);
-
     }
 
     pub fn render(
@@ -329,6 +362,15 @@ impl Client {
         entity_client: &mut hexahydrate::Client<Entity, ConnectionID, Registry>,
         level: &Level
     ) {
+
+        // Clear
+        renderer.clear_stencil(0);
+        renderer.clear_color([0.0; 4]);
+
+        // Prevent any rendering if not ready to play
+        if !self.ready {
+            return;
+        }
 
         // Get player positions, colors and visibility
         let (t, u) = (renderer.t(), renderer.u());
@@ -363,10 +405,6 @@ impl Client {
             self.world_cursor.1 - self.player.data.y
 
         ).atan2(self.world_cursor.0 - self.player.data.x);
-
-        // Clear
-        renderer.clear_stencil(0);
-        renderer.clear_color([0.0; 4]);
 
         // Level Background
         level.render_background(
@@ -510,5 +548,24 @@ impl LocalPlayerData {
 
         }
     }
+}
+
+fn download_map(addr: &str) -> Result<String, String> {
+
+    let client = hyper::Client::new();
+    client.get(format!("http://{}", addr).as_str())
+        .header(hyper::header::Connection::close())
+        .send()
+        .map_err(|err| err.to_string())
+        .and_then(|mut res| {
+            let mut body = String::new();
+            res.read_to_string(&mut body)
+               .map_err(|err| err.to_string())
+               .map(|_| body)
+
+        }).and_then(|body| {
+            Ok(body.to_string())
+        })
+
 }
 

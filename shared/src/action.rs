@@ -16,6 +16,7 @@ pub const LASER_BEAM_DURATION: u64 = 150;
 // Network Actions ------------------------------------------------------------
 #[derive(Debug, RustcEncodable, RustcDecodable, Clone)]
 pub enum Action {
+    JoinGame,
     FiredLaserBeam(u8, f32),
     CreateLaserBeam(u8, f32, f32, f32, f32),
     LaserBeamHit(u8, u8, f32, f32),

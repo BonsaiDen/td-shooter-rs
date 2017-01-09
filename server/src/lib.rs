@@ -10,6 +10,7 @@
 
 // Crates ---------------------------------------------------------------------
 extern crate rand;
+extern crate hyper;
 extern crate clock_ticks;
 extern crate hexahydrate;
 extern crate netsync;
@@ -42,30 +43,40 @@ mod server;
 pub type Timer = SharedTimer<Server, hexahydrate::Server<Entity, ConnectionID>, cobalt::ServerStream, Level>;
 
 
-// Server Runner ---------------------------------------------------------------
-pub fn run(
-    updates_per_second: u64,
-    addr: String,
-    level: Level
+// Statics --------------------------------------------------------------------
+pub const DEFAULT_LEVEL_DATA: &'static str = include_str!("../../editor/map.toml");
 
-) -> thread::JoinHandle<()> {
+
+// Server Runner ---------------------------------------------------------------
+pub fn run(addr: String) -> thread::JoinHandle<()> {
+
+    let http_addr = addr.clone();
+    thread::spawn(move || {
+        let server = hyper::server::Server::http(http_addr.as_str()).unwrap();
+        server.handle(|_: hyper::server::Request, res: hyper::server::Response| {
+            res.send(&DEFAULT_LEVEL_DATA.to_string().into_bytes()).ok();
+
+        }).ok();
+    });
 
     thread::spawn(move || {
 
         let config = cobalt::Config {
-            send_rate: updates_per_second as u32,
+            send_rate: shared::UPDATES_PER_SECOND as u32,
             packet_drop_threshold: 1500,
             connection_drop_threshold: 2000,
             .. cobalt::Config::default()
         };
 
+        let level = Level::from_toml_string(DEFAULT_LEVEL_DATA);
+
         let mut network = cobalt::ServerStream::new(config);
         network.bind(addr.as_str()).expect("Failed to bind to address.");
 
         let mut timer = Timer::new();
-        let mut server = Server::new(addr, updates_per_second);
+        let mut server = Server::new(addr, shared::UPDATES_PER_SECOND);
         let mut entity_server = hexahydrate::Server::<Entity, ConnectionID>::new(
-            (updates_per_second * 2) as usize
+            (shared::UPDATES_PER_SECOND * 2) as usize
         );
 
         loop {

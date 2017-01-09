@@ -24,7 +24,8 @@ fn main() {
     let img = image::open(&Path::new("map.png")).unwrap();
 
     let (bounds, paths) = find_paths(&img);
-    let level = parse_paths(&bounds, paths);
+    let mut level = parse_paths(&bounds, paths);
+    level.scale(1.50);
 
     let mut e = Encoder::new();
     level.encode(&mut e).unwrap();
@@ -72,7 +73,7 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
 
     let mut level = Level::default();
 
-    let (lw, lh) = ((bounds[2] - bounds[0]) / 2, (bounds[3] - bounds[1]) / 2);
+    let (lw, lh) = ((bounds[2] - bounds[0]) as f32 / 2.0, (bounds[3] - bounds[1]) as f32 / 2.0);
     for p in paths {
 
         if p.typ == TracedPathType::Wall {
@@ -106,10 +107,10 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
             for (l, _) in lines {
 
                 let p = [
-                    (l[0] as f32 - lw as f32),
-                    (l[1] as f32 - lh as f32),
-                    (l[2] as f32 - lw as f32),
-                    (l[3] as f32 - lh as f32)
+                    (l[0] as f32 - lw),
+                    (l[1] as f32 - lh),
+                    (l[2] as f32 - lw),
+                    (l[3] as f32 - lh)
                 ];
 
                 let line = if p[0] == p[2] || p[1] == p[3] {
@@ -147,16 +148,16 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
 
             let ir = or;
             directions.push(ir);
-            points.push(ox - lw);
-            points.push(oy - lh);
+            points.push(ox as f32 - lw);
+            points.push(oy as f32 - lh);
 
             for &(x, y, r, _) in &p.pixels {
                 if r != or {
                     let (dx, dy) = (lx - ox, ly - oy);
                     if ((dx * dx + dy * dy) as f32).sqrt() > 0.0 {
                         directions.push(direction_from_delta(dx, dy));
-                        points.push(lx - lw);
-                        points.push(ly - lh);
+                        points.push(lx as f32 - lw);
+                        points.push(ly as f32 - lh);
                     }
                     ox = lx;
                     oy = ly;
@@ -171,8 +172,8 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
             for i in 0..l {
                 let (pr, nr) = (directions[i], directions[(i + 1) % l]);
                 let e = extrusion(pr, nr);
-                points[i * 2] += e.0;
-                points[i * 2 + 1] += e.1;
+                points[i * 2] += e.0 as f32;
+                points[i * 2 + 1] += e.1 as f32;
             }
 
             if points.len() >= 8 {
@@ -199,15 +200,15 @@ fn parse_paths(bounds: &[i32; 4], paths: Vec<TracedPath>) -> Level {
             let (x, y) = (path_bounds[0] + w / 2, path_bounds[1] + h / 2);
             if p.typ == TracedPathType::Spawn {
                 level.spawns.push(Spawn {
-                    x: x as i32 - lw,
-                    y: y as i32 - lh
+                    x: x as f32 - lw,
+                    y: y as f32 - lh
                 });
 
             } else if p.typ == TracedPathType::Light {
                 level.lights.push(Light {
-                    x: x as i32 - lw,
-                    y: y as i32 - lh,
-                    radius: (cmp::max(w, h) as f32 * (2.0f32).sqrt()).round() as i32
+                    x: x as f32 - lw,
+                    y: y as f32 - lh,
+                    radius: (cmp::max(w, h) as f32 * (2.0f32).sqrt()).round()
                 });
             }
 
@@ -479,8 +480,41 @@ struct Level {
     walls: Vec<Wall>,
     spawns: Vec<Spawn>,
     lights: Vec<Light>,
-    solids: Vec<Vec<i32>>
+    solids: Vec<Vec<f32>>
 }
+
+impl Level {
+
+    pub fn scale(&mut self, factor: f32) {
+
+        for w in &mut self.walls {
+            w.line[0] *= factor;
+            w.line[1] *= factor;
+            w.line[2] *= factor;
+            w.line[3] *= factor;
+        }
+
+        for s in &mut self.spawns {
+            s.x *= factor;
+            s.y *= factor;
+        }
+
+        for l in &mut self.lights {
+            l.x *= factor;
+            l.y *= factor;
+            l.radius *= factor;
+        }
+
+        for s in &mut self.solids {
+            for p in s.iter_mut() {
+                *p *= factor;
+            }
+        }
+
+    }
+
+}
+
 
 #[derive(Debug, RustcEncodable)]
 struct Wall {
@@ -489,15 +523,15 @@ struct Wall {
 
 #[derive(Debug, RustcEncodable)]
 struct Spawn {
-    x: i32,
-    y: i32
+    x: f32,
+    y: f32
 }
 
 #[derive(Debug, RustcEncodable)]
 struct Light {
-    x: i32,
-    y: i32,
-    radius: i32
+    x: f32,
+    y: f32,
+    radius: f32
 }
 
 

@@ -1,6 +1,5 @@
 // Crates ---------------------------------------------------------------------
 extern crate server;
-extern crate shared;
 extern crate clap;
 
 
@@ -22,9 +21,7 @@ fn main() {
         .get_matches();
 
     server::run(
-        shared::UPDATES_PER_SECOND,
-        matches.value_of("addr").unwrap().to_string(),
-        shared::level::Level::load()
+        matches.value_of("addr").unwrap().to_string()
 
     ).join().ok();
 

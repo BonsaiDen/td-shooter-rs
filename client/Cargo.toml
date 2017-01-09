@@ -9,6 +9,7 @@ piston2d-graphics = "0.19.0"
 
 clap = "*"
 rand = "*"
+hyper = "0.9"
 clock_ticks = "*"
 
 shared = { path = "../shared", version = "0.1.0" }

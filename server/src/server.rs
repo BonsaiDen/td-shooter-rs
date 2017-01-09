@@ -86,23 +86,30 @@ impl Server {
                 cobalt::ServerEvent::Bind => {
                     println!("[Server] Now accepting connections on {}", self.addr);
                 },
-                cobalt::ServerEvent::Connection(id) => {
-                    if let Some(conn) = server.connection_mut(&id) {
-                        self.connect(entity_server, level, conn);
-                    }
+                cobalt::ServerEvent::Connection(_) => {
+                    println!("[Server] Client {} connected", self.addr);
                 },
                 cobalt::ServerEvent::Message(id, packet) => {
-                    if let Some(&mut (ref slot, _, _, ref mut incoming_actions)) = self.connections.get_mut(&id) {
-                        match entity_server.connection_receive(slot, packet) {
-                            Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
-                                if let Ok(action) = Action::from_bytes(&bytes) {
-                                    // TODO limit number of maximum actions per second?
-                                    incoming_actions.push_back(action);
-                                }
-                            },
-                            _ => {}
+
+                    if self.connections.contains_key(&id) {
+                        if let Some(&mut (ref slot, _, _, ref mut incoming_actions)) = self.connections.get_mut(&id) {
+                            match entity_server.connection_receive(slot, packet) {
+                                Err(hexahydrate::ServerError::InvalidPacketData(bytes)) => {
+                                    if let Ok(action) = Action::from_bytes(&bytes) {
+                                        // TODO limit number of maximum actions per second?
+                                        incoming_actions.push_back(action);
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }
+
+                    } else if let Ok(Action::JoinGame) = Action::from_bytes(&packet) {
+                        if let Some(conn) = server.connection_mut(&id) {
+                            self.connect(entity_server, level, conn);
                         }
                     }
+
                 },
                 cobalt::ServerEvent::ConnectionLost(id) => {
                     println!("[Server] Lost connection to client!");

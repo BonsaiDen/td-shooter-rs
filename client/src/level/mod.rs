@@ -32,16 +32,31 @@ pub struct Level {
 impl Level {
 
     pub fn new(level: SharedLevel) -> Level {
+        let mut l = Level {
+            level: SharedLevel::new(),
+            visibility_circle: CircleArc::new(
+                36, 0.0, 0.0, LEVEL_MAX_VISIBILITY_DISTANCE,
+                0.0, PLAYER_VISBILITY_CONE
+            ),
+            lights: Vec::new(),
+            solids: Vec::new(),
+            walls: Vec::new()
+        };
+        l.load(level);
+        l
+    }
+
+    pub fn load(&mut self, level: SharedLevel)  {
 
         // Generate light visualizations
-        let cached_lights = level.lights.iter().map(|l| {
+        self.lights = level.lights.iter().map(|l| {
             LightSource::from_light(&level, l)
 
         }).collect();
 
         // Generate walls visualizations
         let wall_width = 0.75;
-        let cached_walls = level.walls.iter().map(|w| {
+        self.walls = level.walls.iter().map(|w| {
 
             let p = &w.points;
 
@@ -78,21 +93,12 @@ impl Level {
 
         }).collect();
 
-        let cached_solids = level.solids.iter().map(|s| {
+        self.solids = level.solids.iter().map(|s| {
             Polygon::new(&s)
 
         }).collect();
 
-        Level {
-            level: level,
-            visibility_circle: CircleArc::new(
-                36, 0.0, 0.0, LEVEL_MAX_VISIBILITY_DISTANCE,
-                0.0, PLAYER_VISBILITY_CONE
-            ),
-            lights: cached_lights,
-            solids: cached_solids,
-            walls: cached_walls
-        }
+        self.level = level;
 
     }
 

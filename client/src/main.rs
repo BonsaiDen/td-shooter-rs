@@ -11,7 +11,6 @@ use clap::{Arg, App};
 
 
 // Internal Dependencies ------------------------------------------------------
-use shared::level::Level;
 use shared::UPDATES_PER_SECOND;
 
 
@@ -44,7 +43,7 @@ fn main() {
 
     if matches.occurrences_of("local") == 1 {
         #[cfg(feature = "loopback")]
-        server::run(UPDATES_PER_SECOND, matches.value_of("addr").unwrap().to_string(), Level::load());
+        server::run(matches.value_of("addr").unwrap().to_string());
     }
 
     client::run(UPDATES_PER_SECOND, matches.value_of("addr").unwrap());

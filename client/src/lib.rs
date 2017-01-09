@@ -9,6 +9,7 @@
 
 // Crates ---------------------------------------------------------------------
 extern crate graphics;
+extern crate hyper;
 extern crate piston;
 extern crate renderer;
 
@@ -82,7 +83,7 @@ pub fn run(updates_per_second: u64, addr: &str) {
     let mut timer = Timer::new();
 
     // Level
-    let level = Level::new(SharedLevel::load());
+    let mut level = Level::new(SharedLevel::new());
 
     // Game Client
     let mut client = Client::new(&mut renderer, addr, BASE_WIDTH, BASE_HEIGHT);
@@ -117,7 +118,7 @@ pub fn run(updates_per_second: u64, addr: &str) {
                     &mut timer,
                     &mut entity_client,
                     &mut network,
-                    &level,
+                    &mut level,
                     update.dt as f32
                 );
                 timer.run(&mut client, &mut entity_client, &mut network, &level);
